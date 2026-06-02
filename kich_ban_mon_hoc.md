@@ -1602,14 +1602,10 @@ jvm_memory_used_bytes{application="order-service", area="heap"}
 
 ```
 
-
 * *Câu lệnh 2 (Tính số lượng Request/giây đổ vào Restaurant Service):*
 ```text
 rate(http_server_requests_seconds_count{application="restaurant-service"}[5m])
 ```
-
-
-
 
 * **Kết quả mong đợi:** Grafana trả về các đồ thị đường (Line Chart) mô tả chính xác lượng RAM trồi sụt hoặc lượng request biến động theo thời gian thực của hệ thống QuickBite.
 
@@ -1761,10 +1757,10 @@ up{job="quickbite-backend"} == 0
 * *Bổ sung thư viện (`user-service/build.gradle`):*
 ```groovy
 implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
-
 ```
 
 * *Cập nhật Appender trong file `logback-spring.xml`:*
+
 ```xml
 <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
     <encoder class="net.logstash.logback.encoder.LogstashEncoder">
@@ -1873,6 +1869,7 @@ setup.ilm.enabled: false
 ```
 
 * **Bổ sung cấu hình hạ tầng vào `docker-compose.yml` trên VPS:**
+
 ```yaml
 services:
   # Cấu hình chia sẻ volume cho các service cũ để Filebeat đọc được log
@@ -1929,6 +1926,7 @@ volumes:
 3. Đi tới *Stack Management -> Index Patterns -> Create index pattern*. Nhập chuỗi `quickbite-logs-*` và nhấn *Create*.
 4. Quay lại mục **Discover** ở thanh menu trái.
 5. Thực hành tìm kiếm lỗi bằng cách gõ câu lệnh KQL vào thanh tìm kiếm:
+
 ```text
 service : "user-service" AND level : "ERROR"
 ```
