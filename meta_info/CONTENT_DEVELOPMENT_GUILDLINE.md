@@ -329,57 +329,17 @@ Network trong Docker Compose.
 
 ---
 
-# 5. Cấu trúc chuẩn của một Lesson
+# 5. Định hướng cấu trúc Lesson
 
-Mỗi Lesson phải tuân thủ cấu trúc sau.
+Lesson cần được thiết kế mạch lạc, tập trung vào giải quyết vấn đề thực tế, khuyến khích sự linh hoạt trong cách đặt tên đề mục và bố cục bài viết thay vì ép buộc một khuôn mẫu cứng nhắc (ví dụ: không nhất thiết phải chia thành đúng "Phần 1" đến "Phần 6"). 
 
-## Phần 1. Mục tiêu bài học
+Tuy nhiên, nội dung bài học nên đảm bảo truyền tải đầy đủ các khối logic sau:
 
-Nêu rõ sau khi học xong sinh viên làm được gì.
-
-Ví dụ:
-
-Sau bài học này, sinh viên có thể cấu hình volume để lưu trữ dữ liệu Postgresql trong Docker Compose.
-
----
-
-## Phần 2. Vấn đề thực tế
-
-Đưa ra tình huống hoặc khó khăn thực tế.
-
-Ví dụ:
-
-Mỗi lần xóa container thì dữ liệu Postgresql đều bị mất.
-
----
-
-## Phần 3. Kiến thức cốt lõi
-
-Giải thích các khái niệm cần thiết.
-
-Chỉ trình bày những nội dung phục vụ trực tiếp cho bài học.
-
----
-
-## Phần 4. Minh họa hoặc Demo
-
-Ưu tiên:
-
-- Code thực tế.
-
-- File cấu hình thực tế.
-
-- Lệnh terminal thực tế.
-
-- Kết quả chạy thực tế.
-
----
-
-## Phần 5. Tổng kết
-
-Tóm tắt các ý chính.
-
-Nhắc lại mục tiêu bài học.
+* **Mục tiêu học tập:** Giúp người học định hình rõ ràng kết quả đầu ra (làm được gì, hiểu được gì sau bài học).
+* **Đặt vấn đề thực tế:** Xuất phát từ khó khăn, tình huống thực tế của hệ thống QuickBite để người học hiểu lý do công nghệ đó tồn tại.
+* **Kiến thức cốt lõi:** Trình bày ngắn gọn, súc tích các khái niệm/lý thuyết phục vụ trực tiếp cho việc giải quyết vấn đề.
+* **Thực hành minh họa (Demo):** Cung cấp các bước thực thi chi tiết (cấu hình, câu lệnh, mã nguồn) để kiểm chứng lý thuyết.
+* **Tổng kết & Đánh giá:** Đúc rút lại bài học và đưa ra các câu hỏi xử lý tình huống hoặc đọc hiểu để kiểm tra tư duy thực chiến.
 
 ---
 
