@@ -556,7 +556,7 @@ docker run --rm --network quickbite-net alpine ping -c 3 service-alpha
 
 #### 3. Nội dung trọng tâm
 
-* **Nguyên lý Service Discovery cục bộ:** Docker Engine tích hợp một DNS server nội bộ. Khi container A gọi container B bằng tên (`http://quickbite-db:5432`), DNS nội bộ sẽ tra cứu bảng ánh xạ tên $\rightarrow$ IP hiện hành để định tuyến dòng dữ liệu chính xác.
+* **Nguyên lý Service Discovery cục bộ:** Docker Engine tích hợp một DNS server nội bộ. Khi container A gọi container B bằng tên (`http://quickbite-db:5432`), DNS nội bộ sẽ tra cứu bảng ánh xạ tên -> IP hiện hành để định tuyến dòng dữ liệu chính xác.
 * **Thực thi liên kết hệ thống:** Gom database và backend vào chung hạ tầng mạng bảo mật, cấu hình chuỗi kết nối (Connection String) bằng tên định danh.
 
 #### 4. Demo và thực hành
@@ -854,3 +854,1097 @@ spring:
 ---
 
 *Giảng viên lưu ý: Việc nắm chắc chi tiết cấu trúc Entity, Port, và cách liên kết DNS của từng service tại Session 05 là bước đệm bắt buộc để sinh viên bước sang **Session 06**, nơi các em sẽ tự tay viết file `docker-compose.yml` để khởi chạy toàn bộ 4 dịch vụ này chỉ bằng một câu lệnh duy nhất.*
+
+---
+
+# SESSION 07
+
+## THIẾT LẬP PIPELINE CI/CD (PHẦN 1: CI & BUILD ARTIFACT)
+
+---
+
+### LESSON 01: Giới thiệu GitLab CI/CD và cấu trúc file `.gitlab-ci.yml`
+
+#### 1. Mục tiêu bài học
+
+* **Giải thích** được cơ chế hoạt động của GitLab CI/CD thông qua kiến trúc GitLab Server và GitLab Runner.
+* **Khai báo và cấu trúc** thành công một file cấu hình `.gitlab-ci.yml` cơ bản với đầy đủ các thành phần: `stages`, `image`, và `scripts`.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 2 — Multi-Container Application (Hệ thống đã chạy ổn định bằng Docker Compose ở Session 06).
+* **Vấn đề:** Mỗi khi lập trình viên cập nhật mã nguồn cho `order-service` trên Git, họ vẫn phải thực hiện các bước kiểm tra cú pháp, chạy test và build file JAR một cách thủ công trên máy local trước khi build Docker Image. Quy trình này phụ thuộc vào tính tự giác của con người, dẫn đến rủi ro code lỗi hoặc test sập vẫn được đẩy lên kho lưu trữ chung.
+
+#### 3. Nội dung trọng tâm
+
+* **Kiến trúc GitLab CI/CD:**
+* *GitLab Server:* Nơi lưu trữ mã nguồn và quản lý, điều phối các luồng chạy pipeline.
+* *GitLab Runner:* Một dịch vụ/máy ảo độc lập chịu trách nhiệm trực tiếp thực thi các câu lệnh được định nghĩa trong pipeline.
+
+* **Cấu trúc cú pháp file `.gitlab-ci.yml`:**
+* `stages`: Định nghĩa thứ tự các bước lớn trong quy trình (ví dụ: compile -> test -> build).
+* `job`: Đơn vị thực thi nhỏ nhất trong pipeline, thuộc về một stage cụ thể.
+* `image`: Chỉ định Docker image làm môi trường nền để thực thi các câu lệnh trong job.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Tạo file cấu hình `.gitlab-ci.yml` đầu tiên cho `user-service` để tự động hóa bước kiểm tra biên dịch (Compile).
+* **Cấu hình hệ thống (`user-service/.gitlab-ci.yml`):**
+
+```yaml
+# Sử dụng image OpenJDK làm môi trường chạy các lệnh Gradle/Maven
+image: eclipse-temurin:17-jdk-alpine
+
+# Định nghĩa các giai đoạn của quy trình
+stages:
+  - build_and_test
+
+# Khai báo một job cụ thể
+compile_job:
+  stage: build_and_test
+  script:
+    - echo "Bắt đầu kiểm tra và biên dịch mã nguồn user-service..."
+    - ./gradlew compileJava
+  only:
+    - main
+```
+
+* **Kết quả mong đợi:** Khi sinh viên push file này lên GitLab, một pipeline sẽ tự động kích hoạt. Khi click vào giao diện trực quan của GitLab, sinh viên sẽ thấy job `compile_job` chạy thành công (Status: Passed) với đầy đủ log dòng lệnh.
+
+#### 5. Điểm cần nhấn mạnh
+
+* File `.gitlab-ci.yml` phải được đặt ngay tại **thư mục gốc (Root Directory)** của kho lưu trữ mã nguồn để GitLab có thể nhận diện.
+* Mỗi `job` trong cùng một `stage` sẽ được chạy song song (Parallel) nếu hệ thống có nhiều Runner, trong khi các `stages` sẽ chạy tuần tự theo thứ tự khai báo từ trên xuống.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Nghĩ rằng GitLab Server là nơi trực tiếp chạy các câu lệnh như `./gradlew compileJava`.
+* **Đính chính:** GitLab Server chỉ đóng vai trò điều hướng và hiển thị giao diện. Việc thực thi câu lệnh hoàn toàn do **GitLab Runner** đảm nhận. Nếu không cài đặt hoặc cấu hình đúng Runner, pipeline sẽ rơi vào trạng thái đứng chờ (`pending`) vô thời hạn.
+
+---
+
+### LESSON 02: Tự động hóa kiểm thử và đóng gói sản phẩm (Test & Package Artifact)
+
+#### 1. Mục tiêu bài học
+
+* **Cấu hình** pipeline tự động chạy toàn bộ các bài Unit Test của ứng dụng Spring Boot khi có code mới.
+* **Sử dụng cơ chế `artifacts**` của GitLab CI để lưu trữ và chuyển giao file sản phẩm (file JAR) giữa các stage khác nhau trong vòng đời pipeline.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 2 — Multi-Container Application.
+* **Vấn đề:** Nếu một lập trình viên vô tình sửa logic tính tiền trong `order-service` làm hỏng các hàm tính toán cũ, nhưng họ quên không chạy lệnh `./gradlew test` ở local trước khi push code, lỗi này sẽ lọt lên nhánh chính và phá vỡ hệ thống. Hệ thống CI cần đóng vai trò là "người gác cổng" tự động chặn đứng các commit làm sập Unit Test.
+
+#### 3. Nội dung trọng tâm
+
+* **Tự động hóa Test (Continuous Integration):** Tận dụng Docker container chứa JDK để chạy các bộ thử nghiệm tự động (`JUnit`), đảm bảo tỷ lệ pass 100% trước khi cho phép đi tiếp.
+* **Khái niệm Artifacts trong CI/CD:** Cơ chế cho phép GitLab Runner đóng gói các file được sinh ra từ một job (ví dụ: file `.jar` nằm trong thư mục `build/libs/`) và đẩy ngược lên GitLab Server để lưu trữ hoặc truyền sang các job ở stage sau.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Nâng cấp file pipeline để bao gồm cả hai bước: Chạy bộ Test và Đóng gói file JAR của `order-service`.
+* **Cấu hình hệ thống (`order-service/.gitlab-ci.yml`):**
+
+```yaml
+image: eclipse-temurin:17-jdk-alpine
+
+stages:
+  - test
+  - package
+
+# Stage 1: Chạy toàn bộ Unit Test
+run_tests:
+  stage: test
+  script:
+    - echo "Đang thực thi các bài thử nghiệm tự động..."
+    - ./gradlew test
+  # Thu thập báo cáo test để hiển thị trên giao diện GitLab
+  artifacts:
+    when: always
+    paths:
+      - build/reports/tests/
+    expire_in: 1 week
+
+# Stage 2: Đóng gói ra file thực thi JAR nếu bước Test thành công
+build_jar:
+  stage: package
+  script:
+    - echo "Bộ test đã pass. Tiến hành đóng gói ứng dụng..."
+    - ./gradlew bootJar
+  artifacts:
+    paths:
+      - build/libs/*.jar
+    expire_in: 2 days
+```
+
+* **Kết quả mong đợi:** Nếu mã nguồn có hàm test bị lỗi, job `run_tests` sẽ báo đỏ (Failed), pipeline dừng lại lập tức và job `build_jar` sẽ bị bỏ qua (`skipped`), ngăn chặn việc tạo ra file sản phẩm lỗi.
+
+#### 5. Điểm cần nhấn mạnh
+
+* Tham số `expire_in` cực kỳ quan trọng trong thực tế để cấu hình thời gian tự động xóa file artifact cũ trên server, tránh việc tích tụ hàng nghìn file JAR qua các lượt commit làm tràn ổ cứng của hệ thống GitLab.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Nghĩ rằng các file được sinh ra ở job trước (ví dụ file `.jar` ở job build) sẽ mặc định xuất hiện và sử dụng được ở các job thuộc stage sau mà không cần khai báo từ khóa `artifacts`.
+* **Đính chính:** Mỗi job trong GitLab CI khởi chạy trên một container hoàn toàn trống rỗng và độc lập. Mọi file sinh ra sẽ biến mất khi job kết thúc trừ khi được định nghĩa tường minh trong khối `artifacts` để GitLab lưu trữ tạm thời và nạp vào job tiếp theo.
+
+---
+
+# SESSION 08
+
+## THIẾT LẬP PIPELINE CI/CD (PHẦN 2: CONTINUOUS DELIVERY & DEPLOYMENT)
+
+---
+
+### LESSON 01: Quy trình Build và Đẩy Docker Image lên Docker Registry (GitLab Container Registry)
+
+#### 1. Mục tiêu bài học
+
+* **Áp dụng kỹ thuật Docker-in-Docker (DinD)** để xây dựng (build) một Docker Image ngay bên trong môi trường chạy của GitLab CI.
+* **Thực hiện cấu hình bảo mật** bảo mật tài khoản (Environment Variables) để tự động đẩy (push) sản phẩm lên GitLab Container Registry.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** Chuyển dịch từ STATE 2 (Ứng dụng đa container thủ công) sang STATE 3 (Ứng dụng tự động hóa hoàn toàn với CI/CD Pipeline).
+* **Vấn đề:** Sau khi thu được file JAR từ Session 07, chúng ta không thể đem file JAR trần này đi deploy trực tiếp nếu muốn tuân thủ kiến trúc Containerization. Hệ thống CI cần tự động lấy file JAR đó, đưa vào Dockerfile để đóng gói thành một Docker Image hoàn chỉnh (`quickbite-order-service:v1`) rồi cất vào một nhà kho tập trung để sẵn sàng cho việc phân phối.
+
+#### 3. Nội dung trọng tâm
+
+* **Cơ chế Docker-in-Docker (DinD):** Cho phép một GitLab Runner đang chạy dưới dạng Docker container có quyền khởi tạo và điều khiển một Docker Daemon phụ bên trong nó để thực thi các lệnh `docker build`, `docker login`.
+* **Quản lý phiên bản Image (Tagging Strategy):** Định danh image theo commit hash (`$CI_COMMIT_SHORT_SHA`) hoặc tên nhánh (`$CI_COMMIT_REF_SLUG`) để đảm bảo tính vết và không bị ghi đè lẫn nhau.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Thêm stage `build_image` vào pipeline để tự động build Docker Image cho `restaurant-service` và đẩy lên kho lưu trữ đi kèm của GitLab.
+* **Cấu hình hệ thống (`restaurant-service/.gitlab-ci.yml`):**
+
+```yaml
+stages:
+  - package
+  - docker_build
+
+# Kế thừa file JAR từ stage trước (giả định đã cấu hình ở Session 07)
+build_jar:
+  stage: package
+  script:
+    - ./gradlew bootJar
+  artifacts:
+    paths:
+      - build/libs/*.jar
+
+# Giai đoạn Build và Push Docker Image
+build_and_push_image:
+  stage: docker_build
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  variables:
+    # Sử dụng các biến môi trường có sẵn do GitLab tự cung cấp
+    IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+  script:
+    - echo "Đang đăng nhập vào kho lưu trữ GitLab Container Registry..."
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - echo "Bắt đầu build Docker Image cho restaurant-service..."
+    - docker build -t $IMAGE_TAG -f Dockerfile .
+    - echo "Đẩy Image lên Registry..."
+    - docker push $IMAGE_TAG
+
+```
+
+* **Kết quả mong đợi:** Pipeline chạy thành công. Khi truy cập vào mục *Deploy -> Container Registry* trên giao diện dự án GitLab, sinh viên sẽ nhìn thấy một Image mới xuất hiện kèm theo mã hash cụ thể của commit vừa push.
+
+#### 5. Điểm cần nhấn mạnh
+
+* Các biến như `$CI_REGISTRY_USER`, `$CI_REGISTRY_PASSWORD`, `$CI_REGISTRY` là các **Biến môi trường định sẵn (Predefined Variables)** của GitLab. Hệ thống tự động sinh ra chúng theo từng lượt chạy để đảm bảo an toàn, lập trình viên tuyệt đối không được tự hardcode tài khoản cá nhân của mình vào file `.gitlab-ci.yml`.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Nghĩ rằng lệnh `docker build` chạy trong job này sẽ tự động tìm thấy file JAR mà không cần liên kết gì.
+* **Dẫn giải kỹ thuật:** Lệnh `docker build` chỉ hoạt động được nếu file `Dockerfile` của service được viết đúng quy trình sao chép file thực thi từ thư mục artifact (ví dụ: `COPY build/libs/*.jar app.jar`). Bản chất của job này là kế thừa trọn vẹn thư mục làm việc từ các job chạy trước nhờ cơ chế workspace của GitLab.
+
+---
+
+### LESSON 02: Tự động hóa Triển khai lên Máy chủ từ xa (Continuous Deployment qua SSH)
+
+#### 1. Mục tiêu bài học
+
+* **Cấu hình bảo mật khóa SSH (SSH Private Key)** thông qua tính năng biến ẩn (Masked Variables) của GitLab để thiết lập kết nối an toàn tới server.
+* **Viết script tự động điều khiển từ xa** để ra lệnh cho máy chủ đích kéo (pull) Image mới về và cập nhật dịch vụ bằng Docker Compose mà không làm gián đoạn hệ thống.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Automated CI/CD Application.
+* **Vấn đề:** Ở Session 01, chúng ta đã phân tích sự bất tiện của việc phải gõ lệnh bằng tay để kết nối vào máy chủ cập nhật ứng dụng. Bây giờ, khi Docker Image mới của toàn bộ 4 dịch vụ QuickBite đã nằm an toàn trên Registry, chúng ta cần hoàn tất mảnh ghép cuối cùng của DevOps: Hệ thống CI/CD phải tự đóng vai trò là một quản trị viên, tự động SSH vào server, báo cho server biết có hàng mới, và thực hiện nâng cấp phiên bản tự động.
+
+#### 3. Nội dung trọng tâm
+
+* **Bảo mật thông tin hạ tầng với GitLab Variables:** Cách đưa các thông tin nhạy cảm như IP của server (`DEPLOY_SERVER_IP`) và khóa bí mật (`SSH_PRIVATE_KEY`) vào vùng quản trị bảo mật của GitLab (CI/CD Settings), ẩn hoàn toàn khỏi mã nguồn mở công cộng.
+* **Cơ chế cập nhật không gián đoạn (Pull & Restart):** Luồng lệnh từ xa gửi tới Server bao gồm: Đăng nhập Registry -> Kéo Image mới (`docker pull`) -> Khởi chạy lại container bằng cách tận dụng tính năng tái khởi tạo của Docker Compose (`docker compose up -d --no-deps <service_name>`).
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Hoàn thiện kịch bản cấu hình cho phép tự động deploy dịch vụ `notification-service` lên một server ảo từ xa ngay sau khi Image được build xong.
+* **Cấu hình hệ thống (`notification-service/.gitlab-ci.yml`):**
+
+```yaml
+stages:
+  - docker_build
+  - deploy
+
+# ... Giả định stage docker_build đã push image thành công với tag $CI_COMMIT_SHORT_SHA ...
+
+deploy_to_server:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    # Cài đặt công cụ openssh-client bên trong container chạy job để dùng được lệnh ssh
+    - apk add --no-cache openssh-client
+    # Khởi động ssh-agent nội bộ
+    - eval $(ssh-agent -s)
+    # Nạp khóa Private Key (được cấu hình trong mục Settings -> CI/CD -> Variables của GitLab)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    # Tạo thư mục cấu hình ssh và bỏ qua bước xác thực vân tay máy chủ khi kết nối lần đầu
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+  script:
+    - echo "Đang kết nối tới máy chủ Production $DEPLOY_SERVER_IP..."
+    - ssh user@$DEPLOY_SERVER_IP "
+        cd /opt/quickbite-infra &&
+        docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY &&
+        export NOTIFICATION_IMAGE_TAG=$CI_COMMIT_SHORT_SHA &&
+        docker compose pull notification-service &&
+        docker compose up -d --no-deps notification-service
+      "
+  only:
+    - main
+```
+
+* **Kết quả mong đợi:** Khi dòng code cuối cùng được duyệt vào nhánh `main`, toàn bộ đường ống CI/CD tự động kích hoạt: Test -> Build JAR -> Build Image -> Đẩy lên Registry -> SSH vào Server hạ lệnh nâng cấp dịch vụ. Người vận hành chỉ cần kiểm tra trạng thái container trên Server bằng lệnh `docker ps` để xác nhận container `notification-service` vừa được khởi tạo lại cách đó vài giây với phiên bản mã nguồn mới nhất.
+
+#### 5. Điểm cần nhấn mạnh cho giảng viên (Pedagogical Tips)
+
+* **Giải thích tham số `--no-deps`:** Nhấn mạnh cho sinh viên hiểu rõ tầm quan trọng của cờ `--no-deps` trong câu lệnh `docker compose up -d`. Tham số này báo cho Docker Compose biết chỉ tái khởi động duy nhất service được chỉ định (`notification-service`), giữ nguyên trạng thái hoạt động bình thường của các thành phần phụ thuộc khác như database `quickbite-db` hay `user-service`. Điều này giúp giảm thiểu tối đa tầm ảnh hưởng và thời gian downtime của toàn bộ hệ thống QuickBite.
+* **Tư duy bảo mật tuyệt đối:** Nhắc nhở sinh viên luôn bật thuộc tính **"Masked"** cho biến `SSH_PRIVATE_KEY` trong giao diện cài đặt của GitLab. Thuộc tính này đảm bảo rằng ngay cả khi có ai đó cố tình chèn câu lệnh `echo $SSH_PRIVATE_KEY` vào script của pipeline để ăn trộm khóa, GitLab sẽ tự động nhận diện và mã hóa chuỗi đầu ra thành các ký tự `[MASKED]` trên log hiển thị.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Cho rằng việc sử dụng CI/CD Deployment kiểu này sẽ giải quyết được bài toán Zero-Downtime (Hệ thống không bị gián đoạn dù chỉ 1 mili-giây khi deploy).
+* **Đính chính:** Phương pháp này giúp tự động hóa thao tác deploy cực kỳ tốt, nhưng tại thời điểm container cũ bị tắt đi để container mới bật lên, hệ thống vẫn sẽ gặp một khoảng trễ nhỏ (Downtime dịch vụ từ 1 đến 3 giây). Để đạt đến cảnh giới Zero-Downtime tuyệt đối, sinh viên cần được dẫn dắt sang các giải pháp điều phối phức tạp hơn như cơ chế Rolling Update của Docker Swarm hoặc Kubernetes ở các chương trình nâng cao.
+
+---
+
+*Giảng viên lưu ý: Kết thúc Session 08, sinh viên đã hoàn thành trọn vẹn chu trình "DevOps thực chiến" cho hệ thống microservices QuickBite, đi từ việc code chay local (State 0) -> Đóng gói đơn lẻ (State 1) -> Thiết lập mạng phối hợp đa container (State 2) -> Và tự động hóa hoàn toàn chuỗi phát hành lên production qua Pipeline (State 3). Hãy dành thời gian ở buổi tổng kết để sinh viên thực hiện báo cáo nghiệm thu toàn diện hệ thống.*
+
+---
+
+# SESSION 10
+
+## TRIỂN KHAI HỆ THỐNG LÊN VPS (VIRTUAL PRIVATE SERVER)
+
+---
+
+### LESSON 01: Chuẩn bị môi trường máy chủ VPS và cấu hình an toàn (Security)
+
+#### 1. Mục tiêu bài học
+
+* **Thực hiện kết nối SSH** bảo mật bằng SSH Key thay cho mật khẩu truyền thống vào máy chủ VPS Linux (Ubuntu Server).
+* **Cấu hình hệ thống tường lửa (UFW)** để chỉ mở các cổng dịch vụ cần thiết, bảo vệ các dịch vụ nội bộ của QuickBite.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** Chuyển dịch từ STATE 2 (Chạy Docker Compose local) sang STATE 3 (Production Cloud Infrastructure).
+* **Vấn đề:** Khi thuê một con VPS trống từ các nhà cung cấp (như DigitalOcean, AWS, hoặc Cloud trong nước), máy chủ này mặc định mở toang cổng SSH bằng mật khẩu và chưa được cài đặt bất kỳ công cụ nào. Nếu mang nguyên si thói quen chạy ứng dụng ở máy local lên VPS mà không cấu hình tường lửa, database PostgreSQL (cổng 5432) của QuickBite có thể bị quét và tấn công brute-force từ Internet chỉ sau vài tiếng.
+
+#### 3. Nội dung trọng tâm
+
+* **Cơ chế SSH Key Authentication:** Thay vì gõ mật khẩu dễ bị dò quét, lập trình viên sử dụng cặp khóa Public Key (đặt trên VPS) và Private Key (giữ ở máy cá nhân) để xác thực.
+* **Tường lửa UFW (Uncomplicated Firewall):** Lớp bảo vệ tầng mạng của Ubuntu, quy định cổng nào được phép đón traffic từ ngoài Internet vào (Cổng 22 cho SSH, cổng 80/443 cho Web) và chặn toàn bộ các cổng còn lại.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Cấu hình SSH Key, cập nhật hệ điều hành VPS và thiết lập tường lửa UFW cơ bản.
+* **Lệnh thực hiện (Command):**
+```bash
+# Máy cá nhân: Sinh cặp khóa SSH (nếu chưa có) và đẩy lên VPS
+ssh-keygen -t ed25519 -b 4096
+ssh-copy-id -i ~/.ssh/id_ed25519.pub root@vps_public_ip
+
+# Trên VPS: Đăng nhập không cần mật khẩu
+ssh root@vps_public_ip
+
+# Trên VPS: Cập nhật danh sách gói phần mềm hệ thống
+sudo apt update && sudo apt upgrade -y
+
+# Trên VPS: Cấu hình tường lửa UFW
+sudo ufw default deny incoming  # Chặn mọi traffic từ ngoài vào mặc định
+sudo ufw default allow outgoing # Cho phép VPS kết nối ra ngoài internet
+sudo ufw allow 22/tcp           # BẮT BUỘC: Mở cổng SSH để không bị khóa kết nối
+sudo ufw allow 80/tcp           # Mở cổng HTTP cho Nginx sau này
+sudo ufw allow 443/tcp          # Mở cổng HTTPS cho Nginx sau này
+
+# Kích hoạt tường lửa
+sudo ufw enable
+
+# Kiểm tra trạng thái tường lửa
+sudo ufw status verbose
+```
+
+* **Kết quả mong đợi:** Tường lửa hoạt động, các cổng 22, 80, 443 ở trạng thái `ALLOW`, các cổng khác bị chặn hoàn toàn từ bên ngoài.
+
+#### 5. Điểm cần nhấn mạnh
+
+* Phải chạy lệnh `sudo ufw allow 22/tcp` **TRƯỚC CHÌA KHÓA** khi gõ `sudo ufw enable`. Nếu không, tường lửa bật lên sẽ lập tức cắt đứt kết nối SSH hiện tại và giảng viên/sinh viên sẽ bị khóa (lockout) hoàn toàn khỏi VPS.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Nghĩ rằng khi dùng UFW chặn cổng 5432, các container ứng dụng như `order-service` chạy trên VPS cũng không kết nối vào database PostgreSQL được.
+* **Đính chính:** Tường lửa UFW chỉ chặn traffic đi từ card mạng ngoài (Internet công cộng) vào. Các container của QuickBite giao tiếp với nhau qua card mạng ảo nội bộ của Docker Network (`quickbite-net`), nên kết nối nội bộ giữa các service và database vẫn diễn ra bình thường, an toàn.
+
+---
+
+### LESSON 02: Cài đặt Docker Engine và đồng bộ mã nguồn Docker Compose lên VPS
+
+#### 1. Mục tiêu bài học
+
+* **Triển khai cài đặt sạch (Clean Install)** Docker Engine và Docker Compose plugin trên môi trường Linux Ubuntu.
+* **Vận chuyển và đồng bộ hóa** bộ tệp cấu hình triển khai hạ tầng từ máy local lên VPS một cách chuyên nghiệp.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
+* **Vấn đề:** Để chạy được hệ thống đa dịch vụ QuickBite bằng Docker Compose như đã làm ở local, con VPS cần có một môi trường Docker Engine tiêu chuẩn (không phải bản Docker Desktop đồ họa như trên Windows). Đồng thời, lập trình viên cần chuyển file `docker-compose.yml` và các file cấu hình ứng dụng lên VPS để kích hoạt hệ thống.
+
+#### 3. Nội dung trọng tâm
+
+* **Cài đặt Docker qua Repository chính thức:** Đảm bảo cài bản Docker Engine ổn định (LTS) thay vì cài bản cũ thông qua lệnh `apt install docker.io` mặc định của Ubuntu.
+* **Đồng bộ hóa thư mục cấu hình:** Sử dụng công cụ `scp` hoặc `rsync` để đẩy thư mục chứa file `docker-compose.yml`, các file cấu hình `.env`, cấu hình database từ máy local lên thư mục `/opt/quickbite-infra/` trên VPS.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Cài đặt Docker và khởi chạy toàn bộ hệ thống QuickBite (4 services + 1 DB) bằng Docker Compose trên môi trường VPS thật.
+* **Lệnh thực hiện trên VPS (Command):**
+```bash
+# 1. Gỡ cài đặt các bản docker cũ (nếu có)
+for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do sudo apt-get remove $pkg; done
+
+# 2. Cài đặt các thư viện tiền đề và nạp GPG key của Docker
+sudo apt-get update
+sudo apt-get install ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+# 3. Thêm Docker Repository vào nguồn apt
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.p/docker.list > /dev/null
+
+# 4. Cài đặt Docker Engine và Docker Compose v2
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+
+# 5. Phân quyền chạy docker cho user hiện tại (không cần dùng sudo)
+sudo usermod -aG docker $USER
+# Khởi động lại session terminal để nhận quyền mới mà không cần reboot máy chủ
+newgrp docker
+```
+
+* **Đồng bộ và Khởi chạy hệ thống (Thao tác từ máy Local):**
+
+```bash
+# Từ máy local, push toàn bộ thư mục infra lên VPS
+scp -r ./quickbite-infra user@vps_public_ip:/opt/
+
+# SSH vào VPS và kích hoạt hệ thống chạy ngầm
+ssh user@vps_public_ip "cd /opt/quickbite-infra && docker compose up -d"
+
+```
+
+* **Kết quả mong đợi:** Lệnh `docker ps` trên VPS hiển thị 5 container (`quickbite-db`, `user-service`, `restaurant-service`, `order-service`, `notification-service`) đều ở trạng thái `Up`.
+
+#### 5. Điểm cần nhấn mạnh
+
+* Trong file `docker-compose.yml` triển khai trên VPS, các cổng của 4 service nội bộ (`8081`, `8082`, `8083`, `8084`) **không nên map ra ngoài máy host** (tức là xóa bỏ cấu hình `ports: - "8081:8081"`). Chúng ta chỉ cần expose cổng ra nội bộ mạng để chuẩn bị cho bài học Nginx ở Session 11. Điều này đảm bảo không ai có thể chọc trực tiếp vào backend từ bên ngoài.
+
+---
+
+# SESSION 11
+
+## REVERSE PROXY VỚI NGINX TRONG MÔI TRƯỜNG PRODUCTION
+
+---
+
+### LESSON 01: Khái niệm Reverse Proxy và vai trò của Nginx trong kiến trúc Microservices
+
+#### 1. Mục tiêu bài học
+
+* **Phân biệt** được cơ chế hoạt động giữa Forward Proxy và Reverse Proxy.
+* **Giải thích** được tại sao Nginx đóng vai trò là chiếc "khiên bảo vệ" kiêm cổng định tuyến lưu lượng (Routing) tối thượng cho hệ thống QuickBite trước khi dòng tiền/dữ liệu đổ vào các service.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
+* **Vấn đề:** Hiện tại, 4 dịch vụ của QuickBite đang ẩn mình an toàn sau mạng nội bộ của VPS. Khách hàng sử dụng ứng dụng Mobile/Web ở ngoài Internet không thể kết nối tới hệ thống vì các cổng service đã bị khóa. Chúng ta không thể mở toang các cổng `8081`-`8084` ra ngoài vì vi phạm bảo mật. Hệ thống cần một thành phần duy nhất đứng ở "mặt tiền" (cổng 80), tiếp nhận mọi request của khách hàng và tự động phân phối (định tuyến) vào đúng vị trí của từng service bên trong.
+
+#### 3. Nội dung trọng tâm
+
+* **Forward Proxy vs Reverse Proxy:**
+* *Forward Proxy:* Đứng trước Client, đại diện cho Client để đi ra Internet (ví dụ: VPN giúp ẩn danh IP người dùng).
+* *Reverse Proxy:* Đứng trước Server, đại diện cho Server để đón nhận request từ Internet gửi vào. Client hoàn toàn không biết cấu trúc server phía sau.
+
+* **Lợi ích khi đặt Nginx làm Reverse Proxy cho QuickBite:**
+* *Single Entry Point:* Chỉ cần mở duy nhất cổng 80/443 trên IP của VPS.
+* *Security:* Ẩn giấu hoàn toàn địa chỉ mạng, cổng chạy và kiến trúc microservices bên dưới.
+* *Tải tĩnh (Static Content):* Nginx có thể trực tiếp gánh tải phần Frontend (HTML/CSS/JS) cực kỳ nhanh, giải phóng tài nguyên cho Spring Boot chỉ tập trung xử lý API nghiệp vụ.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Sơ đồ hóa kiến trúc dòng dữ liệu đi qua Nginx Reverse Proxy trên môi trường VPS thực tế.
+* **Luồng di chuyển của dữ liệu (Traffic Flow):**
+* Khách hàng gọi API lấy thông tin ví dụ: `http://vps_public_ip/api/v1/users`
+* Request đập vào cổng 80 của VPS -> Nginx tiếp nhận.
+* Nginx đọc cấu hình (Context Path `/api/v1/users`) -> Hiểu rằng cần đẩy request này vào mạng nội bộ Docker tới địa chỉ `http://user-service:8081/api/v1/users`.
+
+---
+
+### LESSON 02: Cấu hình Nginx định tuyến (Routing) dòng dữ liệu Microservices
+
+#### 1. Mục tiêu bài học
+
+* **Viết file cấu hình `nginx.conf**` để định tuyến chính xác dòng dữ liệu dựa trên đường dẫn Context Path `/api/v1/...`.
+* **Tích hợp Nginx vào cụm Docker Compose** để tận dụng cơ chế Service Discovery, gọi các dịch vụ backend bằng tên container.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
+* **Vấn đề:** Tiến hành cấu hình thực tế cho Nginx trên VPS để kết nối toàn bộ hạ tầng 4 dịch vụ đơn lẻ thành một thể thống nhất, giúp Client bên ngoài có thể thực hiện trọn vẹn luồng nghiệp vụ: Đăng nhập -> Xem nhà hàng -> Tạo đơn hàng.
+
+#### 3. Nội dung trọng tâm
+
+* **Cấu trúc khối cấu hình Nginx (`server`, `location`):**
+* Khối `server`: Khai báo cổng lắng nghe (`listen 80`) và tên miền/IP của máy chủ (`server_name`).
+* Khối `location`: Khai báo quy tắc khớp chuỗi đường dẫn (Path Matching) và sử dụng chỉ thị `proxy_pass` để bẻ hướng luồng dữ liệu sang container tương ứng.
+
+* **Xử lý HTTP Headers:** Khi Nginx chuyển tiếp request, nó cần nạp thêm các thông tin tiêu đề (`X-Real-IP`, `X-Forwarded-For`) để ứng dụng Spring Boot phía sau biết được IP thực sự của khách hàng là gì, thay vì chỉ thấy IP của Nginx.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Viết file cấu hình `quickbite.conf`, nhúng container Nginx vào file `docker-compose.yml` hạ tầng và kiểm chứng kết nối API End-to-End từ máy cá nhân qua VPS.
+* **Cấu hình hệ thống (Tệp cấu hình Nginx `./quickbite-infra/nginx/quickbite.conf`):**
+
+```nginx
+server {
+    listen 80;
+    server_name _; # Nhận mọi request đổ vào IP của VPS
+
+    # Cấu hình log để tiện debug
+    access_log /var/log/nginx/quickbite_access.log;
+    error_log /var/log/nginx/quickbite_error.log;
+
+    # Khai báo các tham số header chung khi chuyển tiếp request
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # 1. Định tuyến luồng User Service
+    location /api/v1/users {
+        proxy_pass http://user-service:8081;
+    }
+
+    # 2. Định tuyến luồng Restaurant Service
+    location /api/v1/restaurants {
+        proxy_pass http://restaurant-service:8082;
+    }
+
+    # 3. Định tuyến luồng Order Service
+    location /api/v1/orders {
+        proxy_pass http://order-service:8083;
+    }
+
+    # 4. Định tuyến luồng Notification Service
+    location /api/v1/notifications {
+        proxy_pass http://notification-service:8084;
+    }
+
+    # Cấu hình trang lỗi mặc định nếu gọi sai endpoint
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+        root /usr/share/nginx/html;
+    }
+}
+```
+
+* **Cập nhật tệp `docker-compose.yml` (Bổ sung thêm mảnh ghép Nginx):**
+
+```yaml
+version: '3.8'
+
+services:
+  # ... 4 services (user, restaurant, order, notification) và quickbite-db giữ nguyên cấu hình mạng ...
+
+  nginx-gateway:
+    image: nginx:1.25-alpine
+    container_name: quickbite-nginx-gateway
+    ports:
+      - "80:80" # Mở duy nhất cổng 80 của VPS nối vào cổng 80 container Nginx
+    volumes:
+      # Gắn file cấu hình từ VPS vào trong container Nginx
+      - ./nginx/quickbite.conf:/etc/nginx/conf.d/default.conf
+      # Gắn thư mục để lưu log ra ngoài VPS phục vụ việc xem log
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - quickbite-net
+    depends_on:
+      - user-service
+      - restaurant-service
+      - order-service
+      - notification-service
+
+networks:
+  quickbite-net:
+    driver: bridge
+
+```
+
+* **Lệnh chạy thực tế và kiểm chứng (Từ máy cá nhân của Sinh viên):**
+```bash
+# Trên VPS: Khởi động lại cụm docker compose để nhận cấu hình Nginx mới
+docker compose up -d --remove-orphans
+
+# Từ máy cá nhân ở nhà: Dùng Postman hoặc cURL gọi thử API thông qua IP của VPS trên cổng 80
+curl http://vps_public_ip/api/v1/restaurants
+```
+
+* **Kết quả mong đợi:** Khách hàng nhận về mã trạng thái `200 OK` cùng chuỗi dữ liệu JSON danh sách nhà hàng. Khi gõ lệnh `tail -f ./logs/nginx/quickbite_access.log` trên VPS, giảng viên sẽ thấy dòng log ghi nhận request vừa thực hiện thành công.
+
+#### 5. Điểm cần nhấn mạnh cho giảng viên (Pedagogical Tips)
+
+* **Sức mạnh của DNS Docker:** Hãy chỉ cho sinh viên thấy trong file cấu hình Nginx, chuỗi định tuyến được viết là `proxy_pass http://user-service:8081`. Nginx (vốn là một công cụ độc lập của bên thứ ba) có thể hiểu được chữ `user-service` là gì nhờ việc nó được đặt chung mạng `quickbite-net` với các service khác và thừa hưởng DNS nội bộ của Docker Engine.
+* **Kiểm tra cú pháp cấu hình Nginx:** Hướng dẫn sinh viên thói quen: Mỗi lần sửa đổi file cấu hình `.conf` của Nginx, trước khi restart container, nên dùng câu lệnh `docker exec quickbite-nginx-gateway nginx -t` để hệ thống tự động kiểm tra xem có bị gõ thiếu dấu chấm phẩy (`;`) hay sai cú pháp ở dòng nào không. Điều này giúp tránh làm sập cổng Gateway đang chạy trên production.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Nghĩ rằng mỗi lần sửa file `quickbite.conf` là phải chạy lệnh `docker compose restart nginx-gateway` làm gián đoạn cổng kết nối của người dùng.
+* **Đính chính:** Nginx hỗ trợ cơ chế nạp lại cấu hình mà không cần dừng tiến trình (Zero-Downtime Hot Reload). Thay vì restart container, giảng viên hướng dẫn sinh viên gõ câu lệnh: `docker exec quickbite-nginx-gateway nginx -s reload`. Hệ thống sẽ lập tức cập nhật luật định tuyến mới mà không làm rớt bất kỳ request nào của khách hàng đang đặt đồ ăn.
+
+---
+
+*Giảng viên lưu ý: Hoàn thành Session 11, sinh viên đã chính thức thiết lập xong một hệ thống **Production-ready** thu nhỏ cho QuickBite trên môi trường Cloud thực tế. Sự kết hợp giữa tường lửa VPS, mạng cô lập Docker Network và cổng định tuyến duy nhất Nginx Reverse Proxy tạo nên một kiến trúc hạ tầng phòng thủ chiều sâu chuẩn chỉnh của DevOps.*
+
+---
+
+# SESSION 13
+
+## GIÁM SÁT HỆ THỐNG (MONITORING) VỚI PROMETHEUS
+
+---
+
+### LESSON 01: Kiến trúc Prometheus và Mô hình Thu thập dữ liệu (Pull-based)
+
+#### 1. Mục tiêu bài học
+
+* **Giải thích** được thành phần kiến trúc của Prometheus và ưu/nhược điểm của mô hình thu thập chỉ số kiểu kéo (Pull-based Model) so với kiểu đẩy (Push-based Model).
+* **Nắm rõ** cấu trúc định dạng dữ liệu chuỗi thời gian (Time-series Data) và cách thức hoạt động của công cụ quét chỉ số (Scraper).
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure (Hệ thống QuickBite đã chạy trên VPS, có Nginx làm Gateway).
+* **Vấn đề:** Ứng dụng `order-service` thỉnh thoảng bị treo vào những khung giờ cao điểm (11h30 - 12h30). Đội ngũ vận hành hoàn toàn "mù" thông tin về trạng thái phần cứng của VPS cũng như trạng thái sức khỏe nội bộ của các container. Hệ thống cần một giải pháp giám sát có khả năng tự động đi gom các chỉ số tài nguyên theo chu kỳ thời gian để làm cơ sở chẩn đoán lỗi.
+
+#### 3. Nội dung trọng tâm
+
+* **Mô hình Pull-based cốt lõi:** Thay vì bắt các service của QuickBite phải tốn tài nguyên tự gửi dữ liệu đi, Prometheus sẽ đứng đóng vai trò trung tâm, định kỳ chủ động gửi request HTTP tới các endpoint của các service để "kéo" (pull/scrape) dữ liệu metrics về.
+* **Cấu trúc Time-series Database (TSDB):** Dữ liệu giám sát được lưu trữ dưới dạng chuỗi thời gian, định danh bằng tên chỉ số (metric name) và các cặp nhãn khóa-giá trị (labels key-value).
+* *Ví dụ:* `http_requests_total{method="POST", handler="/api/v1/orders", status="201"}`
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Minh họa trực quan mô hình thu thập dữ liệu dạng Pull của Prometheus đối với hệ thống Microservices QuickBite.
+* **Luồng dữ liệu (Data Flow):**
+1. Các service (`user-service`, `order-service`,...) mở sẵn một cổng hiển thị dữ liệu thô.
+2. Prometheus đọc file cấu hình `prometheus.yml`, lấy danh sách các địa chỉ đích (targets).
+3. Đúng chu kỳ (ví dụ 15 giây), Prometheus gửi lệnh kéo dữ liệu và nạp vào kho lưu trữ TSDB nội bộ.
+
+---
+
+### LESSON 02: Cấu hình Prometheus Scrape Metrics từ Spring Boot Actuator
+
+#### 1. Mục tiêu bài học
+
+* **Cấu hình tích hợp** thư viện Spring Boot Actuator và Micrometer Prometheus Registry vào mã nguồn các dịch vụ QuickBite.
+* **Viết tệp cấu hình `prometheus.yml**` hoàn chỉnh để khai báo các job quét chỉ số tự động trong mạng nội bộ Docker.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
+* **Vấn đề:** Để Prometheus có thể kéo được dữ liệu từ các dịch vụ Spring Boot, bản thân các dịch vụ này phải được cài đặt "cảm biến" để chuyển đổi các thông số kỹ thuật bên trong JVM (như dung lượng bộ nhớ Heap, số lượng Thread) thành định dạng văn bản thô (Plain text) mà Prometheus hiểu được.
+
+#### 3. Nội dung trọng tâm
+
+* **Spring Boot Actuator & Micrometer:** Actuator mở ra các cổng giám sát, còn Micrometer đóng vai trò như một bộ biên dịch (Adapter) chuyển các chỉ số đo đạc nội bộ của Java sang định dạng chuẩn của Prometheus.
+* **Cấu hình bảo mật tầng mạng:** Các endpoint hiển thị chỉ số (`/actuator/prometheus`) chứa nhiều thông tin nhạy cảm về hệ thống, do đó chúng chỉ được mở trong mạng nội bộ Docker (`quickbite-net`) để duy nhất container Prometheus truy cập, tuyệt đối không cấu hình qua Nginx để lộ ra Internet.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Cấu hình mã nguồn một service mẫu, tạo file `prometheus.yml` và nhúng container Prometheus vào file `docker-compose.yml` hạ tầng trên VPS.
+* **Cấu hình ứng dụng (`order-service/src/main/resources/application.yml`):**
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus # Chỉ mở các endpoint cần thiết
+  metrics:
+    tags:
+      application: ${spring.application.name} # Dán nhãn tên ứng dụng vào mọi metric
+```
+
+* **Tệp cấu hình của Prometheus (`./quickbite-infra/prometheus/prometheus.yml`):**
+```yaml
+global:
+  scrape_interval: 15s # Định kỳ quét chỉ số mỗi 15 giây
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'quickbite-backend'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      # Gọi trực tiếp bằng tên container nhờ DNS nội bộ của Docker Network
+      - targets: ['user-service:8081', 'restaurant-service:8082', 'order-service:8083', 'notification-service:8084']
+```
+
+* **Cập nhật tệp `docker-compose.yml` trên VPS:**
+```yaml
+services:
+  # ... các dịch vụ backend và nginx giữ nguyên ...
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: quickbite-prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      # Gắn ổ đĩa volume để bảo toàn dữ liệu metrics khi container restart
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - quickbite-net
+    # Không cần mở port ra ngoài máy host nếu chỉ dùng nội bộ với Grafana
+
+volumes:
+  prometheus-data:
+    driver: local
+```
+
+* **Kết quả mong đợi:** Sau khi chạy `docker compose up -d`, Prometheus khởi chạy thành công. Giảng viên có thể hướng dẫn sinh viên dùng lệnh `docker exec -it quickbite-prometheus wget -qO- http://localhost:9090/api/v1/targets` để kiểm tra trạng thái các target đều báo `UP` (màu xanh).
+
+---
+
+# SESSION 14
+
+## TẠO DASHBOARD VỚI GRAFANA
+
+---
+
+### LESSON 01: Kết nối Data Source và Ngôn ngữ truy vấn PromQL cơ bản
+
+#### 1. Mục tiêu bài học
+
+* **Thực hiện liên kết** Grafana với nguồn dữ liệu (Data Source) Prometheus an toàn trong môi trường mạng cô lập.
+* **Sử dụng ngôn ngữ truy vấn PromQL** để lọc, tính toán tốc độ request và tỷ lệ lỗi của hệ thống QuickBite.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
+* **Vấn đề:** Dữ liệu đã được lưu trữ vào Prometheus, tuy nhiên giao diện mặc định của Prometheus rất thô sơ, chỉ hỗ trợ xem các biểu đồ đơn lẻ và không thể lưu thành các bảng điều khiển tập trung. Chúng ta cần đưa **Grafana** vào đóng vai trò là "màn hình hiển thị trung tâm" giúp trực quan hóa toàn bộ dữ liệu này.
+
+#### 3. Nội dung trọng tâm
+
+* **Kiến trúc liên kết Grafana - Prometheus:** Grafana đóng vai trò là Client gửi các câu lệnh truy vấn qua REST API tới Prometheus để lấy dữ liệu số liệu về vẽ biểu đồ.
+* **Cú pháp ngôn ngữ PromQL (Prometheus Query Language):**
+* *Lọc dữ liệu (Instant Vector):* `process_cpu_usage{application="order-service"}`
+* *Hàm tính toán theo thời gian (Range Vector & Rate):* Sử dụng hàm `rate(...)` để tính toán tốc độ tăng trưởng của chỉ số trên mỗi giây.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Thêm Grafana vào hệ thống, cấu hình kết nối và thực hành viết 3 câu lệnh PromQL cốt lõi phục vụ giám sát Microservices.
+* **Cập nhật tệp `docker-compose.yml` trên VPS:**
+```yaml
+services:
+  # ... các dịch vụ trước giữ nguyên ...
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: quickbite-grafana
+    ports:
+      - "3000:3000" # Mở cổng 3000 để đội ngũ vận hành truy cập vào dashboard
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - quickbite-net
+
+volumes:
+  prometheus-data:
+  grafana-data:
+```
+
+* **Các bước thực hiện cấu hình giao diện:**
+1. Truy cập `http://vps_public_ip:3000` (Tài khoản mặc định: `admin` / `admin`).
+2. Đi tới *Connections -> Data Sources -> Add data source* -> Chọn **Prometheus**.
+3. Tại ô URL, điền: `http://prometheus:9090` (Gọi trực tiếp bằng tên container nội bộ, rất bảo mật). Nhấn *Save & Test*.
+
+
+* **Thực hành viết câu lệnh PromQL trong mục "Explore":**
+* *Câu lệnh 1 (Giám sát RAM của Order Service):*
+```text
+jvm_memory_used_bytes{application="order-service", area="heap"}
+
+```
+
+
+* *Câu lệnh 2 (Tính số lượng Request/giây đổ vào Restaurant Service):*
+```text
+rate(http_server_requests_seconds_count{application="restaurant-service"}[5m])
+```
+
+
+
+
+* **Kết quả mong đợi:** Grafana trả về các đồ thị đường (Line Chart) mô tả chính xác lượng RAM trồi sụt hoặc lượng request biến động theo thời gian thực của hệ thống QuickBite.
+
+---
+
+### LESSON 02: Thiết kế Dashboard chuyên nghiệp và Thiết lập Cảnh báo (Alerting)
+
+#### 1. Mục tiêu bài học
+
+* **Xây dựng hoàn chỉnh một Dashboard** quản lý tài nguyên JVM cho Microservices bằng cách import các mẫu thiết kế chuẩn công nghiệp (Community Dashboards).
+* **Cấu hình quy tắc cảnh báo (Alert Rules)** trên Grafana để tự động phát hiện khi hệ thống gặp sự cố (ví dụ: CPU quá tải hoặc Service bị sập).
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
+* **Vấn đề:** Lập trình viên hoặc kỹ sư vận hành không thể ngồi nhìn màn hình Grafana 24/7 để chờ xem khi nào lỗi xảy ra. Hệ thống cần được thiết lập một cơ chế tự động: Khi có bất kỳ service nào của QuickBite bị sập (Container chết), hoặc lượng RAM tiêu thụ vượt ngưỡng 90%, Grafana phải ngay lập tức đưa ra cảnh báo trực quan để đội ngũ kỹ thuật kịp thời ứng cứu.
+
+#### 3. Nội dung trọng tâm
+
+* **Tái sử dụng Dashboard có sẵn (Dashboard Import):** Thay vì tự tay cấu hình hàng trăm biểu đồ thủ công, DevOps tận dụng kho thư viện của Grafana Community với mã ID nổi tiếng **ID 4701** (JVM Micrometer Dashboard) để có ngay một màn hình giám sát chuyên nghiệp.
+* **Luồng hoạt động của Grafana Alerting:** Đặt ra một ngưỡng giới hạn (Threshold) -> Định kỳ kiểm tra (Evaluation) -> Nếu vượt ngưỡng -> Chuyển trạng thái sang `Firing` (Kích hoạt cảnh báo).
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Import Dashboard giám sát JVM và thiết lập một quy tắc cảnh báo khi một dịch vụ bất kỳ của QuickBite bị sập (Trạng thái Target = 0).
+* **Thao tác thực hiện từng bước (Step-by-step):**
+1. **Import Màn hình giám sát:** Trên giao diện Grafana, nhấn nút *Dashboards* -> *New* -> *Import*. Nhập ID `4701` và nhấn *Load*. Chọn Data Source là `Prometheus` đã tạo ở bài trước -> Nhấn *Import*.
+2. **Thiết lập Quy tắc Cảnh báo (Alert Rule):**
+* Đi tới mục *Alerting* -> *Alert rules* -> *Create rule*.
+* Đặt tên quy tắc: `QuickBite - Service Down Alert`.
+* Tại ô câu lệnh PromQL (Mục A), nhập câu lệnh kiểm tra sự sống của container:
+
+```text
+up{job="quickbite-backend"} == 0
+```
+
+* Tại mục *Set a threshold* (Ngữ cảnh kích hoạt): Chọn giá trị cảnh báo khi biểu thức trên thỏa mãn (tức là có service trả về giá trị 0).
+* Tại mục *Set evaluation behavior*: Cấu hình kiểm tra mỗi `1m` (1 phút), nếu lỗi kéo dài liên tục trong vòng `2m` thì chính thức phát tín hiệu báo động.
+
+* **Kết quả mong đợi:** Sinh viên thu được một Dashboard hiển thị toàn diện các thông số từ CPU, bộ nhớ Heap, trạng thái của Garbage Collection (GC) cho đến số lượng Thread đang chạy của 4 dịch vụ QuickBite. Khi giảng viên làm thử demo chạy lệnh `docker stop order-service` trên VPS, sau 2 phút, quy tắc cảnh báo trên Grafana sẽ lập tức chuyển sang màu đỏ rực (Trạng thái: **Firing**), chỉ rõ đích danh `order-service` đang bị sập.
+
+#### 5. Điểm cần nhấn mạnh cho giảng viên (Pedagogical Tips)
+
+* **Tư duy Giám sát Chủ động (Proactive Monitoring):** Hãy nhấn mạnh cho sinh viên hiểu sự khác biệt lớn của một kỹ sư DevOps: Người làm thủ công đợi khách hàng gọi điện chửi bới mới biết hệ thống lỗi; người làm DevOps nhìn vào Dashboard và các tín hiệu Cảnh báo (Alert) để phát hiện và sửa lỗi từ lúc hệ thống mới chỉ có dấu hiệu quá tải, trước khi người dùng kịp nhận ra.
+* **Tầm quan trọng của Volumes:** Hãy nhắc nhở sinh viên kiểm tra kỹ phần khai báo `volumes` cho Grafana (`grafana-data`) trong tệp `docker-compose.yml`. Nếu thiếu phần này, tất cả các Dashboard đã mất công cấu hình hoặc các Alert Rule đã tạo sẽ biến mất hoàn toàn nếu container Grafana bị tắt đi hoặc cập nhật phiên bản mới.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Cho rằng Grafana Alerting sẽ tự động đi sửa lỗi (ví dụ tự bật lại container khi container bị sập).
+* **Đính chính:** Grafana chỉ đóng vai trò là hệ thống **Phát hiện và Cảnh báo** (Observability & Notification). Nó giúp gửi thông tin (qua Email, Telegram, Slack, hoặc hiển thị lên màn hình) để thông báo cho kỹ sư vận hành biết chính xác vị trí lỗi, việc xử lý và khắc phục lỗi sau đó vẫn cần sự can thiệp của con người hoặc các công cụ tự động hóa hạ tầng ở tầng cao hơn.
+
+---
+
+*Giảng viên lưu ý: Kết thúc Session 14, sinh viên đã hoàn thành trọn vẹn chuỗi ma trận giám sát đỉnh cao của DevOps. Sự kết hợp giữa Prometheus (Bộ kho lưu trữ chỉ số chuỗi thời gian) và Grafana (Màn hình trực quan hóa và phát lệnh cảnh báo) giúp hệ thống microservices QuickBite đạt đến trạng thái "Trong suốt về mặt vận hành" (Full System Observability).*
+
+---
+
+# SESSION 16
+
+## LOGGING TRONG SPRING BOOT MÔI TRƯỜNG PRODUCTION
+
+---
+
+### LESSON 01: Cấu hình Logback nâng cao và Chiến lược xoay vòng file log (Log Rotation)
+
+#### 1. Mục tiêu bài học
+
+* **Thiết lập cấu hình** tệp `logback-spring.xml` để phân tách luồng ghi log độc lập giữa bảng điều khiển (Console) và tệp tin (File).
+* **Áp dụng chiến lược xoay vòng** (Log Rotation) dựa trên kích thước và thời gian để tối ưu dung lượng lưu trữ, tránh làm tràn ổ cứng VPS.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure (Hệ thống QuickBite chạy trên VPS).
+* **Vấn đề:** Mặc định, Spring Boot ghi toàn bộ nhật ký ra bàn điều khiển (Console). Khi chạy dưới dạng container bằng Docker, các dòng log này được Docker Daemon giữ lại trên ổ đĩa. Sau một vài tháng vận hành, lượng request đặt món tăng cao, file log của `order-service` có thể phình to lên đến hàng chục GB, làm cạn kiệt dung lượng đĩa cứng của VPS và kéo sập toàn bộ hệ thống. Chúng ta cần một cơ chế tự động cắt nhỏ file log và xóa bỏ các log quá cũ.
+
+#### 3. Nội dung trọng tâm
+
+* **Logback Framework:** Bộ thư viện ghi log mặc định và mạnh mẽ của Spring Boot, cho phép cấu hình linh hoạt thông qua file XML.
+* **Appenders:** Các thành phần định hướng đầu ra của log. Trong production, hệ thống sử dụng kết hợp `ConsoleAppender` (cho Docker thu thập) và `RollingFileAppender` (lưu trữ vật lý an toàn trên VPS).
+* **Policy xoay vòng (Rolling Policy):** Cơ chế quy định khi nào file log cũ được đóng gói (ví dụ: sang ngày mới hoặc khi file đạt kích thước 10MB) và giới hạn tổng dung lượng lưu trữ (ví dụ: tối đa giữ lại log của 30 ngày gần nhất).
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Cấu hình file `logback-spring.xml` cho `order-service` để tự động hóa việc chia nhỏ, nén file log cũ thành định dạng `.gz`.
+* **Cấu hình hệ thống (`order-service/src/main/resources/logback-spring.xml`):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <property name="LOG_PATH" value="/app/logs" />
+    <property name="LOG_FILE" value="order-service" />
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="ROLLING_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${LOG_FILE}.log</file>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="ch.qos.logback.classic.PatternLayout">
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </layout>
+        </encoder>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archived/${LOG_FILE}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="ROLLING_FILE" />
+    </root>
+
+    <logger name="org.hibernate.SQL" level="DEBUG" />
+</configuration>
+```
+
+* **Kết quả mong đợi:** Khi ứng dụng hoạt động và ghi log, trong thư mục `/app/logs` sẽ xuất hiện file `order-service.log`. Khi thực hiện giả lập ghi dữ liệu lớn, hệ thống tự động tạo thư mục `archived/` chứa các file nén dạng `order-service-2026-06-02.0.log.gz`.
+
+---
+
+### LESSON 02: Chuẩn hóa Định dạng Log JSON cho Microservices
+
+#### 1. Mục tiêu bài học
+
+* **Chuyển đổi cấu trúc log** từ dạng văn bản tự do (Plain Text) sang định dạng cấu trúc **JSON** chuẩn hóa.
+* **Giải thích** được tầm quan trọng của cấu trúc dữ liệu khóa-giá trị (Key-Value) trong việc giúp các bộ phân tích nhật ký tự động phân tách trường dữ liệu (Parsing).
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
+* **Vấn đề:** Định dạng dòng log truyền thống (`2026-06-02 INFO [main] c.q.OrderService - Order created successfully`) rất thân thiện với mắt người đọc, nhưng lại là "ác mộng" đối với các hệ thống phân tích tự động. Khi cần tìm kiếm các đơn hàng có `totalPrice > 500000`, máy tính phải quét chuỗi (Regex) cực kỳ chậm. Nếu chuẩn hóa dòng log thành một đối tượng JSON cấu trúc, các công cụ thu thập log có thể lập tức hiểu và đánh chỉ mục các trường dữ liệu một cách chính xác.
+
+#### 3. Nội dung trọng tâm
+
+* **Logstash Logback Encoder:** Thư viện mở rộng cho phép Logback tự động chuyển hóa cấu trúc LogEvent của Java thành một chuỗi JSON thuần túy.
+* **Tính cấu trúc (Structured Logging):** Mọi dòng log xuất ra đều có chung các thuộc tính cơ bản như `@timestamp`, `level`, `thread`, `logger_name`, `message`. Lập trình viên có thể chèn thêm các thuộc tính tùy biến thông qua cấu hình `MDC` (Mapped Diagnostic Context).
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Cấu hình log định dạng JSON cho `user-service` phục vụ mục đích phân tích tự động ở Session 17.
+* **Cấu hình hệ thống:**
+
+* *Bổ sung thư viện (`user-service/build.gradle`):*
+```groovy
+implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+
+```
+
+* *Cập nhật Appender trong file `logback-spring.xml`:*
+```xml
+<appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+        <customFields>{"environment":"production","service":"user-service"}</customFields>
+    </encoder>
+</appender>
+
+<root level="INFO">
+    <appender-ref ref="JSON_CONSOLE" />
+</root>
+
+```
+
+* **Output mong đợi từ hệ thống (Console Output):** Dòng log biến đổi hoàn toàn thành cấu trúc JSON một dòng duy nhất:
+```json
+{"@timestamp":"2026-06-02T07:27:00.123+07:00","@version":"1","message":"User login success: admin","logger_name":"com.quickbite.UserService","thread_name":"http-nio-8081-exec-1","level":"INFO","level_value":20000,"environment":"production","service":"user-service"}
+
+```
+
+#### 5. Điểm cần nhấn mạnh cho giảng viên (Pedagogical Tips)
+
+* Nhấn mạnh với sinh viên: Log JSON sinh ra **không phải để cho con người đọc trực tiếp** bằng mắt trên terminal, mà là để làm nguyên liệu đầu vào chuẩn chỉnh cho các hệ thống quản lý log tập trung như EFK Stack xử lý.
+
+---
+
+# SESSION 17
+
+## LOGGING TẬP TRUNG VỚI EFK STACK
+
+---
+
+### LESSON 01: Kiến trúc EFK Stack và Cơ chế thu thập log qua Filebeat
+
+#### 1. Mục tiêu bài học
+
+* **Phân tích** được vai trò và ranh giới trách nhiệm của từng thành phần trong bộ ba **EFK Stack**: Elasticsearch, Fluentd/Filebeat, và Kibana.
+* **Cấu hình** thành công công cụ thu thập log siêu nhẹ **Filebeat** để tự động "lắng nghe" và đọc file log từ thư mục chung của các dịch vụ QuickBite trên VPS.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** Chuyển dịch từ STATE 3 (Log phân tán cục bộ trên đĩa cứng container) sang STATE 4 (Centralized Logging Architecture).
+* **Vấn đề:** Hệ thống QuickBite có 4 service chạy ẩn sau mạng nội bộ. Khi khách hàng khiếu nại về lỗi thanh toán đơn hàng, kỹ sư không thể liên tục SSH vào server, mò vào từng thư mục `/app/logs` của từng container để xem lỗi. Chúng ta cần một giải pháp thu thập tự động toàn bộ dữ liệu nhật ký này về một trung tâm lưu trữ tập trung để tra cứu dễ dàng.
+
+#### 3. Nội dung trọng tâm
+
+* **Mô hình kiến trúc EFK Stack:**
+* **F (Filebeat/Fluentd):** Bộ thu gom dữ liệu (Data Shipper). Trong bài học này, ta dùng **Filebeat** — một Go-agent siêu nhẹ của Elastic, tốn cực ít tài nguyên RAM, đứng trực tiếp tại nơi sinh log để vận chuyển log đi.
+* **E (Elasticsearch):** Trái tim của hệ thống, một công cụ tìm kiếm và phân tích phân tán mạnh mẽ (Search & Analytics Engine), chịu trách nhiệm lưu trữ dữ liệu log và đánh chỉ mục (indexing) để tìm kiếm full-text cực nhanh.
+* **K (Kibana):** Giao diện quản trị đồ họa (UI), giúp người dùng dễ dàng truy vấn, lọc, tìm kiếm từ khóa và vẽ các biểu đồ phân tích từ log.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Minh họa trực quan luồng di chuyển cấu trúc của dòng nhật ký từ file log của QuickBite qua Filebeat đổ về Elasticsearch.
+* **Luồng dữ liệu (Data Pipeline Flow):**
+```text
+[Spring Boot Apps] ──(Ghi Log)──► [Thư mục logs/ trên VPS]
+                                          │
+                                          ▼ (Cào dữ liệu)
+                                    [ Filebeat Agent ]
+                                          │ (Vận chuyển JSON)
+                                          ▼
+                                   [ Elasticsearch ] ◄──(Truy vấn)── [ Kibana UI ]
+```
+
+---
+
+### LESSON 02: Triển khai EFK Stack và Sử dụng Kibana Truy vết Lỗi (Troubleshooting)
+
+#### 1. Mục tiêu bài học
+
+* **Xây dựng kịch bản Docker Compose** khởi chạy trọn vẹn cụm hạ tầng EFK Stack tích hợp chung vào mạng lưới dịch vụ QuickBite.
+* **Thực hiện thao tác truy vết** sự cố nghiệp vụ (Troubleshooting) trên giao diện Kibana bằng ngôn ngữ truy vấn KQL (Kibana Query Language).
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 4 — Centralized Logging Architecture.
+* **Vấn đề:** Triển khai cài đặt vật lý bộ công cụ EFK trên VPS và hướng dẫn lập trình viên quy trình vận hành thực tế: Tìm kiếm, lọc và khoanh vùng nguyên nhân gây ra lỗi của hệ thống QuickBite thông qua màn hình tổng đài Kibana.
+
+#### 3. Nội dung trọng tâm
+
+* **Cấu hình gắn kết ổ đĩa chung (Log Volume Mounting):** Các container Spring Boot cấu hình ở Session 16 sẽ ghi log ra một thư mục được chia sẻ chung với máy host VPS. Filebeat container sẽ mount tới đúng thư mục này để đọc dữ liệu.
+* **Kibana Discover:** Công cụ tìm kiếm tối thượng của Kibana, hỗ trợ lọc log theo khoảng thời gian chuẩn xác đến từng mili-giây, lọc theo `level: "ERROR"` hoặc tìm kiếm từ khóa nghiệp vụ như mã đơn hàng `order_id`.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Viết file cấu hình, bật cụm EFK và thực hành thao tác tìm kiếm dấu vết một lỗi logic giả lập của hệ thống trên giao diện Kibana.
+* **Tệp cấu hình thu gom của Agent (`./quickbite-infra/filebeat/filebeat.yml`):**
+
+```yaml
+filebeat.inputs:
+  - type: log
+    enabled: true
+    # Đường dẫn trỏ tới các file log thu thập (bên trong container filebeat)
+    paths:
+      - /var/log/apps/*.log
+    # Nhận diện dòng log là JSON để tự động phân rã các trường dữ liệu
+    json.keys_under_root: true
+    json.overwrite_keys: true
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"] # Đẩy trực tiếp vào Elasticsearch
+  index: "quickbite-logs-%{+yyyy.MM.dd}"
+
+# Vô hiệu hóa cấu hình mẫu mặc định để tự quản lý index
+setup.ilm.enabled: false
+```
+
+* **Bổ sung cấu hình hạ tầng vào `docker-compose.yml` trên VPS:**
+```yaml
+services:
+  # Cấu hình chia sẻ volume cho các service cũ để Filebeat đọc được log
+  order-service:
+    # ... cấu hình cũ ...
+    volumes:
+      - ./logs/apps:/app/logs # Ghi log ra thư mục chung của máy host
+
+  # Mảnh ghép 1: Elasticsearch - Nhà kho dữ liệu
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.10
+    container_name: quickbite-elasticsearch
+    environment:
+      - discovery.type=single-node # Chạy chế độ một node tiết kiệm RAM
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # Giới hạn RAM tối đa 512MB
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - quickbite-net
+
+  # Mảnh ghép 2: Filebeat - Người đi cào và vận chuyển log
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.17.10
+    container_name: quickbite-filebeat
+    user: root # Cần quyền root để đọc file hệ thống
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./logs/apps:/var/log/apps:ro # Map chung thư mục chứa log của các app
+    networks:
+      - quickbite-net
+    depends_on:
+      - elasticsearch
+
+  # Mảnh ghép 3: Kibana - Màn hình giao diện hiển thị
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.10
+    container_name: quickbite-kibana
+    ports:
+      - "5601:5601" # Mở cổng 5601 để truy cập giao diện web
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - quickbite-net
+    depends_on:
+      - elasticsearch
+
+volumes:
+  es-data:
+```
+
+* **Quy trình thực hiện kiểm chứng lỗi:**
+1. Chạy lệnh `docker compose up -d` trên VPS để khởi chạy toàn bộ cụm EFK.
+2. Đăng nhập vào giao diện Kibana qua đường dẫn: `http://vps_public_ip:5601`.
+3. Đi tới *Stack Management -> Index Patterns -> Create index pattern*. Nhập chuỗi `quickbite-logs-*` và nhấn *Create*.
+4. Quay lại mục **Discover** ở thanh menu trái.
+5. Thực hành tìm kiếm lỗi bằng cách gõ câu lệnh KQL vào thanh tìm kiếm:
+```text
+service : "user-service" AND level : "ERROR"
+```
+
+* **Kết quả mong đợi:** Kibana hiển thị danh sách toàn bộ các log lỗi của `user-service`. Nhờ việc log được chuẩn hóa sang JSON ở Session 16, sinh viên có thể bấm mở rộng dòng log để xem chi tiết trường `message` hoặc `thread_name` được phân tách thành từng cột dữ liệu trực quan rõ ràng.
+
+#### 5. Điểm cần nhấn mạnh cho giảng viên (Pedagogical Tips)
+
+* **Tư duy quản lý tài nguyên (Resource Constraints):** Giải thích rõ lý do cấu hình tham số `"ES_JAVA_OPTS=-Xms512m -Xmx512m"`. Elasticsearch mặc định ngốn rất nhiều RAM để lưu trữ chỉ mục (có thể tự chiếm 2GB - 4GB RAM). Khi chạy demo trên các con VPS cấu hình vừa phải, việc giới hạn RAM này là bắt buộc để ngăn chặn tình trạng VPS bị treo cứng do hết bộ nhớ.
+* **Tính tức thời (Real-time Log Streaming):** Hướng dẫn sinh viên bật tính năng tự động làm mới dữ liệu (Auto-refresh) ở góc phải màn hình Kibana (ví dụ đặt 5 giây một lần). Mỗi khi sinh viên thực hiện một request đặt món lỗi trên Postman, dòng log lỗi tương ứng sẽ lập tức "bắn" lên màn hình Kibana gần như ngay tức thì.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Cho rằng Filebeat sẽ đọc trực tiếp dữ liệu từ màn hình Console thông qua lệnh `docker logs` của từng container.
+* **Đính chính:** Trong mô hình bài học này, Filebeat đọc log từ **file vật lý nằm trong thư mục chung** (`/var/log/apps/*.log`) do ứng dụng ghi ra nhờ cấu hình `RollingFileAppender` ở Session 16. Đây là giải pháp phân tách độc lập (Decoupling) chuẩn công nghiệp, giúp giảm tải công việc cho Docker Daemon và đảm bảo log không bị mất kể cả khi container ứng dụng bị sập đột ngột.
+
+---
+
+*Giảng viên lưu ý: Kết thúc Session 17, sinh viên dự án QuickBite đã thiết lập thành công hệ thống hạ tầng quản lý nhật ký tập trung chuẩn sản xuất (Production-ready Centralized Logging). Khả năng cấu hình Logback xoay vòng, chuẩn hóa cấu trúc JSON kết hợp sức mạnh tìm kiếm full-text của Elasticsearch giúp nâng cao đáng kể năng lực làm chủ, giám sát và vận hành hệ thống của một kỹ sư DevOps thực thụ.*
