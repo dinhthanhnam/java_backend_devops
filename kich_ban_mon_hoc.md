@@ -607,27 +607,52 @@ Giảng viên cần nắm chắc bản đồ thiết kế thực thể của 4 s
 
 ##### A. User Service (`user-service`)
 
-* **Vai trò:** Quản lý tài khoản, thông tin định danh và phân quyền người dùng (Khách hàng, Tài xế, Chủ cửa hàng).
+* **Vai trò:** Quản lý tài khoản, thông tin định danh, ví tiền (UserWallet) và các địa chỉ nhận hàng (UserAddress). Một User không thể đặt hàng nếu không có địa chỉ giao và không thể thanh toán nếu không có ví (mô phỏng).
 * **Sơ đồ lớp thực thể (Entity Class):**
 ```java
 @Entity @Table(name = "users")
 public class User {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(unique = true, nullable = false)
     private String username;
-    private String password; // Hash BCrypt
+    private String password;
     private String fullName;
-    private String email;
-    private String phone;
     @Enumerated(EnumType.STRING)
     private Role role; // CUSTOMER, DRIVER, MERCHANT
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<UserAddress> addresses; // Phục vụ cho việc chọn địa chỉ Ship
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    private UserWallet wallet; // Phục vụ trừ tiền khi đặt đơn
+}
+
+@Entity @Table(name = "user_addresses")
+public class UserAddress {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String label; // Nhà riêng, Công ty
+    private String detailAddress;
+    private boolean isDefault;
+    
+    @ManyToOne @JoinColumn(name = "user_id")
+    private User user;
+}
+
+@Entity @Table(name = "user_wallets")
+public class UserWallet {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private BigDecimal balance; // Số dư tài khoản mô phỏng
+    
+    @OneToOne @JoinColumn(name = "user_id")
+    private User user;
 }
 ```
 
 ##### B. Restaurant Service (`restaurant-service`)
 
-* **Vai trò:** Quản lý thông tin nhà hàng, trạng thái đóng/mở cửa và thực đơn món ăn (Menu Items).
+* **Vai trò:** Quản lý thông tin nhà hàng, trạng thái đóng/mở cửa, phân chia danh mục (MenuCategory) và các món ăn (MenuItem) tương ứng.
 * **Sơ đồ lớp thực thể (Entity Class):**
 ```java
 @Entity @Table(name = "restaurants")
@@ -635,11 +660,24 @@ public class Restaurant {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
-    private String address;
-    private boolean isActive; // Trạng thái hoạt động
+    private Long ownerId; // Tham chiếu sang User (Role MERCHANT)
+    private boolean isOpen;
 
     @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL)
-    private List<MenuItem> menuItems;
+    private List<MenuCategory> categories; // Cơm, Nước uống, Tráng miệng
+}
+
+@Entity @Table(name = "menu_categories")
+public class MenuCategory {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String name;
+
+    @ManyToOne @JoinColumn(name = "restaurant_id")
+    private Restaurant restaurant;
+
+    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
+    private List<MenuItem> items;
 }
 
 @Entity @Table(name = "menu_items")
@@ -647,42 +685,64 @@ public class MenuItem {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
-    private BigDecimal price;
+    private BigDecimal basePrice;
     private boolean isAvailable;
 
-    @ManyToOne @JoinColumn(name = "restaurant_id")
-    private Restaurant restaurant;
+    @ManyToOne @JoinColumn(name = "category_id")
+    private MenuCategory category;
 }
 ```
 
 ##### C. Order Service (`order-service`)
 
-* **Vai trò:** Trọng tâm xử lý luồng nghiệp vụ. Tiếp nhận yêu cầu đặt món, tính toán tổng tiền, lưu trạng thái đơn hàng và phối hợp điều hướng luồng thông tin.
+* **Vai trò:** Trọng tâm xử lý luồng nghiệp vụ. Tiếp nhận yêu cầu đặt món, lưu vết lịch sử trạng thái (OrderStatusHistory) để tracking, và gán thông tin phân bổ Tài xế (driverId).
 * **Sơ đồ lớp thực thể (Entity Class):**
 ```java
 @Entity @Table(name = "orders")
 public class Order {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private Long customerId;   // Tham chiếu từ user-service (Loosely Coupled)
-    private Long restaurantId; // Tham chiếu từ restaurant-service
+    private Long customerId;
+    private Long restaurantId;
+    private Long driverId; // Sẽ được cập nhật khi có Tài xế nhận đơn
+    private Long deliveryAddressId; // Tham chiếu sang Địa chỉ của User
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderItem> items;
 
-    private BigDecimal totalPrice;
+    private BigDecimal itemsPrice; // Tiền món ăn
+    private BigDecimal shippingFee; // Phí ship tính riêng
+    private BigDecimal totalPrice;  // Tổng tiền khách trả
+
     @Enumerated(EnumType.STRING)
-    private OrderStatus status; // PENDING, ACCEPTED, SHIPPING, DELIVERED, CANCELLED
-    private LocalDateTime createdAt;
+    private OrderStatus status; 
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    private List<OrderStatusHistory> statusHistories; // Lưu vết dòng thời gian (Timeline)
 }
 
 @Entity @Table(name = "order_items")
 public class OrderItem {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private Long menuItemId; // Tham chiếu món ăn từ restaurant-service
+    private Long menuItemId; 
+    private String itemName; // Snapshot tên món tại thời điểm mua (Tránh Merchant đổi tên món làm sai lệch lịch sử)
     private Integer quantity;
     private BigDecimal price;
+
+    @ManyToOne @JoinColumn(name = "order_id")
+    private Order order;
+}
+
+@Entity @Table(name = "order_status_history")
+public class OrderStatusHistory {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Enumerated(EnumType.STRING)
+    private OrderStatus status; // Lưu lại mốc thời gian chuyển trạng thái
+    private LocalDateTime changedAt;
+    private String note; // Lý do hủy đơn, lý do từ chối...
 
     @ManyToOne @JoinColumn(name = "order_id")
     private Order order;
@@ -691,20 +751,42 @@ public class OrderItem {
 
 ##### D. Notification Service (`notification-service`)
 
-* **Vai trò:** Tiếp nhận sự kiện thay đổi trạng thái đơn hàng để gửi thông báo (Mô phỏng gửi Email/SMS/Push Notification) tới người dùng cuối.
+* **Vai trò:** Tiếp nhận sự kiện thay đổi trạng thái đơn hàng để gửi thông báo, phân biệt rõ các kênh (In-app, Email, SMS) và lưu vết trạng thái gửi (deliveryStatus).
 * **Sơ đồ lớp thực thể (Entity Class):**
 ```java
 @Entity @Table(name = "notifications")
 public class Notification {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private Long userId;       // Người nhận thông báo
+    private Long userId; // Người nhận
     private String title;
-    private String message;
-    private boolean isRead;
-    private LocalDateTime sentAt;
+    private String content;
+    
+    @Enumerated(EnumType.STRING)
+    private NotificationType type; // IN_APP, EMAIL, SMS
+    
+    @Enumerated(EnumType.STRING)
+    private DeliveryStatus deliveryStatus; // PENDING, SENT, FAILED
+    
+    private LocalDateTime createdAt;
 }
 ```
+
+#### 3. Vận hành "Dây chuyền" của các Thực thể mới
+
+Khi sinh viên code, họ sẽ thấy các service tương tác với nhau chặt chẽ theo từng bước logic của một platform giao đồ ăn thực tế, kể cả khi chỉ gọi API thuần túy (Feign Client / WebClient):
+
+1. **Khách hàng chọn món & bấm Đặt đơn:** Order Service tạo Order (status: `PENDING`) -> Đồng thời tạo một bản ghi vào `OrderStatusHistory` (lưu mốc thời gian tạo).
+2. **Trừ tiền thanh toán:** Order Service gọi sang User Service -> Kiểm tra ví tiền (`UserWallet`) xem đủ số dư không. Nếu đủ -> Trừ tiền (Mô phỏng thanh toán) -> Cập nhật Order thành `ACCEPTED`.
+3. **Thông báo nhà hàng:** Order Service gọi sang Restaurant Service -> Đẩy thông báo cho Merchant chuẩn bị món ăn.
+4. **Điều phối tài xế:** Order Service kích hoạt luồng "Điều phối" (Mô phỏng gán tài xế) -> Tìm User có role = `DRIVER` -> Gán `driverId` vào Order -> Cập nhật status thành `SHIPPING` + Thêm một dòng History mới.
+5. **Đẩy thông báo trạng thái:** Ở mỗi bước chuyển trạng thái (`PENDING` -> `ACCEPTED` -> `SHIPPING`), Order Service đều gửi tín hiệu (HTTP Post) sang Notification Service -> Notification Service tạo bản ghi, phân loại (`IN_APP`/`EMAIL`) rồi chuyển `deliveryStatus` thành `SENT`.
+
+#### 4. Ý nghĩa thiết kế: Giải quyết triệt để bệnh "Underengineer"
+
+* **Nghiệp vụ thực tế hơn:** Việc tích hợp phí ship (`shippingFee`), lịch sử trạng thái (`OrderStatusHistory`), ví tiền (`UserWallet`) buộc sinh viên phải tư duy hệ thống nghiêm túc, không thể làm kiểu hời hợt.
+* **Bài toán Data Integrity (Toàn vẹn dữ liệu):** Khi `Order Service` đã trừ tiền ở `User Service`, nhưng đến bước báo sang `Restaurant Service` thì nhà hàng lại bấm "Từ chối" vì hết món. Sinh viên sẽ phải tự viết code Logic để gọi lại `User Service` cộng lại tiền vào `UserWallet` (Mô phỏng luồng hoàn tiền - Rollback bằng code).
+* **Giải quyết bài toán Snapshot:** Nhìn vào `OrderItem`, việc lưu `itemName` trực tiếp thay vì chỉ lưu ID bắt buộc sinh viên phải suy nghĩ về tư duy thiết kế hệ thống thương mại điện tử: *Nếu ngày mai nhà hàng đổi tên món từ "Phở" thành "Phở đặc biệt", đơn hàng hôm nay in ra hóa đơn vẫn phải giữ đúng tên "Phở" tại thời điểm mua.*
 
 ---
 
@@ -841,15 +923,17 @@ spring:
 
 Để minh họa cách các thực thể và cấu hình trên phối hợp nhịp nhàng khi toàn bộ hệ thống lên container, giảng viên có thể sử dụng kịch bản nghiệp vụ sau để giải thích luồng dữ liệu end-to-end cho sinh viên:
 
-1. **Bước 1 (Tiếp nhận):** Khách hàng gửi lệnh đặt món ăn. Request đi qua Gateway (sẽ cấu hình ở session sau) chuyển tới `order-service` (Port 8083).
-2. **Bước 2 (Kiểm tra dữ liệu chéo qua DNS):** `order-service` sử dụng chuỗi URL cấu hình `http://restaurant-service:8082/api/v1/restaurants/...` để kiểm tra xem món ăn đó có còn hàng (trường `isAvailable` của `MenuItem` entity bằng `true`) hay không.
-3. **Bước 3 (Ghi nhận trạng thái):** Nếu hợp lệ, `order-service` tạo bản ghi mới vào bảng `orders` của database `quickbite_order` với trạng thái `status = PENDING`.
-4. **Bước 4 (Kích hoạt thông báo):** Ngay sau khi đơn hàng được lưu, một tín hiệu truyền tải thông tin (HTTP post hoặc Message Event) được gửi tới `http://notification-service:8084`. Dịch vụ này lập tức tạo một bản ghi `Notification` lưu vào database `quickbite_notification` để chuẩn bị đẩy thông báo xác nhận đơn hàng thành công về máy khách.
+1. **Bước 1 (Tiếp nhận & Tạo đơn):** Khách hàng chọn món & bấm Đặt đơn. Request đi qua Gateway chuyển tới `order-service` (Port 8083). `order-service` tạo Order mới (trạng thái `status = PENDING`) và lưu vết timeline vào `OrderStatusHistory`.
+2. **Bước 2 (Xác thực thanh toán):** `order-service` gọi API sang `user-service` (Port 8081) để kiểm tra số dư ví (`UserWallet`). Nếu tài khoản đủ tiền, hệ thống trừ tiền (mô phỏng thanh toán) và cập nhật đơn hàng thành `ACCEPTED`.
+3. **Bước 3 (Chuẩn bị món):** `order-service` gọi sang `restaurant-service` (Port 8082) để gửi thông báo cho Merchant chuẩn bị món ăn.
+4. **Bước 4 (Điều phối & Giao hàng):** `order-service` kích hoạt luồng điều phối tìm Tài xế (`User` với `Role = DRIVER`). Khi tài xế nhận đơn, gán `driverId` vào đơn hàng và cập nhật trạng thái thành `SHIPPING` (kèm theo một bản ghi lịch sử trạng thái mới).
+5. **Bước 5 (Thông báo trạng thái):** Ở mỗi bước chuyển trạng thái (`PENDING` -> `ACCEPTED` -> `SHIPPING`), `order-service` gửi tín hiệu (HTTP Post) sang `notification-service` (Port 8084) để tạo và gửi thông báo (`IN_APP` hoặc `EMAIL`) tới người dùng tương ứng.
 
 #### Điểm cần nhấn mạnh cho giảng viên (Pedagogical Tips):
 
 * **Tính độc lập dữ liệu:** Nhấn mạnh rằng dù chạy chung một container PostgreSQL vật lý để tiết kiệm RAM khi làm demo tại lớp, các service kết nối vào 4 database hoàn toàn khác biệt bằng tài khoản được phân quyền riêng. `order-service` tuyệt đối không được phép thực hiện câu lệnh SQL Join sang bảng `users` hay `restaurants` mà bắt buộc phải đi qua giao tiếp mạng (REST API) sử dụng cơ chế Service Discovery của Docker Network.
 * **Tách biệt cấu hình:** Nhờ cách thiết kế đặt giá trị mặc định dạng `${BIẾN:Giá_trị_mặc_định}`, mã nguồn ứng dụng có thể chạy mượt mà ở máy local của sinh viên khi làm bài tập (`localhost`) và tự động chuyển hướng mượt mà sang gọi tên container (`quickbite-db`) khi đóng gói chạy Docker mà không cần sửa đổi bất kỳ dòng code Java nào.
+* **Bài toán Toàn vẹn & Rollback:** Hãy chỉ cho sinh viên thấy tầm quan trọng của việc xử lý lỗi (ví dụ: hoàn tiền vào ví nếu nhà hàng hết món và hủy đơn) để rèn luyện tư duy lập trình hệ thống phân tán.
 
 ---
 
