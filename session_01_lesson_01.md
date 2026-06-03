@@ -30,12 +30,12 @@ Nhưng hãy tỉnh táo lại: **Không ai trả tiền cho một ứng dụng c
 
 ### 3. Vấn đề thực tế: Kịch bản "ăn hành" của QuickBite
 
-Hãy tưởng tượng hệ thống QuickBite có 4 dịch vụ độc lập: `user-service`, `restaurant-service`, `order-service`, và `notification-service`. Để chạy thử trên môi trường thực tế, chúng ta được cấp một số máy chủ ảo (VPS) cấu hình cực kỳ tối giản (1 vCPU, 1GB RAM) nhằm tiết kiệm chi phí.
+Hãy tưởng tượng hệ thống QuickBite của chúng ta đang bắt đầu triển khai với dịch vụ đầu tiên là `user-service` (quản lý người dùng). Để chạy thử trên môi trường thực tế, chúng ta được cấp một máy chủ ảo (VPS) cấu hình cực kỳ tối giản (1 vCPU, 1GB RAM) nhằm tiết kiệm chi phí.
 
 Nếu bạn chọn con đường **triển khai thủ công** - tự mình gõ lệnh, tự copy file, tự cài đặt hệ thống - bạn sẽ lập tức rơi vào những kịch bản "dở khóc dở cười" dưới đây:
 
 #### Kịch bản 1: Vòng lặp build-deploy vô tận chỉ vì... một dấu phẩy
-Bạn phát hiện một lỗi chính tả nhỏ trên API hoặc chỉ muốn sửa đổi một dấu phẩy trong dòng log của `order-service`. 
+Bạn phát hiện một lỗi chính tả nhỏ trên API hoặc chỉ muốn sửa đổi một dấu phẩy trong dòng log của `user-service`. 
 Quy trình thủ công bắt đầu:
 1. Chạy lệnh đóng gói tại máy local (`./gradlew clean bootJar`) -> chờ 3 phút.
 2. Dùng lệnh `scp` đẩy file JAR (dung lượng ~50MB) lên server thông qua đường truyền internet công cộng -> chờ 5 phút.
@@ -48,7 +48,7 @@ Tổng cộng bạn tốn **10 phút** cuộc đời chỉ để sửa một d�
 
 #### Kịch bản 2: "Râu ông này cắm cằm bà kia" (Environment Drift)
 Khi triển khai thủ công, bạn phải tự cấu hình các file `application.yml` hoặc nạp biến môi trường bằng tay.
-Một ngày đẹp trời, bạn deploy `order-service` lên server chạy thật (Production) nhưng sơ ý lấy nhầm file cấu hình của máy cá nhân (chứa URL database trỏ về `localhost` hoặc database test của Dev). 
+Một ngày đẹp trời, bạn deploy `user-service` lên server chạy thật (Production) nhưng sơ ý lấy nhầm file cấu hình của máy cá nhân (chứa URL database trỏ về `localhost` hoặc database test của Dev). 
 * **Hậu quả:** Ứng dụng chạy trên server thật nhưng cố gắng kết nối và đọc/ghi dữ liệu vào database test ở máy của bạn. Dữ liệu của khách hàng thật bị xáo trộn, thông tin bảo mật bị rò rỉ, và tệ nhất là database dev của bạn bị phá hủy hoàn toàn bởi lượng request thực tế từ người dùng.
 
 #### Kịch bản 3: Lệch pha môi trường chạy (Java Runtime Mismatch)
@@ -60,7 +60,7 @@ Khi lên server Linux, bạn cài đặt Java bằng lệnh mặc định của 
 
 #### Kịch bản 4: Hỗn loạn phiên bản đóng gói (File Naming Chaos)
 Không có quy trình quản lý tự động, bạn tự copy file lên server và bắt đầu đặt tên file một cách vô tội vạ để backup:
-`order-service-0.0.1.jar`, `order-service-final.jar`, `order-service-final-v2.jar`, `order-service-fixed-bug.jar`...
+`user-service-0.0.1.jar`, `user-service-final.jar`, `user-service-final-v2.jar`, `user-service-fixed-bug.jar`...
 Sau một tuần, khi hệ thống gặp lỗi nghiêm trọng và cần quay lại phiên bản cũ ổn định (Rollback), cả đội nhìn vào thư mục server và hoàn toàn bất lực: Không ai biết file nào thực sự đang chạy, file nào tương ứng với commit nào trên Git, và file nào an toàn để khôi phục.
 
 #### Kịch bản 5: "Mù" thông tin khi có sự cố (Log Blindness)
@@ -71,24 +71,45 @@ Vì triển khai thủ công và không có hệ thống ghi log tập trung, b�
 
 ### 4. Kiến thức cốt lõi
 
-Triển khai thủ công bộc lộ rõ những hạn chế chí mạng về **Tốc độ**, **Độ ổn định**, và **Bảo mật**. Để giải quyết triệt để, chúng ta cần chuyển đổi tư duy sang **DevOps**.
+Triển khai thủ công bộc lộ rõ những hạn chế chí mạng về **Tốc độ**, **Độ ổn định**, và **Bảo mật**. Để giải quyết triệt để, chúng ta cần phân rã quy trình truyền thống và tiếp cận tư duy **DevOps**.
 
-#### 4.1 Quy trình bàn giao truyền thống vs DevOps
+#### 4.1 Quy trình bàn giao truyền thống (Traditional Software Delivery Flow)
 Quy trình truyền thống gồm các bước thao tác bằng tay tuần tự:
 
 ```text
 ┌──────────────┐      ┌────────────────┐      ┌─────────────────────┐      ┌─────────────┐
-│  Mã nguồn   │ ──►  │ Build Artifact │ ──►  │ Deliver (Copy file) │ ──►  │ Run Systemd │
+│  Mã nguồn    │ ──►  │ Build Artifact │ ──►  │ Deliver (Copy file) │ ──►  │ Run Systemd │
 │ (Local Code) │      │  (File JAR)    │      │    (Local -> Srv)   │      │  (Restart)  │
 └──────────────┘      └────────────────┘      └─────────────────────┘      └─────────────┘
 ```
 
-* **Build Artifact:** Lập trình viên tự chạy gradle/maven để đóng gói file JAR/WAR.
-* **Deliver:** Chuyển file đóng gói qua mạng (SCP, FTP) lên server.
-* **Configure:** Thiết lập thủ công các biến môi trường, database url.
-* **Execute:** Khởi chạy tiến trình và quản lý bằng Systemd hoặc script khởi động.
+* **Build Artifact (Đóng gói):** Lập trình viên tự chạy Gradle hoặc Maven ở máy local để đóng gói mã nguồn thành file JAR/WAR.
+* **Deliver (Truyền tải):** Chuyển file đóng gói qua mạng internet bằng các giao thức thủ công như SCP hoặc FTP lên máy chủ.
+* **Configure (Cấu hình):** Thiết lập thủ công các thông số kết nối Database, cổng mạng và biến môi trường ngay trên hệ điều hành của máy chủ.
+* **Execute (Khởi chạy):** Khởi chạy tiến trình Java và quản lý việc chạy ngầm hoặc tự động khởi động lại bằng Systemd hoặc các script tự viết.
 
-**DevOps** (kết hợp của **Dev**elopment và **Op**eration**s**) sinh ra để tự động hóa toàn bộ chuỗi này. DevOps biến các bước thủ công rời rạc thành một chuỗi tự động hóa khép kín (CI/CD Pipeline), giúp mã nguồn từ Git tự động đi thẳng lên máy chủ chạy thật một cách an toàn mà không cần con người trực tiếp can thiệp.
+Trong mô hình này, tồn tại một **"Bức tường ngăn cách" (Wall of Confusion)** giữa đội Phát triển (Dev) và Vận hành (Ops). Dev chỉ tập trung viết code rồi "ném" file JAR qua bức tường cho Ops chạy. Khi hệ thống lỗi, Dev đổ cho Ops cấu hình server sai, Ops đổ cho Dev viết code lỗi. Quy trình bàn giao đứt gãy và thủ công này chính là nguyên nhân gây ra sự chậm trễ và bất ổn định.
+
+#### 4.2 DevOps không chỉ là một công việc (DevOps is not just a job)
+**DevOps** (kết hợp của **Dev**elopment và **Op**eration**s**) sinh ra để phá bỏ bức tường ngăn cách đó. Tuy nhiên, bạn cần hiểu đúng: **DevOps không đơn thuần là một vị trí công việc, một phòng ban mới hay một checklist nhiệm vụ được giao.** 
+
+Bản chất của DevOps đối với một lập trình viên là **sự am hiểu tổng quan về hệ thống thực tế**, **sự hiểu biết sâu sắc về chính ngôn ngữ lập trình bạn sử dụng (Java)** và đích đến cuối cùng là xây dựng được **Đường ống tự động hóa (Automated Pipeline)**:
+
+1. **Am hiểu hệ thống thực tế:** Bạn phải hiểu rõ ứng dụng của mình "sống" như thế nào ngoài đời thực. Nó kết nối đến cơ sở dữ liệu (Database) như thế nào? Tiến trình Java chạy ngầm trên Linux ra sao? Khi hệ thống gặp sự cố, làm sao để cấu hình ghi nhận log và giám sát tài nguyên nhằm chẩn đoán lỗi nhanh nhất?
+2. **Hiểu biết sâu sắc về ngôn ngữ phát triển (Java/Spring Boot):** Đối với lập trình viên Java, DevOps đòi hỏi bạn phải làm chủ được cách Java vận hành ở môi trường thực tế:
+   - Hiểu rõ cơ chế quản lý bộ nhớ của **JVM (Java Virtual Machine)**: Heap size, Metaspace hoạt động thế nào trên môi trường container và các VPS cấu hình yếu (ví dụ: cách cấu hình RAM cho JVM để tránh bị Linux Kernel giết tiến trình vì lỗi `Out of Memory` - OOM Killer).
+   - Hiểu rõ Spring Boot đọc và ghi đè cấu hình thế nào (`application.yml` nạp cấu hình động từ biến môi trường của hệ điều hành).
+   - Hiểu rõ các tối ưu hóa ở tầng mã nguồn (ví dụ: cách tối ưu hóa kết nối Database Pool) ảnh hưởng trực tiếp đến hiệu năng của server 1 vCPU và 1GB RAM như thế nào.
+
+3. **Sản phẩm cốt lõi của DevOps - Đường ống tự động (Automated Pipeline):** 
+   Một trong những thành quả thực tế và quan trọng nhất mà DevOps mang lại là thiết lập được các **đường ống tự động hóa (CI/CD Pipeline)**. Đây giống như một dây chuyền lắp ráp tự động trong nhà máy, thay thế hoàn toàn cho các thao tác thủ công cồng kềnh:
+   
+   * **Git Commit & Push (Kích hoạt):** Lập trình viên chỉ cần đẩy code mới lên Git repository. Sự kiện này sẽ tự động kích hoạt (trigger) toàn bộ đường ống chạy mà không cần con người can thiệp.
+   * **Build & Unit Test (Kiểm soát chất lượng):** Đường ống tự động kéo code về, biên dịch ra file thực thi và chạy toàn bộ các bài kiểm thử tự động (Unit Test). Nếu phát hiện lỗi logic, đường ống sẽ dừng lại ngay lập tức và báo còi (Fail-fast) cho lập trình viên sửa.
+   * **Package & Deliver (Đóng gói & Phân phối):** Nếu code vượt qua vòng kiểm thử, hệ thống tự động đóng gói ứng dụng thành file JAR (hoặc Docker Image) và đẩy lên kho lưu trữ tập trung.
+   * **Execute Server Script (Triển khai & Khởi chạy):** Đường ống tự động chạy các script đã được thiết lập sẵn trên server từ xa để dọn dẹp file cũ, đặt file JAR mới vào vị trí và ra lệnh cho Systemd restart ứng dụng một cách trơn tru.
+
+DevOps là sự dịch chuyển văn hóa và tư duy: Lập trình viên không chỉ biết viết code chạy được trên localhost, mà phải am hiểu cách dòng code đó được đóng gói, chạy qua đường ống kiểm soát tự động và vận hành ổn định trên máy chủ thực tế.
 
 > [!TIP]
 > **Image Prompt gợi ý:**
@@ -98,21 +119,27 @@ Quy trình truyền thống gồm các bước thao tác bằng tay tuần tự:
 
 ### 5. Thực hành: Trải nghiệm Triển khai Thủ công trên Server
 
-Để hiểu DevOps quý giá thế nào, trước tiên bạn phải tự mình trải nghiệm cảm giác "ăn hành" khi triển khai thủ công dịch vụ `order-service` trên server Ubuntu.
+Để hiểu DevOps quý giá thế nào, trước tiên bạn phải tự mình trải nghiệm cảm giác "ăn hành" khi triển khai thủ công dịch vụ `user-service` trên server Ubuntu.
+
+> [!IMPORTANT]
+> **Lưu ý về Môi trường thực hành (Giả định mặc định):**
+> Ở buổi học đầu tiên này, mục tiêu lớn nhất của chúng ta là thấu hiểu **luồng di chuyển của file** và **nỗi đau của các thao tác thủ công**, chứ không phải cấu hình hạ tầng. 
+> * Hãy **giả định mặc định** rằng Staging Server (Linux) đã được đội vận hành (Ops) dựng sẵn, cài sẵn Java và cấp cho bạn thông tin kết nối SSH. Bạn tạm thời sử dụng các lệnh `scp`, `ssh` như một "hộp đen" có sẵn.
+> * Toàn bộ quy trình tự mua VPS, thiết lập Linux, cấu hình SSH Key và Firewall từ con số 0 sẽ được hướng dẫn rất chi tiết tại **Session 10 (Triển khai hệ thống lên VPS)**.
 
 #### 5.1 Cấu hình Systemd dịch vụ trên Server
-Trên server, ta cấu hình file dịch vụ Systemd tại đường dẫn `/etc/systemd/system/quickbite-order.service` để quản lý tiến trình chạy ngầm:
+Trên server, ta cấu hình file dịch vụ Systemd tại đường dẫn `/etc/systemd/system/quickbite-user.service` để quản lý tiến trình chạy ngầm:
 
 ```ini
 [Unit]
-Description=QuickBite Order Service
+Description=QuickBite User Service
 After=syslog.target network.target
 
 [Service]
 User=quickbite
 Type=simple
 WorkingDirectory=/opt/quickbite
-ExecStart=/usr/bin/java -jar /opt/quickbite/order-service-0.0.1.jar
+ExecStart=/usr/bin/java -jar /opt/quickbite/user-service-0.0.1.jar
 Restart=always
 RestartSec=10
 
@@ -125,15 +152,15 @@ WantedBy=multi-user.target
 **Bước 1: Đóng gói ứng dụng tại máy Local**
 Di chuyển vào thư mục code và build file JAR:
 ```bash
-cd c:/Users/Nathan/java_backend_devops/order-service
+cd c:/Users/Nathan/java_backend_devops/user-service
 ./gradlew clean bootJar
 ```
-*Kết quả:* File `order-service-0.0.1.jar` được tạo tại `build/libs/`.
+*Kết quả:* File `user-service-0.0.1.jar` được tạo tại `build/libs/`.
 
 **Bước 2: Truyền file JAR lên Server qua lệnh SCP**
 ```bash
 # Đẩy file JAR lên thư mục tạm /tmp trên server (IP giả định: 10.0.1.15)
-scp build/libs/order-service-0.0.1.jar user@10.0.1.15:/tmp/
+scp build/libs/user-service-0.0.1.jar user@10.0.1.15:/tmp/
 ```
 
 **Bước 3: SSH vào Server để di chuyển file và cấp quyền**
@@ -142,10 +169,10 @@ scp build/libs/order-service-0.0.1.jar user@10.0.1.15:/tmp/
 ssh user@10.0.1.15
 
 # Di chuyển file từ thư mục tạm sang thư mục ứng dụng chính thức
-sudo mv /tmp/order-service-0.0.1.jar /opt/quickbite/
+sudo mv /tmp/user-service-0.0.1.jar /opt/quickbite/
 
 # Cấp quyền sở hữu cho user chạy dịch vụ
-sudo chown quickbite:quickbite /opt/quickbite/order-service-0.0.1.jar
+sudo chown quickbite:quickbite /opt/quickbite/user-service-0.0.1.jar
 ```
 
 **Bước 4: Khởi động lại dịch vụ bằng Systemd**
@@ -154,10 +181,10 @@ sudo chown quickbite:quickbite /opt/quickbite/order-service-0.0.1.jar
 sudo systemctl daemon-reload
 
 # Restart dịch vụ để tải file JAR mới
-sudo systemctl restart quickbite-order
+sudo systemctl restart quickbite-user
 
 # Kiểm tra trạng thái hoạt động
-sudo systemctl status quickbite-order
+sudo systemctl status quickbite-user
 ```
 
 Nếu màn hình hiển thị trạng thái `active (running)`, ứng dụng đã chạy. Tuy nhiên, nếu bạn sửa đổi tiếp code, bạn sẽ phải lặp lại toàn bộ 4 bước gõ tay này từ đầu!
@@ -178,14 +205,27 @@ Nếu màn hình hiển thị trạng thái `active (running)`, ứng dụng đ�
 Tại sao việc cấu hình Systemd tự khởi động lại ứng dụng (`Restart=always`) trên server vẫn không được coi là đã áp dụng DevOps? Hãy chỉ ra điểm khác biệt cốt lõi.
 * *Gợi ý:* Systemd chỉ là công cụ quản lý tiến trình tĩnh tại một server local. Nó không tự động tích hợp mã nguồn từ Git, không tự test chất lượng, và không tự động hóa quy trình bàn giao. DevOps là một chuỗi tự động hóa và cộng tác khép kín từ khâu code đến vận hành thực tế.
 
-#### Câu 2 (Dự đoán lỗi cấu hình)
-Nếu thư mục `/opt/quickbite` trên server thuộc sở hữu của user `root` với quyền hạn `750` (`rwxr-x---`). Chuyện gì xảy ra nếu bạn chạy dịch vụ bằng Systemd cấu hình dòng lệnh `User=quickbite`?
-* *Gợi ý:* Dịch vụ sẽ thất bại (`failed` / `exit-code`). Vì tiến trình Java được khởi chạy dưới danh nghĩa user `quickbite`, nhưng user này không có quyền đọc/thực thi trong thư mục `/opt/quickbite` thuộc sở hữu của `root` với quyền hạn hạn chế.
-
-#### Câu 3 (Xử lý sự cố thực tế)
-Bạn vừa restart `order-service` thủ công trên server. Lệnh `systemctl status` báo trạng thái dịch vụ là `active (running)`. Tuy nhiên, khi gọi API từ trình duyệt thì nhận được lỗi `502 Bad Gateway`. 
-Hãy đưa ra **3 câu lệnh chẩn đoán nhanh** ngay trên server để tìm nguyên nhân gốc rễ.
+#### Câu 2 (Đọc và phán đoán ý nghĩa cấu hình)
+Dưới đây là một đoạn trích từ file cấu hình Systemd mẫu đã học trong bài:
+```ini
+[Service]
+WorkingDirectory=/opt/quickbite
+ExecStart=/usr/bin/java -jar /opt/quickbite/user-service-0.0.1.jar
+Restart=always
+RestartSec=10
+```
+Dựa vào các từ khóa tiếng Anh có sẵn, hãy phán đoán xem các dòng cấu hình trên có ý nghĩa gì đối với ứng dụng Java của chúng ta khi chạy trên server.
 * *Gợi ý:*
-  1. Xem log thời gian thực của ứng dụng để kiểm tra lỗi crash ngầm hoặc lỗi kết nối DB: `journalctl -u quickbite-order.service -n 100 -f`
-  2. Kiểm tra xem port 8081 của service đã được lắng nghe chưa: `sudo ss -tulpn | grep 8081`
-  3. Kiểm tra xem server có thể gọi nội bộ tới service được không: `curl -I http://localhost:8081/api/v1/orders/version`
+  - `WorkingDirectory=/opt/quickbite`: Chỉ định thư mục làm việc chính thức của ứng dụng trên máy chủ Linux.
+  - `ExecStart=...`: Lệnh thực thi để khởi chạy ứng dụng (ở đây là lệnh chạy file Java JAR quen thuộc `java -jar`).
+  - `Restart=always`: Cấu hình cho phép Systemd tự động khởi động lại ứng dụng nếu nó bị crash hoặc dừng đột ngột.
+  - `RestartSec=10`: Thời gian chờ 10 giây trước khi Systemd tiến hành chạy lại ứng dụng sau khi sập.
+
+#### Câu 3 (Xử lý tình huống thực tế)
+Một lập trình viên vừa hoàn thành sửa code cho tính năng đăng ký người dùng của `user-service` ở máy local và muốn cập nhật lên server Staging. Theo đúng quy trình triển khai thủ công đã học, lập trình viên này cần thực hiện các hành động sau:
+* (a) Kết nối SSH vào server Linux để reload cấu hình và restart dịch vụ.
+* (b) Sử dụng lệnh SCP để truyền tải file JAR mới từ máy local lên server Staging.
+* (c) Chạy lệnh biên dịch và đóng gói mã nguồn thành file JAR tại máy local.
+
+Hãy sắp xếp thứ tự thực hiện đúng của các hành động trên để hoàn tất việc cập nhật.
+* *Gợi ý:* Thứ tự đúng là **(c) -> (b) -> (a)**. (Đóng gói tại local trước -> Truyền file đóng gói lên server -> Kết nối vào server để kích hoạt chạy file mới).
