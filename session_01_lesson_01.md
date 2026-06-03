@@ -127,8 +127,10 @@ DevOps là sự dịch chuyển văn hóa và tư duy: Lập trình viên không
 > * Hãy **giả định mặc định** rằng Staging Server (Linux) đã được đội vận hành (Ops) dựng sẵn, cài sẵn Java và cấp cho bạn thông tin kết nối SSH. Bạn tạm thời sử dụng các lệnh `scp`, `ssh` như một "hộp đen" có sẵn.
 > * Toàn bộ quy trình tự mua VPS, thiết lập Linux, cấu hình SSH Key và Firewall từ con số 0 sẽ được hướng dẫn rất chi tiết tại **Session 10 (Triển khai hệ thống lên VPS)**.
 
-#### 5.1 Cấu hình Systemd dịch vụ trên Server
-Trên server, ta cấu hình file dịch vụ Systemd tại đường dẫn `/etc/systemd/system/quickbite-user.service` để quản lý tiến trình chạy ngầm:
+#### 5.1 Cấu hình chạy dịch vụ trên máy chủ (Linux Systemd vs Windows Server Service)
+Trong thực tế phát triển phần mềm, Linux (như Ubuntu/Debian) là hệ điều hành máy chủ tiêu chuẩn của DevOps do tính gọn nhẹ và bảo mật. Tuy nhiên, nếu doanh nghiệp của bạn bắt buộc phải sử dụng **Windows Server**, quy trình khởi chạy tiến trình sẽ rất khác:
+* **Trên Windows Server:** Bạn không có Systemd. Thay vào đó, bạn sẽ phải dùng công cụ bên thứ ba như **NSSM (Non-Sucking Service Manager)** để "bọc" lệnh `java -jar` thành một **Windows Service** chạy ngầm, hoặc cấu hình chạy qua **Task Scheduler**.
+* **Trên Linux Server (Hệ điều hành chuẩn của khóa học):** Chúng ta sử dụng **Systemd** - bộ quản lý hệ thống mặc định của Linux. Ta sẽ tạo một file cấu hình dịch vụ tại đường dẫn `/etc/systemd/system/quickbite-user.service` trên server để quản lý tiến trình chạy ngầm của `user-service`:
 
 ```ini
 [Unit]
