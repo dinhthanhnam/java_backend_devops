@@ -19,7 +19,7 @@ Khi bạn chuyển giao file `user-service-0.0.1.jar` lên máy chủ Linux, hai
 1. **Lỗi phân quyền (Permission Denied):** Bạn gõ lệnh chạy ứng dụng nhưng Linux báo lỗi chặn quyền truy cập. Đó là do file JAR hoặc thư mục chứa nó chưa được phân quyền đọc/thực thi đúng cách cho tài khoản chạy dịch vụ.
 2. **Lỗi mạng và xung đột cổng mạng (Port Conflict):** 
    - Ứng dụng Spring Boot của bạn không thể kết nối tới cơ sở dữ liệu PostgreSQL ở một VPS khác. Làm sao bạn kiểm tra xem đường truyền vật lý có thông hay cổng kết nối database có bị chặn bởi Firewall?
-   - Ứng dụng Spring Boot bị crash lúc khởi động với lỗi: `java.net.BindException: Address already in use (Bind failed)`. Làm sao để bạn biết tiến trình nào đang chiếm dụng cổng 8080 để tắt nó đi?
+   - Ứng dụng Spring Boot bị crash lúc khởi động với lỗi: `Web server failed to start. Port 8080 was already in use.`. Làm sao để bạn biết tiến trình nào đang chiếm dụng cổng 8080 để tắt nó đi?
 
 *Bài học này cung cấp các "executable" (lệnh thực thi) cốt lõi để bạn nhanh chóng chẩn đoán và tự xử lý các sự cố trên.*
 
