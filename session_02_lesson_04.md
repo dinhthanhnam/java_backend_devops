@@ -7,144 +7,97 @@
 ### PHẦN 1. MỤC TIÊU BÀI HỌC
 
 Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
-* **Làm chủ** các câu lệnh quản lý vòng đời của một container: Tạo mới, khởi chạy, dừng lại, và xóa bỏ.
-* **Cấu hình thành thạo** các tham số cờ mạng (`-d`, `-p`, `--name`) để chạy ngầm và mở cổng truy cập container từ máy host.
-* **Phân biệt** sự khác biệt bản chất giữa trạng thái dừng hoạt động (Stopped) và trạng thái bị xóa bỏ hoàn toàn (Destroyed) của container.
-* **Tra cứu** các tham số chạy container nâng cao thông qua tài liệu chính thống của Docker.
+* **Sử dụng thành thạo** các lệnh điều khiển vòng đời container: Khởi chạy, dừng, khởi động lại và xóa bỏ.
+* **Cấu hình chính xác** cổng mạng (`-p`), chạy ngầm (`-d`) và đặt tên container (`--name`).
+* **Phân biệt** được trạng thái dừng hoạt động (Stopped) và xóa bỏ hoàn toàn (Destroyed) của container.
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (CHẠY DATABASE TRONG CONTAINER NHƯ THẾ NÀO?)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (KỊCH BẢN "ĂN HÀNH" CỦA INTERN KHI CHẠY DATABASE)
 
-Ở Lesson 3, chúng ta đã cài đặt thành công Docker Engine và khởi chạy container kiểm thử đầu tiên (`hello-world`). Tuy nhiên, container `hello-world` chỉ in ra một dòng chào mừng rồi tự động dừng lại lập tức.
+Hãy tưởng tượng một tình huống thực tế tại dự án QuickBite:
+Anh Tech Lead giao cho một bạn Intern một nhiệm vụ tưởng chừng cực kỳ đơn giản: *"Chạy một container PostgreSQL để làm database tạm thời, sao cho ứng dụng `user-service` đang chạy ở máy host kết nối vào được để ghi dữ liệu"*.
 
-Trong thực tế phát triển dự án QuickBite, các dịch vụ như Database PostgreSQL hay `user-service` cần chạy ngầm liên tục, sẵn sàng tiếp nhận các kết nối mạng. Giả sử bạn cần thiết lập một database PostgreSQL làm kho lưu trữ dữ liệu tạm thời cho dịch vụ `user-service`:
-* Nếu bạn cài đặt PostgreSQL trực tiếp lên máy host theo cách truyền thống (tải file cài đặt về chạy), máy tính của bạn sẽ rất nhanh bị nặng do các tiến trình chạy ngầm của hệ thống, và cực kỳ dễ xung đột cổng mặc định `5432` nếu bạn đã lỡ cài một bản Postgres cũ trước đó.
-* Bạn quyết định đưa PostgreSQL vào chạy trong container của Docker. Lúc này, bạn phải giải quyết được 3 vấn đề:
-  1. Làm sao để database chạy ngầm độc lập bên dưới mà không chiếm quyền điều khiển và "khóa cứng" cửa sổ Terminal hiện tại của bạn?
-  2. Làm sao để ứng dụng Spring Boot `user-service` đang chạy ở máy host có thể chọc được vào cổng `5432` nằm sâu bên trong vùng mạng cô lập của container?
-  3. Làm sao để đặt một cái tên dễ nhớ (như `quickbite-db`) thay vì để Docker tự đặt tên ngẫu nhiên dài dòng khó quản lý?
+Bạn Intern hí hửng nghĩ thầm: *"Nhiệm vụ này quá dễ! Chỉ cần khởi chạy container lên là xong"*. 
+Tuy nhiên, ngay sau khi gõ lệnh run mặc định, bạn Intern lập tức rơi vào hai rắc rối:
 
-> [!TIP]
-> **Image Prompt gợi ý:**
-> A structural flow diagram of a container's lifecycle. Four boxes represent the states: 1. "Created" (grey), 2. "Running" (glowing green, showing a database icon inside), 3. "Stopped" (orange, showing inactive process), 4. "Destroyed" (red, showing container dissolving). Arrows represent transition commands like `docker run`, `docker stop`, and `docker rm`. Modern flat technical vector style.
+1. **Bị khóa cứng Terminal:** Log khởi động của Postgres chiếm trọn màn hình và khóa chặt shell session. Do không thể gõ thêm lệnh nào khác, bạn Intern bấm nhầm tổ hợp phím `Ctrl+C` để thoát ra, và thế là... container database cũng bị tắt ngóm ngay lập tức.
+2. **Không thể kết nối:** Sau khi mở cửa sổ Terminal mới và chạy lại thành công, database báo đã khởi động xong. Tuy nhiên, ứng dụng `user-service` ở máy host cố gắng kết nối vào cổng `5432` thì liên tục báo lỗi kết nối thất bại (`Connection Refused`). 
 
-*Bài học này sẽ hướng dẫn bạn làm chủ bộ ba cờ tham số sống còn của Docker để thiết lập và kiểm soát vòng đời của container một cách chuyên nghiệp.*
+*Để giải cứu bạn Intern, chúng ta cần nắm vững các tham số cờ (flags) để vừa chạy ngầm container vừa mở cổng kết nối Card mạng ra bên ngoài.*
 
 ---
 
-### PHẦN 3. KIẾN THỨC CỐT LÕI (VÒNG ĐỜI CONTAINER & CÁC THAM SỐ CẤU HÌNH)
+### PHẦN 3. KIẾN THỨC CỐT LÕI
 
-#### 3.1 Vòng đời của một Container
-Một Docker Container trải qua các trạng thái tuần tự sau trong vòng đời của nó:
+#### 3.1 Bộ ba tham số sống còn khi chạy Container
+Khi thực hiện lệnh `docker run`, bạn cần làm chủ 3 tham số sau:
+* **`-d` (Detached mode):** Chạy container dưới nền (background). Giải phóng Terminal để bạn tiếp tục nhập các câu lệnh khác. Container sẽ chạy độc lập với trạng thái đóng/mở của cửa sổ Terminal.
+* **`-p host_port:container_port` (Port Mapping):** Ánh xạ cổng mạng của máy host vào cổng mạng nội bộ của container. Ví dụ: `-p 5432:5432` giúp chuyển hướng mọi yêu cầu truy cập cổng `5432` của máy host vào cổng `5432` của PostgreSQL trong container.
+* **`--name [tên_định_danh]`:** Đặt tên tường minh cho container (ví dụ: `quickbite-db`) để dễ dàng quản lý thay vì để Docker tự sinh tên ngẫu nhiên.
 
+#### 3.2 Vòng đời của Container
+Tiến trình của container trải qua 4 trạng thái chính:
 ```text
- ┌───────────┐   docker run   ┌───────────┐   docker stop   ┌───────────┐   docker rm   ┌───────────┐
- │  Created  │ ─────────────► │  Running  │ ──────────────► │  Stopped  │ ────────────► │ Destroyed │
- │ (Đã tạo)  │                │ (Đang chạy│                 │ (Đã dừng) │               │ (Đã xóa)  │
- └───────────┘                └───────────┘                 └───────────┘               └───────────┘
+[Created] (Đã tạo) ──► [Running] (Đang chạy) ──► [Stopped] (Đã dừng) ──► [Destroyed] (Đã xóa)
 ```
-
 * **Created (Đã tạo):** Container được khởi tạo từ Image, các lớp cấu hình đã sẵn sàng nhưng tiến trình chính bên trong chưa thực sự chạy.
 * **Running (Đang hoạt động):** Tiến trình chính của ứng dụng bên trong container được kích hoạt (ví dụ: PostgreSQL đang lắng nghe cổng mạng). Container tiêu thụ tài nguyên RAM/CPU của máy host.
-* **Stopped / Exited (Đã dừng):** Tiến trình chính bên trong container bị tắt (do lệnh tắt hoặc do ứng dụng bị lỗi crash). Lúc này, container không còn tiêu thụ RAM và CPU nữa, nhưng toàn bộ dữ liệu ghi trên lớp ghi Writable Layer vẫn còn nguyên trên ổ đĩa của máy host.
-* **Destroyed (Đã xóa):** Toàn bộ container cùng lớp ghi tạm thời Writable Layer bị xóa bỏ hoàn toàn khỏi hệ thống, giải phóng hoàn toàn dung lượng ổ cứng.
-
-#### 3.2 Bộ ba cờ tham số sống còn (`-d`, `-p`, `--name`)
-Để đưa một dịch vụ như PostgreSQL vào vận hành ổn định trong container, lệnh `docker run` cung cấp 3 tham số quan trọng:
-
-1. **Chạy ngầm dưới nền - Detached Mode (`-d`):**
-   * Mặc định, khi bạn chạy container, Docker sẽ gắn dòng dữ liệu ra (STDOUT) vào Terminal của bạn. Nếu bạn tắt Terminal hoặc gõ `Ctrl+C`, container sẽ sập.
-   * Thêm cờ `-d` sẽ báo cho Docker Daemon chạy container độc lập dưới nền hệ thống, trả lại quyền nhập lệnh ngay lập tức cho Terminal của bạn.
-2. **Ánh xạ cổng mạng - Port Mapping (`-p host_port:container_port`):**
-   * Container chạy trong một phân vùng mạng cô lập. Nếu không cấu hình cờ này, không ai ở bên ngoài máy host có thể kết nối tới ứng dụng bên trong container.
-   * Ví dụ: `-p 5432:5432` nghĩa là: *"Hễ có ai gửi request tới cổng `5432` của máy host, hãy chuyển tiếp toàn bộ dữ liệu đó vào cổng `5432` bên trong container"*.
-3. **Đặt tên định danh - Naming (`--name`):**
-   * Nếu không đặt tên, Docker sẽ tự sinh ra một tên ngẫu nhiên (ví dụ: `epic_spitzer`). Việc này cực kỳ khó cho các script tự động hóa.
-   * Thêm `--name quickbite-db` giúp bạn dễ dàng chỉ định container này trong các câu lệnh quản trị tiếp theo.
+* **Stopped (Exited):** Tiến trình bên trong container đã tắt. Container giải phóng hoàn toàn CPU và RAM, nhưng dữ liệu ghi tạm thời và file cấu hình vẫn được lưu trên ổ đĩa của máy host.
+* **Destroyed:** Container bị xóa bỏ hoàn toàn khỏi hệ thống, giải phóng bộ nhớ ổ đĩa.
 
 ---
 
-### PHẦN 4. DEMO THỰC HÀNH: QUẢN LÝ VÒNG ĐỜI CONTAINER `quickbite-db`
+### PHẦN 4. KHỐI LỆNH THỰC HÀNH CỐT LÕI
 
-Hãy mở Terminal trên môi trường Sandbox của bạn và thực hiện đầy đủ các bước quản lý vòng đời của database PostgreSQL dưới đây:
+Hãy mở Terminal và thực hiện lần lượt các lệnh quản lý container `quickbite-db` (dùng image PostgreSQL tối giản `alpine`):
 
-#### Bước 1: Khởi chạy container database chạy ngầm
-Chúng ta sử dụng image PostgreSQL bản rút gọn (`alpine`) và truyền mật khẩu database thông qua biến môi trường `-e POSTGRES_PASSWORD`:
 ```bash
+# 1. Khởi chạy container PostgreSQL chạy ngầm, mở cổng 5432, đặt tên rõ ràng
 docker run -d --name quickbite-db -p 5432:5432 -e POSTGRES_PASSWORD=secret postgres:15-alpine
-```
-* **Kết quả:** Terminal trả về một chuỗi ký tự dài (đây chính là Container ID đầy đủ) và lập tức cho phép bạn gõ lệnh tiếp theo.
 
-#### Bước 2: Liệt kê các container đang hoạt động
-```bash
+# 2. Liệt kê các container đang hoạt động để kiểm tra trạng thái
 docker ps
-```
-* **Kết quả mong đợi:** Danh sách in ra một dòng chứa container tên là `quickbite-db`, đang chạy (`Up...`), và ánh xạ cổng `0.0.0.0:5432->5432/tcp`.
+# Output hiển thị rõ trạng thái Up và thông số Port mapping.
 
-#### Bước 3: Dừng hoạt động của container database
-Khi không cần chạy thử nghiệm database nữa, ta hạ lệnh dừng:
-```bash
+# 3. Dừng container database
 docker stop quickbite-db
-```
-* **Kết quả:** Tiến trình PostgreSQL bị tắt an toàn. Lệnh `docker ps` lúc này sẽ không còn hiển thị container này nữa.
 
-#### Bước 4: Kiểm tra danh sách tất cả các container (kể cả đã tắt)
-```bash
+# 4. Liệt kê tất cả các container (bao gồm cả container đã dừng)
 docker ps -a
-```
-* **Kết quả mong đợi:** Container `quickbite-db` xuất hiện lại trong danh sách nhưng cột Status ghi là `Exited (0) ...` (Đã dừng an toàn). Dữ liệu cấu hình của database vẫn được lưu trên đĩa cứng máy host.
+# Status lúc này hiển thị Exited (0).
 
-#### Bước 5: Xóa bỏ hoàn toàn container khỏi hệ thống
-Để dọn dẹp dung lượng ổ đĩa và giải phóng hoàn toàn tài nguyên:
-```bash
+# 5. Khởi động lại container cũ đã dừng mà không cần tạo mới
+docker start quickbite-db
+
+# 6. Xóa bỏ hoàn toàn container khỏi hệ thống
+# Lưu ý: Phải stop container trước khi rm, hoặc dùng cờ -f để xóa cưỡng chế
+docker stop quickbite-db
 docker rm quickbite-db
 ```
-* **Kết quả:** Chạy lại `docker ps -a` sẽ thấy container `quickbite-db` đã biến mất hoàn toàn. Lúc này, bạn có thể tự do tạo một container mới trùng tên `quickbite-db` mà không bị lỗi xung đột.
 
 ---
 
-### PHẦN 5. HIỂU LẦM THƯỜNG GẶP & RÀNG BUỘC KHI XÓA CONTAINER (STATUS BLOCK)
+### PHẦN 5. HIỂU LẦM THƯỜNG GẶP
 
-* **Hiểu lầm thường gặp:** Khi muốn xóa nhanh một container đang chạy, tôi chỉ cần gõ lệnh `docker rm [tên_container]` là xong.
-* **Sự thật:** Docker Daemon sẽ chặn đứng hành động này và ném ra lỗi: 
-  `Error response from daemon: You cannot remove a running container ... Stop the container before attempting removal`.
-  - **Lý do:** Docker bảo vệ ứng dụng tránh việc bị mất dữ liệu bất ngờ khi tiến trình vẫn đang ghi dữ liệu vào ổ đĩa. 
-  - **Cách xử lý đúng:** Bắt buộc phải gõ `docker stop` trước để tiến trình kết thúc an toàn, sau đó mới gõ `docker rm`. Chỉ trong trường hợp khẩn cấp hoặc viết script tự động hóa, bạn mới dùng cờ cưỡng chế `-f` (`docker rm -f [tên_container]`).
+* **Hiểu sai:** Lệnh `docker stop` sẽ xóa sạch dữ liệu và container.
+* **Đính chính:** Lệnh `docker stop` chỉ tạm dừng tiến trình hệ thống giống như việc bạn tắt một ứng dụng trên máy. Toàn bộ dữ liệu ghi trên lớp Writable Layer của container (ví dụ: các bảng dữ liệu database đã tạo) vẫn nằm an toàn trên ổ đĩa cho đến khi bạn chạy lệnh `docker rm`.
 
 ---
 
-### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG (XÁC MINH KIẾN THỨC)
+### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG
 
-Để kiểm chứng cơ chế quản lý vòng đời và các cờ tham số của container, bạn có thể tham khảo trực tiếp các tài liệu uy tín từ Docker:
-1. **Đặc tả chi tiết các tham số của lệnh chạy container (`docker run`):**
-   * [Docker Run Reference Guide - Docker Docs](https://docs.docker.com/reference/cli/docker/container/run/)
-2. **Hướng dẫn cơ bản về vòng đời và hoạt động của Container:**
-   * [Containers Basics - Docker Docs](https://docs.docker.com/get-started/docker-concepts/the-basics/#what-is-a-container)
-3. **Cơ chế hoạt động của mạng và ánh xạ cổng trong Docker:**
-   * [Docker Networking and Ports - Docker Docs](https://docs.docker.com/engine/network/)
+* [Docker Run Reference - Docker Docs](https://docs.docker.com/reference/cli/docker/container/run/)
+* [Docker Container CLI commands - Docker Docs](https://docs.docker.com/reference/cli/docker/container/)
 
 ---
 
 ### PHẦN 7. CÂU HỎI ĐÁNH GIÁ NHANH
 
-#### Câu 1 (Hiểu bản chất)
-Giải thích sự khác biệt lớn nhất về tài nguyên (RAM, CPU, Ổ đĩa) của container `quickbite-db` giữa hai trạng thái: sau khi chạy lệnh `docker stop` và sau khi chạy lệnh `docker rm`.
-* *Gợi ý:*
-  - Sau lệnh `docker stop`: Container giải phóng hoàn toàn tài nguyên CPU và RAM của máy host. Tuy nhiên, dữ liệu trên lớp ghi Writable Layer và file cấu hình của container vẫn bị chiếm dụng trên dung lượng ổ cứng (Ổ đĩa chưa được giải phóng).
-  - Sau lệnh `docker rm`: Toàn bộ dữ liệu của container trên ổ cứng bị xóa bỏ sạch sẽ, ổ đĩa của máy host được giải phóng hoàn toàn.
+#### Câu 1
+Nếu khởi chạy container bằng lệnh: `docker run -d --name quickbite-db postgres:15-alpine` (quên cờ `-p 5432:5432`), ứng dụng Spring Boot chạy trực tiếp từ máy local có kết nối vào Database được không? Tại sao?
+* *Gợi ý:* Không kết nối được. Thiếu `-p`, Docker sẽ không ánh xạ cổng mạng từ máy host vào container. Ứng dụng ngoài máy host không thể nhìn thấy cổng `5432` của database.
 
-#### Câu 2 (Đọc hiểu và dự đoán)
-Nếu bạn khởi chạy database bằng câu lệnh sau:
-`docker run -d --name quickbite-db postgres:15-alpine`
-(Bạn quên không khai báo cờ `-p 5432:5432`). Hỏi ứng dụng Spring Boot `user-service` đang khởi chạy trực tiếp trên máy local (ngoài máy host) có thể kết nối được tới database PostgreSQL này để ghi dữ liệu hay không? Tại sao?
-* *Gợi ý:* Hoàn toàn không kết nối được. Mặc dù database bên trong container vẫn khởi chạy thành công và lắng nghe cổng `5432` nội bộ, nhưng do thiếu cờ Port Mapping (`-p`), Docker Engine không mở cổng chuyển tiếp dữ liệu từ máy host vào container. Card mạng của máy host không thể tìm thấy đường dẫn kết nối vào bên trong container.
-
-#### Câu 3 (Xử lý tình huống thực tế)
-Bạn gõ lệnh khởi chạy container PostgreSQL để làm database và nhận được thông báo lỗi đỏ từ hệ thống:
-`Conflict. The container name "/quickbite-db" is already in use by container "[chuỗi_ID]". You have to remove (or rename) that container to be able to reuse that name.`
-Hãy nêu nguyên nhân gây ra lỗi này và trình bày 2 cách xử lý tình huống trên. Cách nào là an toàn nhất?
-* *Gợi ý:* 
-  - Nguyên nhân: Hệ thống đang tồn tại một container cũ (có thể đang chạy hoặc đã stop nhưng chưa xóa) trùng tên là `quickbite-db`.
-  - Cách 1 (Nhanh nhưng rủi ro): Xóa container cũ đi bằng lệnh `docker rm quickbite-db` (nếu container đã dừng) rồi chạy lại lệnh. Cách này sẽ làm mất toàn bộ dữ liệu của container cũ đó.
-  - Cách 2 (An toàn nhất): Đổi tên container mới khi khởi chạy thành một tên khác (ví dụ: `--name quickbite-db-v2`) hoặc kiểm tra xem container cũ có đang chứa dữ liệu quan trọng không trước khi quyết định xóa nó.
+#### Câu 2
+Làm thế nào để xóa một container đang ở trạng thái chạy (`Up`) mà không cần chạy lệnh `docker stop` trước? Lệnh đó có rủi ro gì?
+* *Gợi ý:* Sử dụng lệnh xóa cưỡng chế: `docker rm -f [tên_container]`. Rủi ro của lệnh này là có thể gây mất mát dữ liệu hoặc hỏng file do tiến trình bên trong container bị tắt đột ngột (tương đương `kill -9`) khi đang ghi dữ liệu.
