@@ -58,7 +58,7 @@ Cách làm trực diện này chỉ hoạt động khi bạn có duy nhất mộ
 #### 3.1 Lớp biên giới (Edge Layer): Nginx và API Gateway
 Đây là hai chốt chặn duy nhất mở cửa đón dữ liệu từ internet vào hệ thống:
 * **Nginx (Reverse Proxy & Web Server):** Là tấm khiên đứng ở rìa ngoài cùng của hệ thống. Nó tiếp nhận request trực tiếp từ internet qua cổng tiêu chuẩn `80` (HTTP) hoặc `443` (HTTPS). 
-  * *Nhiệm vụ:* Nginx sẽ kiểm tra tên miền truy cập để điều hướng dòng tiền:
+  * *Nhiệm vụ:* Nginx sẽ kiểm tra tên miền truy cập để điều hướng:
     - **Điều hướng Frontend (`web.quickbite.com`):** Nginx đóng vai trò là một Web Server lưu trữ các file tĩnh (HTML, CSS, JS) của ứng dụng Frontend. Khi người dùng truy cập giao diện, Nginx ngay lập tức trả về các file này cực kỳ nhanh chóng mà không cần đi qua bất kỳ logic backend nào. *(Lưu ý: Môn học này chúng ta tập trung thực chiến DevOps, nên phần Frontend này chỉ mang tính giới thiệu kiến trúc, thực tế chúng ta không triển khai code FE).*
     - **Điều hướng API Backend (`api.quickbite.com`):** Nginx giải mã HTTPS (SSL Termination) và chuyển tiếp (proxy) request đó đến API Gateway ở phía sau.
 * **API Gateway (Spring Cloud Gateway):** Đứng ngay sau Nginx. 
