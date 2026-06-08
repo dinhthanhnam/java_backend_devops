@@ -113,27 +113,41 @@ Bạn cần giám sát xem database `quickbite-db` có thực sự nhận đư�
 
 ---
 
-### BÀI TẬP 5 (Mức độ Giỏi): Khởi chạy đồng thời các dịch vụ Java khác phiên bản JDK không xung đột (Chỉ cung cấp gợi ý)
+### BÀI TẬP 5 (Mức độ Giỏi): Khởi chạy dịch vụ `user-service` thực tế trong container JRE bằng cơ chế Mount thư mục (Volume Mounting)
 
 #### 1. Mục tiêu mong muốn đạt được
-* **Chứng minh năng lực cô lập môi trường** (Runtime Isolation) của công nghệ Container mà không cần cài đặt nhiều bộ JDK lên hệ điều hành máy host.
-* **Xâu chuỗi lệnh** chạy container để chạy song song nhiều runtime JDK khác nhau.
+* **Chạy ứng dụng Spring Boot thực tế** trong môi trường container sử dụng image JRE chính thức từ Docker Hub mà không cần viết Dockerfile.
+* **Vận dụng cơ chế Volume Mounting (`-v`)** để chia sẻ file thực thi từ máy host vào bên trong container.
+* **Cấu hình môi trường mạng và database** thông qua biến môi trường (`-e`) và cơ chế định tuyến ngược về host.
 
 #### 2. Mô tả yêu cầu
-Bạn được giao nhiệm vụ chạy thử nghiệm phiên bản Java của hai dịch vụ: `user-service` (yêu cầu chạy trên **Java 17**) và `order-service` (yêu cầu chạy trên **Java 21**) trên cùng một máy chủ VPS.
-1. Hãy tìm cách sử dụng hai image JRE chính thức từ Docker Hub: `eclipse-temurin:17-jre-alpine` và `eclipse-temurin:21-jre-alpine` để khởi chạy hai container song song.
-2. Đặt tên container tương ứng là `quickbite-user` và `quickbite-order`.
-3. Viết một câu lệnh duy nhất cho mỗi container để khi chạy, container in ra phiên bản Java bên trong (`java -version`) rồi tự động xóa bỏ container ngay lập tức để tiết kiệm bộ nhớ (sử dụng cờ tự dọn dẹp `--rm`).
-* *Gợi ý (Hints):* Cú pháp lệnh có dạng `docker run --rm --name [tên] [image] java -version`.
+Bạn cần triển khai dịch vụ `user-service` thực tế chạy trong một container JRE mà chưa cần viết Dockerfile:
+1. Thực hiện biên dịch (compile) ứng dụng `user-service` trên máy host thành file JAR.
+   * *Gợi ý:* Chạy lệnh `./gradlew bootJar` hoặc `./gradlew build -x test` ở thư mục dự án `user-service`. Xác định tên file JAR được sinh ra trong thư mục `build/libs` (thường là `user-service-0.0.1-SNAPSHOT.jar` hoặc tương tự).
+2. Viết câu lệnh `docker run` khởi chạy container từ image JRE 17 chính thức `eclipse-temurin:17-jre-alpine` thỏa mãn các tiêu chí sau:
+   * Khởi chạy ngầm dưới nền (Detached mode) và đặt tên container là `quickbite-user`.
+   * Ánh xạ cổng `-p 8081:8081` để máy host hoặc trình duyệt có thể gọi API vào container.
+   * Sử dụng cờ `-v` để mount thư mục chứa file JAR trên máy host (sử dụng đường dẫn tuyệt đối, ví dụ: `C:/Users/Nathan/backend_java_devops/java_backend_devops/user-service/build/libs`) vào thư mục `/app` trong container.
+   * Đặt thư mục làm việc mặc định của container là `/app` bằng cờ `-w /app`.
+   * Sử dụng cờ `--add-host=host.docker.internal:host-gateway` để container có thể phân giải tên miền `host.docker.internal` trỏ về IP của máy host (nơi database `quickbite-db` đã mở cổng `5432` ở Bài tập 1).
+   * Truyền các cấu hình kết nối database thông qua biến môi trường Spring Boot:
+     - `-e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/postgres` (hoặc tên db của bạn).
+     - `-e SPRING_DATASOURCE_USERNAME=postgres`
+     - `-e SPRING_DATASOURCE_PASSWORD=secret`
+   * Câu lệnh thực thi cuối container là: `java -jar [tên_file_jar_của_bạn].jar` (ví dụ: `java -jar user-service-0.0.1-SNAPSHOT.jar`).
 
 #### 3. Kiểm thử và kết quả mong muốn
-* Khi chạy lệnh của container `quickbite-user`: màn hình console in ra thông tin Java version `"17.x.x"`.
-* Khi chạy lệnh của container `quickbite-order`: màn hình console in ra thông tin Java version `"21.x.x"`.
-* Sau khi chạy xong, lệnh `docker ps -a` xác nhận không còn hai container này tồn tại (đã được tự động xóa sạch).
+1. Khởi chạy container và xem log:
+   ```bash
+   docker logs quickbite-user
+   ```
+2. **Kết quả mong đợi:** Ứng dụng Spring Boot khởi chạy thành công bên trong container, log hiển thị HikariCP kết nối thành công tới database Postgres qua `host.docker.internal:5432` mà không gặp lỗi kết nối.
+3. Mở trình duyệt truy cập: `http://localhost:8081/actuator/health` (hoặc endpoint API có sẵn của dịch vụ).
+4. **Kết quả mong đợi:** Phản hồi trạng thái hoạt động thành công (ví dụ: `{"status":"UP"}`).
 
 #### 4. Hướng dẫn nộp bài
-* Viết 2 câu lệnh bạn sử dụng vào file script `run-jdk-check.sh`. Đẩy file lên Git tại: `/homework/session_02/exercise_05/run-jdk-check.sh`.
-* Chụp màn hình terminal hiển thị kết quả in ra phiên bản Java của cả 2 container lưu thành `jdk_isolation.png` trong thư mục trên.
+* Viết câu lệnh `docker run` hoàn chỉnh của bạn vào file script `run_user_service.sh` và nộp lên Git tại: `/homework/session_02/exercise_05/run_user_service.sh`.
+* Chụp màn hình terminal hiển thị log Spring Boot khởi động thành công của container `quickbite-user` lưu thành `user_service_container.png` trong thư mục trên.
 
 ---
 
