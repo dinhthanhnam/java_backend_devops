@@ -56,11 +56,27 @@ Nhờ DNS nội bộ hoạt động trong mạng chung, các container có thể
   [ user-service (Service Name) ]
                 │
                 ▼ (Kết nối qua URL: jdbc:postgresql://quickbite-db:5432/postgres)
-  [ DNS nội bộ của Docker Compose ] (Tự dịch "quickbite-db" -> IP 172.19.0.3)
+  [ DNS nội bộ của Docker Compose ] (Tự dịch "quickbite-db" -IP 172.19.0.3)
                 │
                 ▼
   [ quickbite-db (Service Name) ]
 ```
+
+[!TIP]
+**So sánh trực quan: Nếu làm bằng lệnh Docker thủ công thì sao?**
+Để dễ hình dung những gì Docker Compose đang âm thầm tự động hóa dưới nền, đây là cách bạn phải gõ thủ công bằng các lệnh CLI đơn lẻ:
+```bash
+# Bước 1: Tự tạo một mạng bridge tùy biến bằng tay
+docker network create --driver bridge quickbite-net
+
+# Bước 2: Khởi chạy container database và ném vào mạng ảo đó
+docker run -d --name quickbite-db --network quickbite-net -e POSTGRES_PASSWORD=secret_password postgres:15-alpine
+
+# Bước 3: Khởi chạy container backend kết nối vào chung mạng ảo để DNS nội bộ nhận diện được tên
+docker run -d --name quickbite-user --network quickbite-net -p 8081:8081 -v /path/to/libs:/app -w /app eclipse-temurin:17-jre-alpine java -jar user-service.jar
+```
+* **Kết luận:** Thay vì phải gõ và quản lý 3 lệnh rời rạc cùng dải tham số phức tạp ở trên, Docker Compose chỉ đơn giản là đọc file `docker-compose.yml` rồi tự chạy đống lệnh này thay cho bạn.
+
 
 ---
 
@@ -69,54 +85,54 @@ Nhờ DNS nội bộ hoạt động trong mạng chung, các container có thể
 Hãy cập nhật tệp `docker-compose.yml` để hoàn thiện hạ tầng mạng và lưu trữ bền vững cho QuickBite:
 
 1. Viết tệp `docker-compose.yml` hoàn chỉnh:
-   ```yaml
-   version: '3.8'
+```yaml
+version: '3.8'
 
-   services:
-     quickbite-db:
-       image: postgres:15-alpine
-       environment:
-         POSTGRES_USER: postgres
-         POSTGRES_PASSWORD: secret_password
-       volumes:
-         - quickbite-db-volume:/var/lib/postgresql/data
-       networks:
-         - quickbite-net
+services:
+  quickbite-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret_password
+    volumes:
+      - quickbite-db-volume:/var/lib/postgresql/data
+    networks:
+      - quickbite-net
 
-     quickbite-user:
-       build:
-         context: ./user-service
-       ports:
-         - "8081:8081"
-       environment:
-         # Sử dụng tên service "quickbite-db" làm host kết nối database
-         SPRING_DATASOURCE_URL: jdbc:postgresql://quickbite-db:5432/postgres
-         SPRING_DATASOURCE_USERNAME: postgres
-         SPRING_DATASOURCE_PASSWORD: secret_password
-       networks:
-         - quickbite-net
-       depends_on:
-         - quickbite-db
+  quickbite-user:
+    build:
+      context: ./user-service
+    ports:
+      - "8081:8081"
+    environment:
+      # Sử dụng tên service "quickbite-db" làm host kết nối database
+      SPRING_DATASOURCE_URL: jdbc:postgresql://quickbite-db:5432/postgres
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: secret_password
+    networks:
+      - quickbite-net
+    depends_on:
+      - quickbite-db
 
-   volumes:
-     quickbite-db-volume: # Khai báo Named Volume lưu trữ database
+volumes:
+  quickbite-db-volume: # Khai báo Named Volume lưu trữ database
 
-   networks:
-     quickbite-net:
-       driver: bridge # Khai báo mạng ảo bridge tùy biến cho dự án
-   ```
+networks:
+  quickbite-net:
+    driver: bridge # Khai báo mạng ảo bridge tùy biến cho dự án
+```
 2. Khởi chạy hệ thống:
-   ```bash
-   docker compose up -d
-   ```
+```bash
+docker compose up -d
+```
 3. Kiểm tra xem volume và network đã được tạo thành công chưa:
-   ```bash
-   docker volume ls
-   # Kết quả mong đợi: Hiển thị volume tên [thư_mục_dự_án]_quickbite-db-volume
-   
-   docker network ls
-   # Kết quả mong đợi: Hiển thị mạng tên [thư_mục_dự_án]_quickbite-net
-   ```
+```bash
+docker volume ls
+# Kết quả mong đợi: Hiển thị volume tên [thư_mục_dự_án]_quickbite-db-volume
+
+docker network ls
+# Kết quả mong đợi: Hiển thị mạng tên [thư_mục_dự_án]_quickbite-net
+```
 4. **Kiểm tra độ bền vững dữ liệu:**
    * Truy cập vào database qua `docker exec` tạo thử một bảng dữ liệu hoặc chạy ứng dụng đăng ký người dùng.
    * Chạy lệnh xóa cụm dịch vụ: `docker compose down`.
