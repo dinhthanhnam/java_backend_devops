@@ -51,6 +51,7 @@ Hệ sinh thái Docker xoay quanh ba khái niệm cốt lõi đại diện cho b
   - **Cấu trúc phân lớp (Layers):** Docker Image được cấu tạo từ nhiều lớp file system xếp chồng lên nhau. 
     - Ví dụ: Lớp đáy là OS Ubuntu tối giản, lớp tiếp theo là JDK 17, lớp trên cùng là code `user-service.jar`. 
     - Cơ chế này giúp tái sử dụng tài nguyên cực kỳ tốt. Nếu bạn build dịch vụ `order-service` chạy Java 17, Docker sẽ tái sử dụng lại các layer OS và JDK 17 có sẵn ở máy, chỉ tải thêm layer chứa file JAR mới của `order-service`.
+  - **Khởi nguồn từ Dockerfile (Bản công thức):** Để tự mình tạo ra (build) một Docker Image cho dịch vụ cá nhân, lập trình viên sẽ viết các chỉ dẫn trong một file văn bản trần tên là **Dockerfile**. File này định nghĩa các bước như: lấy hệ điều hành nào làm gốc, cài JDK nào, copy file JAR vào đâu và chạy câu lệnh gì khi khởi động. (Chúng ta sẽ được học cách viết Dockerfile chi tiết ở các Session sau).
 
 #### 3.2 Docker Container (Thực thể sống động - Tương đương Object trong OOP)
 * **Định nghĩa:** Docker Container là một thực thể sống (Instance) được khởi tạo từ Docker Image. Nó chính là tiến trình ứng dụng Java thực sự đang chạy trên RAM và CPU của máy chủ.
