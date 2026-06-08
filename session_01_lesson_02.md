@@ -74,10 +74,29 @@ Trong thực tế, đường ống CI/CD vận hành theo nguyên lý nghiêm ng
 ```text
 [Dev Git Push] ──► [Git Repository] ──(Webhook Trigger)──► [CI/CD Engine]
                                                                 │
-   ┌───────────────────────┬───────────────────────┐            ▼
-   ▼                       ▼                       ▼      [CD: Deployment]
-[Stage: Compile] ──► [Stage: Unit Test] ──► [Stage: Package] ──►  (Chạy script
- (Check cú pháp)     (Verify logic code)     (Tạo file JAR)        trên Server)
+                                   ┌────────────────────────────┘
+                                   ▼
+                       ┌──────────────────────┐
+                       │   Stage: Compile     │ ──(Thất bại)──► [DỪNG & BÁO LỖI]
+                       │  (Kiểm tra cú pháp)  │
+                       └──────────────────────┘
+                                   │ (Thành công)
+                                   ▼
+                       ┌──────────────────────┐
+                       │   Stage: Unit Test   │ ──(Thất bại)──► [DỪNG & BÁO LỖI]
+                       │ (Kiểm thử tự động)   │
+                       └──────────────────────┘
+                                   │ (Thành công)
+                                   ▼
+                       ┌──────────────────────┐
+                       │    Stage: Package    │ ──(Thất bại)──► [DỪNG & BÁO LỖI]
+                       │ (Đóng gói file JAR)  │
+                       └──────────────────────┘
+                                   │ (Thành công)
+                                   ▼
+                       ┌──────────────────────┐
+                       │    CD: Deployment    │ (Tự động chạy script trên Server)
+                       └──────────────────────┘
 ```
 
 * Nếu **Compile** lỗi (ví dụ: viết thiếu dấu chấm phẩy) -> Dừng luôn pipeline, gửi mail cảnh báo.
