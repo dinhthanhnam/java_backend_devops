@@ -8,7 +8,7 @@
 
 Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
 * **Sử dụng thành thạo** các lệnh điều khiển vòng đời container: Khởi chạy, dừng, khởi động lại và xóa bỏ.
-* **Cấu hình chính xác** cổng mạng (`-p`), chạy ngầm (`-d`) và đặt tên container (`--name`).
+* **Cấu hình chính xác** cổng mạng (`-p`), chạy ngầm (`-d`), đặt tên container (`--name`) và truyền biến môi trường (`-e`).
 * **Phân biệt** được trạng thái dừng hoạt động (Stopped) và xóa bỏ hoàn toàn (Destroyed) của container.
 
 ---
@@ -30,10 +30,11 @@ Tuy nhiên, ngay sau khi gõ lệnh run mặc định, bạn Intern lập tức 
 
 ### PHẦN 3. KIẾN THỨC CỐT LÕI
 
-#### 3.1 Bộ ba tham số sống còn khi chạy Container
-Khi thực hiện lệnh `docker run`, bạn cần làm chủ 3 tham số sau:
+#### 3.1 Bốn tham số sống còn khi chạy Container
+Khi thực hiện lệnh `docker run`, bạn cần làm chủ 4 tham số quan trọng sau:
 * **`-d` (Detached mode):** Chạy container dưới nền (background). Giải phóng Terminal để bạn tiếp tục nhập các câu lệnh khác. Container sẽ chạy độc lập với trạng thái đóng/mở của cửa sổ Terminal.
 * **`-p host_port:container_port` (Port Mapping):** Ánh xạ cổng mạng của máy host vào cổng mạng nội bộ của container. Ví dụ: `-p 5432:5432` giúp chuyển hướng mọi yêu cầu truy cập cổng `5432` của máy host vào cổng `5432` của PostgreSQL trong container.
+* **`-e KEY=VALUE` (Environment Variable):** Truyền biến môi trường vào bên trong container. Các tiến trình (như Database Postgres) sẽ đọc các biến này để cấu hình thông số hoạt động khi khởi chạy (ví dụ: `-e POSTGRES_PASSWORD=secret` để đặt mật khẩu quản trị).
 * **`--name [tên_định_danh]`:** Đặt tên tường minh cho container (ví dụ: `quickbite-db`) để dễ dàng quản lý thay vì để Docker tự sinh tên ngẫu nhiên.
 
 #### 3.2 Vòng đời của Container
