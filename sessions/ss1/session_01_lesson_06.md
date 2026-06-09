@@ -37,6 +37,12 @@ Linux được thiết kế bảo mật tối đa, phân chia quyền hạn rấ
     - `-s /bin/false`: Vô hiệu hóa shell đăng nhập. Điều này có nghĩa là **không ai có thể đăng nhập trực tiếp hoặc dùng SSH để đăng nhập bằng tài khoản `quickbite`**. Đây là quy tắc bảo mật bắt buộc ("best practice") trong DevOps để phòng ngừa việc hacker lợi dụng chiếm quyền shell nếu ứng dụng Spring Boot bị tấn công.
   - `sudo usermod -aG quickbite [tên_user_của_bạn]`: Thêm user thường (ví dụ: user bạn dùng để deploy ứng dụng) vào nhóm `quickbite` để có quyền ghi và đọc file trong thư mục của ứng dụng mà không cần liên tục dùng lệnh `sudo`.
 
+* **Kiểm tra và liệt kê User/Group trên hệ thống:**
+  - `getent passwd` (hoặc `cat /etc/passwd`): Liệt kê toàn bộ danh sách tài khoản người dùng đang có trên hệ thống Linux. Bạn có thể kết hợp thêm bộ lọc để tìm kiếm nhanh: `getent passwd | grep quickbite`.
+  - `getent group` (hoặc `cat /etc/group`): Liệt kê toàn bộ danh sách các nhóm người dùng đang có trên hệ thống.
+  - `id [tên_user]`: Kiểm tra thông tin định danh chi tiết của một người dùng bao gồm UID (User ID), GID (Group ID) và danh sách tất cả các nhóm mà user này đang trực thuộc. Ví dụ: `id quickbite`.
+  - `groups [tên_user]`: Liệt kê nhanh danh sách các nhóm mà một người dùng cụ thể đang tham gia.
+
 * **Các lệnh quản trị quyền cơ bản:**
   - `sudo` (Superuser Do): Chạy dòng lệnh dưới quyền quản trị tối cao (`root`). Chỉ dùng khi thực sự cần thiết (cài đặt phần mềm, tạo user, cấu hình hệ thống).
   - `chown -R [user]:[group] [thư_mục_hoặc_file]`: Thay đổi chủ sở hữu của file/thư mục.
