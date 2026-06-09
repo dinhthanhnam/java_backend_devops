@@ -66,28 +66,28 @@ Docker Compose CLI cung cấp các công cụ tương tác trực tiếp với t
 Hãy thực hành quy trình chẩn đoán lỗi tiêu chuẩn của một kỹ sư DevOps:
 
 1. Khởi chạy hệ thống ở chế độ chạy ngầm:
-   ```bash
-   docker compose up -d
-   ```
+```bash
+docker compose up -d
+```
 2. Kiểm tra danh sách trạng thái của cụm container:
-   ```bash
-   docker compose ps
-   ```
+```bash
+docker compose ps
+```
    * **Kết quả mong đợi:** Màn hình hiển thị bảng danh sách các container, đảm bảo cột `STATUS` hiển thị `Up` cho cả database và backend.
 3. Stream log tổng hợp để giám sát quá trình khởi động:
-   ```bash
-   docker compose logs -f --tail=50
-   ```
+```bash
+docker compose logs -f --tail=50
+```
    * Quan sát cách các dòng log đan xen nhau. Nhấn `Ctrl + C` để thoát chế độ xem log (lưu ý: việc thoát logs không làm dừng container).
 4. Kiểm tra xem database PostgreSQL đã thực sự sẵn sàng nhận kết nối hay chưa bằng công cụ chẩn đoán nội bộ của Postgres:
-   ```bash
-   docker compose exec quickbite-db pg_isready -U postgres
-   ```
+```bash
+docker compose exec quickbite-db pg_isready -U postgres
+```
    * **Kết quả mong đợi:** Console trả về thông báo: `/var/run/postgresql:5432 - accepting connections`.
 5. Dọn dẹp sạch sẽ tài nguyên hệ thống sau khi làm việc xong:
-   ```bash
-   docker compose down
-   ```
+```bash
+docker compose down
+```
 
 ---
 
