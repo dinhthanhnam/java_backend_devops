@@ -35,8 +35,7 @@ Mô hình định tuyến của Spring Cloud Gateway hoạt động dựa trên 
 1. **Route (Tuyến đường):** Là đối tượng định tuyến cơ bản của gateway. Nó bao gồm một ID duy nhất, một URI đích của dịch vụ phía sau, một tập hợp các điều kiện lọc (Predicates) và các bộ lọc (Filters).
 2. **Predicate (Điều kiện khớp):** Là một hàm điều kiện logic giúp Gateway xác định xem request hiện tại có khớp với Route này hay không. 
    * Ví dụ: `- Path=/api/v1/users/**` có nghĩa là "nếu đường dẫn request bắt đầu bằng `/api/v1/users/` thì sẽ áp dụng Route này".
-3. **Filter (Bộ lọc xử lý):** Là các bộ tiền xử lý (pre-filter) và hậu xử lý (post-filter) cho phép sửa đổi request hoặc response trước và sau khi gửi đến dịch vụ đích.
-   * Ví dụ: `StripPrefix=2` (cắt bỏ 2 thành phần đầu tiên của path trước khi chuyển tiếp), hoặc `AddRequestHeader` (thêm Header định danh nguồn gửi request).
+3. **Filter (Bộ lọc xử lý):** Là các bộ tiền xử lý (pre-filter) và hậu xử lý (post-filter) cho phép sửa đổi request hoặc response trước và sau khi gửi đến dịch vụ đích (ví dụ: `StripPrefix=2` hoặc `AddRequestHeader`).
 
 ---
 
@@ -83,106 +82,149 @@ spring:
 * Các biến `${USER_SVC_HOST:localhost}` giúp linh hoạt trỏ về `localhost` khi dev ở máy cá nhân hoặc trỏ về tên container khi chạy trong Docker.
 * Ký tự `**` đại diện cho mọi đường dẫn con ở phía sau (Wildcard).
 
-#### 4.2 Cấu hình Tích hợp trong `docker-compose.yml`
-Hãy cập nhật tệp `docker-compose.yml` của toàn bộ hệ thống để nhúng Gateway vào mạng nội bộ. Chúng ta sẽ xóa bỏ cấu hình `ports` của 4 dịch vụ backend cũ, chỉ mở duy nhất cổng `8080` của Gateway ra ngoài máy host vật lý.
+#### 4.2 Cấu hình Tích hợp trong `docker-compose.yml` và `.env`
+Chúng ta kế thừa và phát triển file `.env` cùng file `docker-compose.yml` từ **Lesson 2**. Lúc này, chúng ta định nghĩa đầy đủ cả 4 dịch vụ backend cùng dịch vụ Gateway, kết nối chéo qua mạng ngoài `quickbite-net` tới container database `quickbite-db` đang chạy ngầm.
 
+1. **Tệp cấu hình `/quickbite-project/.env`:**
+```env
+# Database Common Configuration
+DB_HOST=quickbite-db
+DB_PORT=5432
+
+# User Service Settings
+USER_DB_NAME=quickbite_user_db
+USER_DB_USERNAME=quickbite_user
+USER_DB_PASSWORD=quickbite_user
+USER_SERVER_PORT=8081
+
+# Restaurant Service Settings
+RESTAURANT_DB_NAME=quickbite_restaurant_db
+RESTAURANT_DB_USERNAME=quickbite_restaurant
+RESTAURANT_DB_PASSWORD=quickbite_restaurant
+RESTAURANT_SERVER_PORT=8082
+
+# Order Service Settings
+ORDER_DB_NAME=quickbite_order_db
+ORDER_DB_USERNAME=quickbite_order
+ORDER_DB_PASSWORD=quickbite_order
+ORDER_SERVER_PORT=8083
+
+# Notification Service Settings
+NOTIFICATION_DB_NAME=quickbite_notification_db
+NOTIFICATION_DB_USERNAME=quickbite_notification
+NOTIFICATION_DB_PASSWORD=quickbite_notification
+NOTIFICATION_SERVER_PORT=8084
+
+# Gateway Settings
+GATEWAY_SERVER_PORT=8080
+USER_SVC_HOST=quickbite-user
+USER_SVC_PORT=8081
+RESTAURANT_SVC_HOST=quickbite-restaurant
+RESTAURANT_SVC_PORT=8082
+ORDER_SVC_HOST=quickbite-order
+ORDER_SVC_PORT=8083
+NOTIFICATION_SVC_HOST=quickbite-notification
+NOTIFICATION_SVC_PORT=8084
+```
+
+2. **Tệp cấu hình `/quickbite-project/docker-compose.yml`:**
+Chúng ta xóa bỏ thuộc tính `ports` của các backend service nội bộ và thay thế bằng `expose` để đóng kín hệ thống, chỉ mở duy nhất cổng `8080` của Gateway ra ngoài máy host vật lý.
 ```yaml
 version: '3.8'
 
 services:
-  quickbite-db:
-    image: postgres:15-alpine
-    container_name: quickbite-db
-    environment:
-      - POSTGRES_PASSWORD=secret
-    volumes:
-      - ./init-scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-    networks:
-      - quickbite-net
-
-  # Các Dịch vụ Backend (Chỉ dùng expose cổng nội bộ)
+  # 1. User Service
   quickbite-user:
-    build: context: ./user-service
+    build:
+      context: ./user-service
     container_name: quickbite-user
     expose:
       - "8081"
     environment:
-      - DB_HOST=quickbite-db
-      - DB_NAME=quickbite_user
-    depends_on:
-      - quickbite-db
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${USER_DB_NAME}
+      - DB_USERNAME=${USER_DB_USERNAME}
+      - DB_PASSWORD=${USER_DB_PASSWORD}
+      - SERVER_PORT=${USER_SERVER_PORT}
     networks:
       - quickbite-net
 
+  # 2. Restaurant Service
   quickbite-restaurant:
-    build: context: ./restaurant-service
+    build:
+      context: ./restaurant-service
     container_name: quickbite-restaurant
     expose:
       - "8082"
     environment:
-      - DB_HOST=quickbite-db
-      - DB_NAME=quickbite_restaurant
-    depends_on:
-      - quickbite-db
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${RESTAURANT_DB_NAME}
+      - DB_USERNAME=${RESTAURANT_DB_USERNAME}
+      - DB_PASSWORD=${RESTAURANT_DB_PASSWORD}
+      - SERVER_PORT=${RESTAURANT_SERVER_PORT}
     networks:
       - quickbite-net
 
+  # 3. Order Service
   quickbite-order:
-    build: context: ./order-service
+    build:
+      context: ./order-service
     container_name: quickbite-order
     expose:
       - "8083"
     environment:
-      - DB_HOST=quickbite-db
-      - DB_NAME=quickbite_order
-      - RESTAURANT_SVC_HOST=quickbite-restaurant
-      - RESTAURANT_SVC_PORT=8082
-    depends_on:
-      - quickbite-db
-      - quickbite-restaurant
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${ORDER_DB_NAME}
+      - DB_USERNAME=${ORDER_DB_USERNAME}
+      - DB_PASSWORD=${ORDER_DB_PASSWORD}
+      - SERVER_PORT=${ORDER_SERVER_PORT}
+      - RESTAURANT_SVC_HOST=${RESTAURANT_SVC_HOST}
+      - RESTAURANT_SVC_PORT=${RESTAURANT_SVC_PORT}
     networks:
       - quickbite-net
 
+  # 4. Notification Service
   quickbite-notification:
-    build: context: ./notification-service
+    build:
+      context: ./notification-service
     container_name: quickbite-notification
     expose:
       - "8084"
     environment:
-      - DB_HOST=quickbite-db
-      - DB_NAME=quickbite_notification
-    depends_on:
-      - quickbite-db
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${NOTIFICATION_DB_NAME}
+      - DB_USERNAME=${NOTIFICATION_DB_USERNAME}
+      - DB_PASSWORD=${NOTIFICATION_DB_PASSWORD}
+      - SERVER_PORT=${NOTIFICATION_SERVER_PORT}
     networks:
       - quickbite-net
 
-  # API Gateway (Cổng ngoài duy nhất của toàn bộ hệ thống)
+  # 5. API Gateway (Điểm truy cập duy nhất mở ra host)
   quickbite-gateway:
     build:
       context: ./gateway-service
     container_name: quickbite-gateway
     ports:
-      - "8080:8080" # Ánh xạ cổng 8080 ra ngoài máy host vật lý
+      - "${GATEWAY_SERVER_PORT}:${GATEWAY_SERVER_PORT}"
     environment:
-      - USER_SVC_HOST=quickbite-user
-      - USER_SVC_PORT=8081
-      - RESTAURANT_SVC_HOST=quickbite-restaurant
-      - RESTAURANT_SVC_PORT=8082
-      - ORDER_SVC_HOST=quickbite-order
-      - ORDER_SVC_PORT=8083
-      - NOTIFICATION_SVC_HOST=quickbite-notification
-      - NOTIFICATION_SVC_PORT=8084
-    depends_on:
-      - quickbite-user
-      - quickbite-restaurant
-      - quickbite-order
-      - quickbite-notification
+      - USER_SVC_HOST=${USER_SVC_HOST}
+      - USER_SVC_PORT=${USER_SVC_PORT}
+      - RESTAURANT_SVC_HOST=${RESTAURANT_SVC_HOST}
+      - RESTAURANT_SVC_PORT=${RESTAURANT_SVC_PORT}
+      - ORDER_SVC_HOST=${ORDER_SVC_HOST}
+      - ORDER_SVC_PORT=${ORDER_SVC_PORT}
+      - NOTIFICATION_SVC_HOST=${NOTIFICATION_SVC_HOST}
+      - NOTIFICATION_SVC_PORT=${NOTIFICATION_SVC_PORT}
     networks:
       - quickbite-net
 
 networks:
   quickbite-net:
-    driver: bridge
+    external: true  # Sử dụng chung mạng ảo với container database đang chạy ngầm
 ```
 
 ---
@@ -190,29 +232,24 @@ networks:
 ### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (CẤU TRÚC BLOCKING VỚI THREAD-PER-REQUEST)
 
 * **Hiểu lầm thường gặp:** Có thể nhúng các thư viện chặn luồng (Blocking IO) truyền thống như Spring Data JPA/Hibernate để trực tiếp truy cập cơ sở dữ liệu hoặc sử dụng `Thread.sleep()` bên trong các Filter tự viết của Spring Cloud Gateway.
-* **Sự thật:** 
-  * Spring Cloud Gateway được xây dựng trên nền tảng **Spring WebFlux** và máy chủ web không đồng bộ **Netty** (Non-blocking IO). 
-  * Cơ chế của Netty sử dụng very ít luồng (Event Loop Threads) để xử lý đồng thời hàng nghìn request. Nếu bạn thực hiện một thao tác chặn luồng (blocking) bên trong Filter, luồng xử lý đó sẽ bị khóa cứng. Khi tất cả các luồng xử lý của Netty bị khóa, API Gateway sẽ bị treo hoàn toàn và không tiếp nhận thêm bất kỳ request nào khác của người dùng, làm sập toàn bộ hệ thống. 
-  * Do đó, mọi bộ lọc Filter tùy biến trong Gateway bắt buộc phải tuân thủ triết lý Reactive (Non-blocking).
+* **Sự thật:** Spring Cloud Gateway được xây dựng trên nền tảng **Spring WebFlux** và máy chủ web không đồng bộ **Netty** (Non-blocking IO). Cơ chế của Netty sử dụng rất ít luồng (Event Loop Threads) để xử lý đồng thời hàng nghìn request. Nếu bạn thực hiện một thao tác chặn luồng (blocking) bên trong Filter, luồng xử lý đó sẽ bị khóa cứng, làm treo Gateway hoàn toàn và sập toàn bộ hệ thống. Do đó, các bộ lọc Filter tùy biến trong Gateway bắt buộc phải tuân thủ triết lý Reactive (Non-blocking).
 
 ---
 
 ### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG (XÁC MINH KIẾN THỨC)
 
 1. **Hướng dẫn cấu hình Route trong Spring Cloud Gateway:**
-   * [Spring Cloud Gateway Routes - Developer Guide](https://docs.google.com/url?q=https://spring.io/projects/spring-cloud-gateway#learn)
+   * [Spring Cloud Gateway Routes - Developer Guide](https://spring.io/projects/spring-cloud-gateway#learn)
 2. **Danh sách các Predicate Factories có sẵn:**
-   * [Route Predicate Factories - Spring Docs](https://docs.google.com/url?q=https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway/gatewayfilter-factories.html)
-3. **Danh sách các GatewayFilter Factories có sẵn:**
-   * [GatewayFilter Factories - Spring Docs](https://docs.google.com/url?q=https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway/gatewayfilter-factories.html)
+   * [Route Predicate Factories - Spring Docs](https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway/gatewayfilter-factories.html)
 
 ---
 
 ### PHẦN 7. CÂU HỎI ĐÁNH GIÁ NHANH
 
 #### Câu 1 (Hiểu bản chất)
-Sự khác biệt lớn nhất giữa `expose` và `ports` trong file cấu hình `docker-compose.yml` ở Phân 4 là gì?
-* *Gợi ý:* `ports` dùng để mở và ánh xạ cổng từ container ra ngoài máy host vật lý (Client bên ngoài mạng Docker có thể gọi vào). Trong khi đó, `expose` chỉ khai báo cổng hoạt động nội bộ của container nhằm phục vụ truyền thông giữa các container nằm chung một mạng Docker Network, không cho phép bên ngoài máy host chọc trực tiếp vào cổng này.
+Sự khác biệt lớn nhất giữa `expose` và `ports` trong file cấu hình `docker-compose.yml` ở Phần 4 là gì? (Tham khảo giải thích chi tiết ở **Session 4 Lesson 4 Mục 5**).
+* *Gợi ý:* `ports` dùng để mở và ánh xạ cổng từ container ra ngoài máy host vật lý. Trong khi đó, `expose` chỉ khai báo cổng hoạt động nội bộ của container nhằm phục vụ truyền thông giữa các container nằm chung một mạng Docker Network, không cho phép bên ngoài máy host chọc trực tiếp vào cổng này.
 
 #### Câu 2 (Đọc và dự đoán)
 Giả sử bạn gửi một request GET tới địa chỉ `http://localhost:8080/api/v1/users/1`. Dựa trên tệp cấu hình của Gateway ở Phần 4, yêu cầu này sẽ khớp với Route nào và được chuyển tiếp sang URL nội bộ nào trong mạng Docker?
