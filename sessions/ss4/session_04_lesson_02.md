@@ -67,6 +67,11 @@ Tuy nhiên, việc chia nhỏ này cũng đặt ra thách thức lớn: Làm th�
 
 Thay vì quản lý các container bằng các câu lệnh động CLI đơn lẻ (Imperative Style - Phong cách Mệnh lệnh), Docker Compose chuyển sang phong cách **Declarative (Mô tả trạng thái)**: Bạn chỉ cần viết tất cả cấu hình mong muốn (tên container, port, network, volume, biến môi trường) vào một tệp tin cấu hình duy nhất có tên là `docker-compose.yml` (dạng ngôn ngữ YAML). Docker Compose sẽ đọc tệp tin này và tự động dựng, quản lý toàn bộ hệ thống giúp bạn.
 
+> [!NOTE]
+> **Kế thừa kiến thức:** 
+> Ở Bài học 1, chúng ta đã ứng dụng Docker Compose để khởi động thành công cơ sở dữ liệu `quickbite-db` bằng cách chạy lệnh `docker compose up -d` trong thư mục `quickbite-database`. 
+> Kể từ bài học này trở đi, chúng ta sẽ tìm hiểu chi tiết cấu trúc, cú pháp và cách viết tệp `docker-compose.yml` để đóng gói và vận hành các dịch vụ Java Spring Boot kết nối tới cơ sở dữ liệu dùng chung đó.
+
 ```text
   [ Cấu hình tập trung: docker-compose.yml ]
                      │
