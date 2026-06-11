@@ -16,7 +16,7 @@ Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
 
 ### PHẦN 2. VẤN ĐỀ THỰC TẾ (LÀM SAO ĐỂ CHUYỂN GIAO MÔI TRƯỜNG MÀ KHÔNG BỊ LỆCH PHA?)
 
-Ở Lesson 1, chúng ta đã hiểu lý do vì sao Container ra đời để giải quyết bài toán cô lập môi trường chạy (như chạy song song `user-service` Java 17 và `order-service` Java 21) mà không làm lãng phí RAM của server như Máy ảo (VM). 
+Ở Lesson 1, chúng ta đã hiểu lý do vì sao Container ra đời để giải quyết bài toán cô lập môi trường chạy (như chạy song song `user-service` Java 17 và `restaurant-service` Java 21) mà không làm lãng phí RAM của server như Máy ảo (VM). 
 
 Nhưng một câu hỏi thực tế lớn hơn xuất hiện: **Làm thế nào để chúng ta đóng gói toàn bộ môi trường chạy phức tạp đó và chuyển giao nó từ máy cá nhân lên server Staging/Production một cách đồng nhất?**
 
@@ -50,7 +50,7 @@ Hệ sinh thái Docker xoay quanh ba khái niệm cốt lõi đại diện cho b
   - **Bất biến (Immutable):** Một khi Image đã được build thành công, không ai có thể sửa đổi nội dung bên trong nó. Muốn sửa cấu hình mặc định hoặc code, bạn bắt buộc phải build một Image mới.
   - **Cấu trúc phân lớp (Layers):** Docker Image được cấu tạo từ nhiều lớp file system xếp chồng lên nhau. 
     - Ví dụ: Lớp đáy là OS Ubuntu tối giản, lớp tiếp theo là JDK 17, lớp trên cùng là code `user-service.jar`. 
-    - Cơ chế này giúp tái sử dụng tài nguyên cực kỳ tốt. Nếu bạn build dịch vụ `order-service` chạy Java 17, Docker sẽ tái sử dụng lại các layer OS và JDK 17 có sẵn ở máy, chỉ tải thêm layer chứa file JAR mới của `order-service`.
+    - Cơ chế này giúp tái sử dụng tài nguyên cực kỳ tốt. Nếu bạn build dịch vụ `restaurant-service` chạy Java 17, Docker sẽ tái sử dụng lại các layer OS và JDK 17 có sẵn ở máy, chỉ tải thêm layer chứa file JAR mới của `restaurant-service`.
   - **Khởi nguồn từ Dockerfile (Bản công thức):** Để tự mình tạo ra (build) một Docker Image cho dịch vụ cá nhân, lập trình viên sẽ viết các chỉ dẫn trong một file văn bản trần tên là **Dockerfile**. File này định nghĩa các bước như: lấy hệ điều hành nào làm gốc, cài JDK nào, copy file JAR vào đâu và chạy câu lệnh gì khi khởi động. (Chúng ta sẽ được học cách viết Dockerfile chi tiết ở các Session sau).
 
 #### 3.2 Docker Container (Thực thể sống động - Tương đương Object trong OOP)

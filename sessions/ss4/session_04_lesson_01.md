@@ -19,7 +19,7 @@ Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
 Hãy tưởng tượng bạn đang tiếp quản dự án QuickBite ở môi trường phát triển local. Hệ thống lúc này đã phình to ra 3 thành phần cốt lõi:
 1. **`quickbite-db` (Database):** Container chạy PostgreSQL 15 để lưu trữ dữ liệu.
 2. **`user-service` (Dịch vụ người dùng):** Ứng dụng Spring Boot chạy Java 17 cần kết nối tới `quickbite-db`.
-3. **`order-service` (Dịch vụ đặt món):** Ứng dụng Spring Boot chạy Java 21 cần kết nối tới `quickbite-db`.
+3. **`restaurant-service` (Dịch vụ nhà hàng):** Ứng dụng Spring Boot chạy Java 21 cần kết nối tới `quickbite-db`.
 
 Để dựng môi trường chạy thử nghiệm toàn bộ hệ thống này, bạn phải mở terminal lên và gõ tuần tự các câu lệnh sau:
 ```bash
@@ -33,8 +33,8 @@ docker inspect quickbite-db
 # 3. Khởi chạy User Service, truyền cứng địa chỉ IP 172.17.0.2 của DB vào biến kết nối
 docker run -d --name quickbite-user -p 8081:8081 -v /path/to/user-service/build/libs:/app -w /app -e SPRING_DATASOURCE_URL=jdbc:postgresql://172.17.0.2:5432/postgres -e SPRING_DATASOURCE_USERNAME=postgres -e SPRING_DATASOURCE_PASSWORD=secret eclipse-temurin:17-jre-alpine java -jar user-service.jar
 
-# 4. Khởi chạy Order Service, cũng truyền cứng địa chỉ IP 172.17.0.2 của DB vào biến kết nối
-docker run -d --name quickbite-order -p 8082:8082 -v /path/to/order-service/build/libs:/app -w /app -e SPRING_DATASOURCE_URL=jdbc:postgresql://172.17.0.2:5432/postgres -e SPRING_DATASOURCE_USERNAME=postgres -e SPRING_DATASOURCE_PASSWORD=secret eclipse-temurin:21-jre-alpine java -jar order-service.jar
+# 4. Khởi chạy Restaurant Service, cũng truyền cứng địa chỉ IP 172.17.0.2 của DB vào biến kết nối
+docker run -d --name quickbite-restaurant -p 8082:8082 -v /path/to/restaurant-service/build/libs:/app -w /app -e SPRING_DATASOURCE_URL=jdbc:postgresql://172.17.0.2:5432/postgres -e SPRING_DATASOURCE_USERNAME=postgres -e SPRING_DATASOURCE_PASSWORD=secret eclipse-temurin:21-jre-alpine java -jar restaurant-service.jar
 ```
 
 * **Nỗi đau bắt đầu:** 
@@ -61,7 +61,7 @@ Thay vì quản lý các container bằng các câu lệnh động CLI đơn l�
      ┌───────────────┼───────────────┐
      ▼               ▼               ▼
 [ Container 1 ] [ Container 2 ] [ Container 3 ]
- (quickbite-db)  (user-service)  (order-service)
+ (quickbite-db)  (user-service) (restaurant-service)
 ```
 
 #### 3.2 Quy trình 3 bước làm việc tiêu chuẩn với Docker Compose

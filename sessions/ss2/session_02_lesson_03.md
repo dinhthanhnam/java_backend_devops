@@ -18,7 +18,7 @@ Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
 
 Ở Lesson 2, chúng ta đã nắm được lý thuyết nền tảng về bộ ba Docker Image, Container và Registry. Nhưng mọi lý thuyết sẽ là vô nghĩa nếu bạn không thể tự mình gõ những dòng lệnh đầu tiên để kiểm tra môi trường.
 
-Để bắt tay vào đóng gói `user-service` và `order-service` của hệ thống QuickBite, việc đầu tiên bạn cần làm là cài đặt Docker lên máy tính cá nhân. Lúc này, bạn sẽ đối mặt với các vấn đề:
+Để bắt tay vào đóng gói `user-service` và `restaurant-service` của hệ thống QuickBite, việc đầu tiên bạn cần làm là cài đặt Docker lên máy tính cá nhân. Lúc này, bạn sẽ đối mặt với các vấn đề:
 * Làm thế nào để cài đặt Docker đúng chuẩn?
 * Tại sao giao diện dòng lệnh của Docker trên Windows, macOS và Linux lại giống hệt nhau, nhưng cơ chế hoạt động bên dưới của chúng lại rất khác biệt?
 * Nếu bạn dùng Windows, làm thế nào để cấu hình và chạy Docker trực tiếp trên nhân Linux ảo thông qua WSL 2 mà không làm thấu hoặc đơ hệ thống?

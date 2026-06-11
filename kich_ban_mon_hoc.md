@@ -236,7 +236,7 @@ java -jar user-service.jar
 ```text
     MÔ HÌNH MÁY ẢO (VM)                 MÔ HÌNH DOCKER CONTAINER
     ┌───────────────────────────────┐   ┌───────────────────────────────┐
-    │ App (User)  │ App (Order)     │   │ App (User)  │ App (Order)     │
+    │ App (User)  │ App (Restaurant)│   │ App (User)  │ App (Restaurant)│
     ├─────────────┼─────────────────┤   ├─────────────┼─────────────────┤
     │ Thư viện    │ Thư viện        │   │ Thư viện    │ Thư viện        │
     ├─────────────┼─────────────────┤   ├───────────────────────────────┤
@@ -331,7 +331,7 @@ docker images
 
 * **Trạng thái:** STATE 1 — Containerization.
 
-* **Vấn đề:** Trước khi tiến hành đóng gói `notification-service` hay `order-service` thành container, máy tính của lập trình viên hoặc máy chủ phải được thiết lập môi trường Docker chạy ổn định, đồng bộ về phiên bản engine.
+* **Vấn đề:** Trước khi tiến hành đóng gói `user-service` hay `restaurant-service` thành container, máy tính của lập trình viên hoặc máy chủ phải được thiết lập môi trường Docker chạy ổn định, đồng bộ về phiên bản engine.
 
 #### 3. Nội dung trọng tâm
 
@@ -497,7 +497,7 @@ exit
 #### 2. Bối cảnh hệ thống
 
 * **Trạng thái:** STATE 1 — Containerization (Các container độc lập).
-* **Vấn đề:** Mặc định khi khởi chạy, các container dịch vụ của QuickBite (`user-service`, `order-service`) sẽ tự động rơi vào mạng `default bridge`. Trong mạng mặc định này, các container chỉ có thể giao tiếp với nhau bằng địa chỉ IP nội bộ (IP này thay đổi liên tục mỗi khi restart container), không thể phân giải tên gọi (Container Name) của nhau, gây mất ổn định kết nối.
+* **Vấn đề:** Mặc định khi khởi chạy, các container dịch vụ của QuickBite (`user-service`, `restaurant-service`) sẽ tự động rơi vào mạng `default bridge`. Trong mạng mặc định này, các container chỉ có thể giao tiếp với nhau bằng địa chỉ IP nội bộ (IP này thay đổi liên tục mỗi khi restart container), không thể phân giải tên gọi (Container Name) của nhau, gây mất ổn định kết nối.
 
 #### 3. Nội dung trọng tâm
 
@@ -552,7 +552,7 @@ docker run --rm --network quickbite-net alpine ping -c 3 service-alpha
 #### 2. Bối cảnh hệ thống
 
 * **Trạng thái:** STATE 1 — Containerization.
-* **Vấn đề:** `order-service` cần kết nối tới `quickbite-db` (Postgres). Nếu chúng ta cấu hình URL kết nối bằng IP nội bộ của container Postgres (ví dụ: `11.0.0.5`), hệ thống sẽ lỗi ngay lập tức khi container Postgres bị restart và Docker cấp cho nó một IP mới (ví dụ: `11.0.0.6`).
+* **Vấn đề:** `restaurant-service` cần kết nối tới `quickbite-db` (Postgres). Nếu chúng ta cấu hình URL kết nối bằng IP nội bộ của container Postgres (ví dụ: `11.0.0.5`), hệ thống sẽ lỗi ngay lập tức khi container Postgres bị restart và Docker cấp cho nó một IP mới (ví dụ: `11.0.0.6`).
 
 #### 3. Nội dung trọng tâm
 
