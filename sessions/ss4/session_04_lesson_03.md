@@ -45,25 +45,8 @@ Tệp cấu hình của Docker Compose được viết bằng định dạng YAM
 * `services`: Khối dữ liệu chứa định nghĩa của tất cả các container trong cụm dịch vụ.
 * `image`: Tên Docker Image được lấy từ Docker Hub (ví dụ: `postgres:15-alpine`).
 
-#### 3.2 Dockerfile cơ bản cho Spring Boot
-Để Docker Compose có thể build một image nội bộ cho dịch vụ Spring Boot của bạn, chúng ta phải chuẩn bị một file tên là `Dockerfile` (không có phần mở rộng đuôi) nằm tại thư mục gốc của project backend (ví dụ: `/user-service/Dockerfile`):
-
-```dockerfile
-# Bước 1: Chọn image JRE Java 17 gọn nhẹ
-FROM eclipse-temurin:17-jre-alpine
-
-# Bước 2: Đặt thư mục làm việc mặc định trong container
-WORKDIR /app
-
-# Bước 3: Sao chép file JAR đã build từ máy host vào container
-COPY build/libs/user-service.jar app.jar
-
-# Bước 4: Khai báo lệnh chạy ứng dụng khi khởi động container
-ENTRYPOINT ["java", "-jar", "app.jar"]
-```
-
-#### 3.3 Khai báo thuộc tính `build` trong Compose
-Thay vì chỉ định cứng một image có sẵn trên mạng thông qua key `image`, chúng ta sử dụng key `build` trỏ tới Dockerfile cục bộ:
+#### 3.2 Khai báo thuộc tính `build` trong Compose
+Thay vì chỉ định cứng một image có sẵn trên mạng thông qua key `image`, chúng ta sử dụng key `build` trỏ tới Dockerfile mà chúng ta đã định nghĩa trước đó:
 * `context`: Thư mục chứa mã nguồn của dịch vụ (nơi Docker tìm kiếm file Dockerfile và file JAR).
 * `dockerfile`: Tên file Dockerfile (mặc định là `Dockerfile`, có thể bỏ qua nếu bạn đặt tên file đúng chuẩn).
 
@@ -77,6 +60,106 @@ services:
     ports:
       - "8081:8081"
 ```
+
+---
+
+### PHẦN 5. THIẾT LẬP DATABASE DÙNG CHUNG QUA DOCKER COMPOSE ĐỘC LẬP (CỐ ĐỊNH CHO TOÀN BỘ MÔN HỌC)
+
+Trong hệ thống Microservices QuickBite, các dịch vụ sẽ phát triển dần theo thời gian. Để chuẩn bị môi trường lưu trữ lâu dài và nhất quán cho toàn bộ khóa học, chúng ta sẽ thiết lập **một container PostgreSQL dùng chung duy nhất** chạy độc lập.
+
+#### 5.1 Tại sao tách biệt Database chạy độc lập thay vì Compose chung?
+
+Thay vì khai báo chung Database (`quickbite-db`) và Application (`user-service`) vào cùng một file `docker-compose.yml`, việc tách biệt database ra chạy độc lập mang lại 4 lợi ích lớn:
+
+1. **Tối ưu tốc độ phát triển (Development Loop):** Database khởi chạy rất nặng và chậm. Khi code Java thay đổi, dev cần rebuild và restart container backend liên tục. Tách biệt DB giúp backend có thể tắt/mở thoải mái mà không làm gián đoạn hoặc phải khởi động lại DB.
+2. **Tiết kiệm RAM/CPU:** Hệ thống QuickBite gồm 4 microservices. Nếu mỗi service tự up 1 Postgres container riêng, máy local sẽ chạy 4 Postgres song song gây ngốn tài nguyên. Dựng 1 container Postgres chung chứa 4 database con là tối ưu nhất.
+3. **An toàn dữ liệu (Stateless vs Stateful):** Backend là Stateless (không lưu trạng thái) nên xóa/dựng rất dễ dàng. Database là Stateful (giữ dữ liệu). Tách biệt giúp tránh việc sơ ý xóa sạch dữ liệu DB khi dọn dẹp backend bằng lệnh `docker compose down -v`.
+4. **Chuẩn Production:** Trong thực tế, database luôn chạy độc lập trên các dịch vụ Managed Database (như AWS RDS, Cloud SQL) chứ không bao giờ chạy chung pod/host với container ứng dụng.
+
+#### 5.2 File cấu hình và Script Khởi tạo Cơ sở dữ liệu tự động
+
+Để tự động tạo đầy đủ 4 database biệt lập kèm tài khoản và phân quyền tương ứng cho từng dịch vụ khi database khởi chạy lần đầu, PostgreSQL hỗ trợ cơ chế quét và chạy tự động các script nằm trong thư mục `/docker-entrypoint-initdb.d/` bên trong container.
+
+Hãy tạo thư mục đặt tên là `quickbite-database` nằm ngoài thư mục dự án Java và chuẩn bị 2 file cấu hình sau:
+
+##### 1. File kịch bản khởi tạo SQL (`init-db.sql`)
+Tệp này sẽ tạo các user và database biệt lập cho cả 4 dịch vụ, đồng thời tạo cả phiên bản database có hậu tố `_db` và không có hậu tố nhằm đảm bảo tương thích 100% với cấu hình của toàn bộ các Session trong môn học.
+
+```sql
+-- 1. Tạo các User riêng cho từng Service
+CREATE USER quickbite_user WITH PASSWORD 'quickbite_user';
+CREATE USER quickbite_restaurant WITH PASSWORD 'quickbite_restaurant';
+CREATE USER quickbite_order WITH PASSWORD 'quickbite_order';
+CREATE USER quickbite_notification WITH PASSWORD 'quickbite_notification';
+
+-- 2. Tạo các Database tương ứng (Tạo cả hai dạng tên để tương thích mọi Session)
+CREATE DATABASE quickbite_user_db OWNER quickbite_user;
+CREATE DATABASE quickbite_user OWNER quickbite_user;
+
+CREATE DATABASE quickbite_restaurant_db OWNER quickbite_restaurant;
+CREATE DATABASE quickbite_restaurant OWNER quickbite_restaurant;
+
+CREATE DATABASE quickbite_order_db OWNER quickbite_order;
+CREATE DATABASE quickbite_order OWNER quickbite_order;
+
+CREATE DATABASE quickbite_notification_db OWNER quickbite_notification;
+CREATE DATABASE quickbite_notification OWNER quickbite_notification;
+
+-- 3. Phân quyền truy cập toàn diện trên từng database cho user tương ứng
+GRANT ALL PRIVILEGES ON DATABASE quickbite_user_db TO quickbite_user;
+GRANT ALL PRIVILEGES ON DATABASE quickbite_user TO quickbite_user;
+
+GRANT ALL PRIVILEGES ON DATABASE quickbite_restaurant_db TO quickbite_restaurant;
+GRANT ALL PRIVILEGES ON DATABASE quickbite_restaurant TO quickbite_restaurant;
+
+GRANT ALL PRIVILEGES ON DATABASE quickbite_order_db TO quickbite_order;
+GRANT ALL PRIVILEGES ON DATABASE quickbite_order TO quickbite_order;
+
+GRANT ALL PRIVILEGES ON DATABASE quickbite_notification_db TO quickbite_notification;
+GRANT ALL PRIVILEGES ON DATABASE quickbite_notification TO quickbite_notification;
+```
+
+##### 2. File cấu hình Docker Compose cho database (`docker-compose.yml`)
+Đặt file này cùng thư mục với `init-db.sql`. Chúng ta sẽ mount file SQL vào thư mục tự khởi động của container và đặt tên mạng cố định là `quickbite-net` để các container backend ở các bài học sau có thể kết nối vào mạng này.
+
+```yaml
+version: '3.8'
+
+services:
+  quickbite-db:
+    image: postgres:15-alpine
+    container_name: quickbite-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret_password  # Mật khẩu quản trị tối cao (Superuser)
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql  # Mount script khởi tạo tự động
+    networks:
+      - quickbite-net
+    restart: always
+
+volumes:
+  db-data:
+
+networks:
+  quickbite-net:
+    name: quickbite-net  # Đặt tên cố định cho mạng ảo chung
+    driver: bridge
+```
+
+#### 5.3 Cách khởi chạy và giữ Database chạy ngầm lâu dài
+
+Để chạy database này một lần duy nhất cho toàn bộ môn học, bạn chỉ cần di chuyển vào thư mục `quickbite-database` và chạy lệnh:
+
+```bash
+# Khởi chạy database chạy ngầm và giữ trạng thái luôn restart nếu lỗi
+docker compose up -d
+```
+
+Từ thời điểm này, database PostgreSQL của bạn đã sẵn sàng chạy ngầm trong máy tính. Bạn có thể tự do phát triển, build lại, tắt/mở các container ứng dụng Spring Boot ở các bài học tiếp theo mà không cần phải chạm vào hay khởi động lại database nữa!
 
 ---
 
@@ -99,22 +182,23 @@ Hãy tạo cấu trúc thư mục dự án QuickBite local và khởi chạy t�
 version: '3.8'
 
 services:
-  quickbite-db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_PASSWORD: secret
-
   quickbite-user:
     build:
       context: ./user-service
     ports:
       - "8081:8081"
+    networks:
+      - quickbite-net
+
+networks:
+  quickbite-net:
+    external: true  # Sử dụng mạng ảo chung đã được khởi tạo bởi database ở Bài 1
 ```
-3. Chạy lệnh build và start cụm dịch vụ đồng thời:
+3. Chạy lệnh build và start dịch vụ:
 ```bash
 docker compose up --build
 ```
-4. **Kết quả mong đợi:** Docker Compose tự động truy cập vào thư mục `./user-service`, thực thi lệnh build đóng gói file JAR thành image tĩnh, đặt tên image tạm thời, sau đó khởi chạy container database và backend cùng một lúc.
+4. **Kết quả mong đợi:** Docker Compose tự động truy cập vào thư mục `./user-service`, thực thi lệnh build đóng gói file JAR thành image tĩnh, đặt tên image tạm thời, sau đó khởi chạy container backend. Do container backend tham gia chung vào mạng ảo `quickbite-net` với database `quickbite-db` đang chạy ngầm từ trước, nó có thể phân giải tên miền và kết nối tới database một cách ổn định.
 
 ---
 
