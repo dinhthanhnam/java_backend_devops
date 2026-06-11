@@ -1,6 +1,6 @@
-# SESSION 04: DOCKER COMPOSE CƠ BẢN
+# SESSION 04: DOCKER COMPOSE VÀ DOCKERFILE
 
-## LESSON 01: Docker Compose và khái niệm hệ thống nhiều container
+## LESSON 02: Docker Compose và khái niệm hệ thống nhiều container
 
 ---
 
@@ -14,41 +14,55 @@ Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (NỖI ĐAU CỦA VIỆC QUẢN LÝ THỦ CÔNG)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (NỖI ĐAU CỦA VIỆC PHỐI HỢP CÁC DỊCH VỤ THỦ CÔNG)
 
-Hãy tưởng tượng bạn đang tiếp quản dự án QuickBite ở môi trường phát triển local. Hệ thống lúc này đã phình to ra 3 thành phần cốt lõi:
-1. **`quickbite-db` (Database):** Container chạy PostgreSQL 15 để lưu trữ dữ liệu.
-2. **`user-service` (Dịch vụ người dùng):** Ứng dụng Spring Boot chạy Java 17 cần kết nối tới `quickbite-db`.
-3. **`restaurant-service` (Dịch vụ nhà hàng):** Ứng dụng Spring Boot chạy Java 21 cần kết nối tới `quickbite-db`.
+Hãy tưởng tượng bạn đang tiếp quản dự án QuickBite ở môi trường phát triển local. Lúc này, bạn đã giải quyết được vấn đề đóng gói nhờ tệp tin `Dockerfile` ở bài học trước. Bạn đã có file Dockerfile cho cả `user-service` và `restaurant-service`.
 
-Để dựng môi trường chạy thử nghiệm toàn bộ hệ thống này, bạn phải mở terminal lên và gõ tuần tự các câu lệnh sau:
+Tuy nhiên, để khởi chạy toàn bộ hệ thống gồm 3 thành phần (Database, User Service, Restaurant Service), bạn vẫn phải gõ tuần tự một loạt các lệnh phức tạp sau:
+
 ```bash
 # 1. Khởi chạy Database
 docker run -d --name quickbite-db -e POSTGRES_PASSWORD=secret postgres:15-alpine
 
-# 2. Bạn phải tìm địa chỉ IP nội bộ của container database vừa chạy
+# 2. Tìm địa chỉ IP động của container database vừa chạy
 docker inspect quickbite-db
-#Ví dụ tìm được địa chỉ: 172.17.0.2
+# Ví dụ tìm được IP: 172.17.0.2
 
-# 3. Khởi chạy User Service, truyền cứng địa chỉ IP 172.17.0.2 của DB vào biến kết nối
-docker run -d --name quickbite-user -p 8081:8081 -v /path/to/user-service/build/libs:/app -w /app -e SPRING_DATASOURCE_URL=jdbc:postgresql://172.17.0.2:5432/postgres -e SPRING_DATASOURCE_USERNAME=postgres -e SPRING_DATASOURCE_PASSWORD=secret eclipse-temurin:17-jre-alpine java -jar user-service.jar
+# 3. Khởi chạy User Service bằng image đã build từ bài học trước
+docker run -d --name user-service -p 8081:8081 -e DB_HOST=172.17.0.2 -e DB_PORT=5432 -e DB_NAME=quickbite_user_db -e DB_USERNAME=quickbite_user -e DB_PASSWORD=quickbite_user quickbite-user-service:v1
 
-# 4. Khởi chạy Restaurant Service, cũng truyền cứng địa chỉ IP 172.17.0.2 của DB vào biến kết nối
-docker run -d --name quickbite-restaurant -p 8082:8082 -v /path/to/restaurant-service/build/libs:/app -w /app -e SPRING_DATASOURCE_URL=jdbc:postgresql://172.17.0.2:5432/postgres -e SPRING_DATASOURCE_USERNAME=postgres -e SPRING_DATASOURCE_PASSWORD=secret eclipse-temurin:21-jre-alpine java -jar restaurant-service.jar
+# 4. Khởi chạy Restaurant Service bằng image đã build từ bài học trước
+docker run -d --name restaurant-service -p 8082:8082 -e DB_HOST=172.17.0.2 -e DB_PORT=5432 -e DB_NAME=quickbite_restaurant_db -e DB_USERNAME=quickbite_restaurant -e DB_PASSWORD=quickbite_restaurant quickbite-restaurant-service:v1
 ```
 
 * **Nỗi đau bắt đầu:** 
-  * **Tra cứu IP thủ công phiền phức:** Bạn phải gõ lệnh `docker inspect` rất dài và phức tạp chỉ để lấy địa chỉ IP động của container database.
-  * **IP biến động (IP Drift):** Nếu container `quickbite-db` gặp lỗi tự khởi động lại và nhận một IP mới (ví dụ: `172.17.0.3`), cả hai backend sẽ lập tức bị mất kết nối và crash. Bạn lại phải đi inspect lấy IP mới rồi gõ lại các câu lệnh run backend từ đầu.
-  * **Sai lệch cú pháp:** Chỉ cần gõ sai một ký tự trong đường dẫn volume hoặc cổng, cả cụm sẽ lỗi. Việc dừng dọn dẹp cũng bắt buộc bạn gõ thủ công `docker stop` và `docker rm` từng container một.
+  * **Quy trình nhiều bước thủ công:** Mỗi lần khởi động cụm, bạn phải chạy tuần tự các lệnh run dài dòng.
+  * **Tra cứu IP động phiền phức:** Vẫn phải gõ lệnh inspect lấy IP động của database để điền vào chuỗi kết nối của 2 service Java.
+  * **IP biến động (IP Drift):** Chỉ cần container database khởi động lại và nhận IP khác (ví dụ: `172.17.0.3`), cả hai backend sẽ mất kết nối và crash lập tức. Bạn lại phải lặp lại chu kỳ gõ lệnh run backend với IP mới.
 
-*Để giải phóng lập trình viên khỏi gánh nặng gõ lệnh và kiểm soát IP thủ công, Docker cung cấp một công cụ quản lý cấu hình tập trung vô cùng mạnh mẽ: **Docker Compose**.*
+*Để giải phóng lập trình viên khỏi gánh nặng điều phối và chạy thủ công đống container này, Docker cung cấp một công cụ quản lý cấu hình tập trung vô cùng mạnh mẽ: **Docker Compose**.*
 
 ---
 
-### PHẦN 3. KIẾN THỨC CỐT LÕI (DOCKER COMPOSE LÀ GÌ?)
+### PHẦN 3. KIẾN THỨC CỐT LÕI (HỆ THỐNG NHIỀU CONTAINER & DOCKER COMPOSE)
 
-#### 3.1 Khái niệm
+#### 3.1 Khái niệm hệ thống nhiều container (Multi-container System)
+Trong kiến trúc phần mềm hiện đại, đặc biệt là **Microservices**, ứng dụng không còn là một khối lớn duy nhất (Monolith) chạy trong một môi trường đơn lẻ. Thay vào đó, nó được chia nhỏ thành nhiều thành phần độc lập (dịch vụ), mỗi thành phần đảm nhận một nhiệm vụ chuyên biệt.
+
+Một **Hệ thống nhiều container (Multi-container System)** là một mô hình thiết kế và vận hành trong đó mỗi dịch vụ của hệ thống được đóng gói và chạy trong một container độc lập. Ví dụ, trong hệ thống QuickBite:
+* **Container Database (`quickbite-db`):** Chạy PostgreSQL 15 để lưu trữ dữ liệu chung.
+* **Container Service 1 (`user-service`):** Chạy Java 17 để xử lý thông tin người dùng.
+* **Container Service 2 (`restaurant-service`):** Chạy Java 21 để quản lý thông tin nhà hàng và thực đơn.
+* **Container Web Gateway / Reverse Proxy (ở các Session sau):** Nhận request từ Client và phân phối đến các service tương ứng.
+
+**Tại sao chúng ta phải chia nhỏ hệ thống thành nhiều container độc lập thay vì gom tất cả vào một container duy nhất?**
+1. **Sự khác biệt về môi trường công nghệ (Technology Diversity):** `user-service` dùng Java 17, `restaurant-service` dùng Java 21, còn Database viết bằng C và cần hệ điều hành tối ưu riêng. Việc cài đặt chung tất cả công nghệ này vào một container duy nhất sẽ làm kích thước image phình to khổng lồ và cực kỳ khó quản lý xung đột thư viện.
+2. **Khả năng mở rộng độc lập (Independent Scaling):** Vào các giờ cao điểm, lượng người dùng tìm kiếm món ăn tăng vọt, chúng ta chỉ cần nhân bản (scale up) thêm các container `restaurant-service` để gánh tải mà không cần phải nhân bản database hay `user-service`, giúp tối ưu hóa tài nguyên phần cứng.
+3. **Mức độ cô lập lỗi (Fault Isolation):** Nếu container `restaurant-service` gặp sự cố tràn bộ nhớ và crash, container `user-service` vẫn hoạt động bình thường, giúp hệ thống không bị sập toàn bộ.
+
+Tuy nhiên, việc chia nhỏ này cũng đặt ra thách thức lớn: Làm thế nào để phối hợp, thiết lập mạng liên kết và quản lý vòng đời của hàng chục container này một cách đồng bộ? Đó chính là lý do **Docker Compose** ra đời.
+
+#### 3.2 Docker Compose là gì?
 **Docker Compose** là một công cụ dùng để định nghĩa và chạy các ứng dụng Docker đa container (Multi-container Docker Applications). 
 
 Thay vì quản lý các container bằng các câu lệnh động CLI đơn lẻ (Imperative Style - Phong cách Mệnh lệnh), Docker Compose chuyển sang phong cách **Declarative (Mô tả trạng thái)**: Bạn chỉ cần viết tất cả cấu hình mong muốn (tên container, port, network, volume, biến môi trường) vào một tệp tin cấu hình duy nhất có tên là `docker-compose.yml` (dạng ngôn ngữ YAML). Docker Compose sẽ đọc tệp tin này và tự động dựng, quản lý toàn bộ hệ thống giúp bạn.
@@ -64,12 +78,12 @@ Thay vì quản lý các container bằng các câu lệnh động CLI đơn l�
  (quickbite-db)  (user-service) (restaurant-service)
 ```
 
-#### 3.2 Quy trình 3 bước làm việc tiêu chuẩn với Docker Compose
+#### 3.3 Quy trình 3 bước làm việc tiêu chuẩn với Docker Compose
 Quy trình phát triển và vận hành ứng dụng bằng Docker Compose được tóm tắt qua 3 bước cốt lõi:
 
-1. **Đóng gói (Define):** Viết `Dockerfile` cho từng service của bạn để định nghĩa môi trường chạy tĩnh (ví dụ: Spring Boot code + JDK).
+1. **Đóng gói (Define):** Viết `Dockerfile` cho từng service của bạn để định nghĩa môi trường chạy tĩnh (ví dụ: Spring Boot code + JDK). (Bài học trước đã cung cấp chi tiết cách làm việc với Dockerfile).
 2. **Khai báo (Declare):** Viết tệp tin `docker-compose.yml` khai báo các service, các port cần expose, volume lưu dữ liệu, mạng kết nối và thứ tự ưu tiên khởi chạy.
-3. **Vận hành (Run):** Chỉ cần chạy một câu lệnh duy nhất: `docker compose up`. Docker Compose sẽ tự động kéo các image cần thiết, build các image nội bộ, tạo mạng và khởi chạy toàn bộ các dịch vụ đồng thời.
+3. **Vận hành (Run):** Chỉ cần chạy một câu lệnh duy nhất: `docker compose up`. Docker Compose sẽ tự động kéo các image cần thiết, build các image nội bộ, tạo mạng và khởi chạy toàn bộ các dịch vụ đồng thời. Nếu các service có sự phụ thuộc lẫn nhau, ví dụ như `user-service` cần `quickbite-db` chạy trước, nếu không sẽ lỗi, Docker Compose cũng giúp ta quản lý thời điểm khởi chạy cho `user-service` chỉ sau khi `quickbite-db` đã sẵn sàng.
 
 ---
 
@@ -108,9 +122,9 @@ docker compose up
 ```
 3. **Kết quả mong đợi:** Docker Compose sẽ tự động kéo image `eclipse-temurin:17-jre-alpine` (nếu chưa có ở local), khởi chạy một container, in thông tin phiên bản Java 17 ra console rồi tự động dừng lại.
 4. Dọn dẹp tài nguyên vừa tạo:
-   ```bash
-   docker compose down
-   ```
+```bash
+docker compose down
+```
 
 ---
 

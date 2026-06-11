@@ -8,118 +8,73 @@
 
 Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
 * **Giải thích** được cơ chế phân giải tên miền tự động (Service Discovery) qua DNS server nội bộ của Docker Network.
-* **Cấu hình và triển khai** mã nguồn giao tiếp đồng bộ REST API giữa các Spring Boot container bằng `RestTemplate`.
-* **Kiểm chứng** sự hoạt động ổn định của kết nối liên container thông qua việc thay đổi IP của container đích nhưng giữ nguyên tên miền gọi.
-* **Phân tích** các rủi ro bảo mật và hiệu năng khi cho phép các dịch vụ gọi nhau trực tiếp qua địa chỉ IP máy host thay vì mạng nội bộ.
+* **Hiểu bản chất** của mạng mặc định (Default Network) được tạo tự động bởi Docker Compose.
+* **Cấu hình** cấu trúc mã nguồn giao tiếp đồng bộ REST API giữa các Spring Boot container bằng **Spring Cloud OpenFeign**.
+* **Đóng cổng mạng** của các service nội bộ để bảo mật hệ thống, chỉ cho phép giao tiếp nội bộ trong mạng Compose.
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (NỖI ĐAU CỦA VIỆC PHỤ THUỘC IP VÀ MỞ PORT TỰ DO)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (KẾT NỐI MẠNG GIỮA CÁC SERVICE TRÊN STAGING/PRODUCTION)
 
-Trong luồng nghiệp vụ của QuickBite, khi khách hàng đặt đơn hàng mới, `order-service` (cổng 8083) không tự ý tạo đơn mà bắt buộc phải thực hiện 2 nhiệm vụ xác thực:
-1. Gọi sang `user-service` (cổng 8081) để kiểm tra xem ví tiền khách hàng có đủ số dư thanh toán hay không.
-2. Gọi sang `restaurant-service` (cổng 8082) để kiểm tra xem nhà hàng đó đang mở cửa hay đóng cửa, và các món ăn trong đơn hàng có đúng giá không.
+Khi chạy hệ thống QuickBite ở Lesson 2, cả hai dịch vụ `user-service` và `restaurant-service` đều hoạt động độc lập và chỉ kết nối tới cơ sở dữ liệu. Tuy nhiên, trong thực tế, các dịch vụ này cần gọi lẫn nhau để kiểm tra thông tin và xử lý nghiệp vụ:
+* Ví dụ: Khi khách hàng đặt đơn hàng hoặc thực hiện giao dịch, hệ thống cần gửi request kiểm tra trạng thái hoạt động của nhà hàng hoặc xác thực thông tin tài khoản người dùng.
 
-Nếu triển khai các container này chạy độc lập, lập trình viên thường đối mặt với hai vấn đề lớn:
-
-1. **IP Drift (Sự biến động địa chỉ IP):**
-   * *Nỗi đau:* Lập trình viên lấy IP nội bộ của container `restaurant-service` (ví dụ: `http://172.20.0.5:8082`) và điền trực tiếp vào cấu hình của `order-service`. Khi container `restaurant-service` được cập nhật code mới và restart, Docker Engine sẽ thu hồi IP cũ và cấp một IP mới (ví dụ: `172.20.0.9`). Dịch vụ đặt đơn sẽ ngay lập tức bị sập hoàn toàn do lỗi kết nối timeout.
-2. **Mở cổng hệ thống quá đà (Over-exposing ports):**
-   * *Nỗi đau:* Để các dịch vụ gọi nhau qua IP máy host, lập trình viên cấu hình map tất cả các cổng `8081`, `8082`, `8083`, `8084` ra ngoài máy host. Điều này tạo điều kiện cho các kẻ tấn công mạng có thể bypass (vượt qua) các lớp bảo vệ để chọc phá hoặc giả lập request gọi trực tiếp tới các API thanh toán của `user-service` từ internet.
-
-*Giải pháp chuẩn chỉnh của DevOps là gom tất cả các container này vào chung một mạng Bridge tùy biến của Docker, cấu hình cho chúng gọi nhau qua tên miền nội bộ và đóng các cổng dịch vụ không cần thiết ra ngoài máy host.*
+Để hai dịch vụ container có thể giao tiếp với nhau qua giao thức HTTP, chúng ta cần giải quyết hai vấn đề:
+1. **Quản lý địa chỉ IP động:** Khi một container khởi động lại hoặc được cập nhật code, Docker Engine sẽ thu hồi IP cũ và cấp cho nó một địa chỉ IP mới. Nếu viết cứng IP nội bộ của container này vào cấu hình của container kia, kết nối sẽ bị gián đoạn mỗi khi restart hệ thống.
+2. **Bảo mật cổng mạng (Ports Exposing):** Không nên mở toàn bộ các cổng mạng (`8081`, `8082`) ra ngoài máy host vật lý. Việc mở cổng tự do sẽ tăng rủi ro bảo mật (tin tặc có thể quét cổng và gọi trực tiếp tới API nội bộ). Chúng ta chỉ nên expose các cổng này trong mạng ảo nội bộ để các container gọi nhau, và đóng hoàn toàn truy cập từ internet.
 
 ---
 
-### PHẦN 3. KIẾN THỨC CỐT LÕI (DOCKER DNS VÀ GIAO TIẾP LIÊN CONTAINER)
+### PHẦN 3. KIẾN THỨC CỐT LÕI (DOCKER COMPOSE DEFAULT NETWORK & OPENFEIGN)
 
-#### 3.1 Cơ chế Docker Embedded DNS Server
-Khi chúng ta khởi chạy cụm container tham gia vào một **User-defined Bridge Network** (Mạng cầu tự định nghĩa), Docker Engine sẽ kích hoạt một máy chủ DNS nội bộ chạy ngầm tại địa chỉ IP đặc biệt `127.0.0.11`.
-* Khi container `quickbite-order` gửi request tới địa chỉ `http://quickbite-restaurant:8082`, DNS Server nội bộ sẽ tự động tra cứu bảng ánh xạ tên container sang dải IP hiện hành của nó.
-* Nhờ đó, bất kể IP của container đích có bị thay đổi sau mỗi lần restart, DNS nội bộ sẽ tự cập nhật bản ghi để định tuyến request đi đúng hướng một cách trong suốt đối với mã nguồn Java.
+#### 3.1 Mạng mặc định của Docker Compose (Default Network)
+Khi khởi chạy một file `docker-compose.yml`, Docker Compose không sử dụng mạng bridge mặc định của Docker CLI. Thay vào đó, nó sẽ **tự động tạo ra một mạng ảo riêng biệt** dành cho toàn bộ các dịch vụ được định nghĩa trong file đó.
+* Mạng này tương đương với một **User-defined Bridge Network**.
+* Mạng này được kích hoạt sẵn bộ phân giải tên miền nội bộ (**Embedded DNS Server** chạy tại IP ảo `127.0.0.11`).
+* Nhờ có DNS Server nội bộ, tất cả các container trong cùng file compose có thể tự phân giải tên gọi của nhau thông qua thuộc tính `container_name` hoặc tên `service` (ví dụ: gọi tới `http://quickbite-restaurant:8082`).
 
 ```text
- [ order-service container ]
-          │
-      Gửi request tới: http://quickbite-restaurant:8082
-          │
-          ▼
- [ Docker DNS (127.0.0.11) ] ── Phân giải tên miền ──► IP hiện tại: 172.20.0.9
-          │
-          └───────────────────── Gửi gói tin HTTP ─────────────────────┐
-                                                                       ▼
-                                                          [ restaurant-service container ]
+  [ user-service container ]
+             │
+         Gửi request tới: http://quickbite-restaurant:8082
+             │
+             ▼
+    [ Embedded DNS Server ]  ── Phân giải tên miền ──► IP ảo hiện tại: 172.20.0.3
+             │
+             └───────────────────── Gửi gói tin HTTP ─────────────────────┐
+                                                                          ▼
+                                                            [ restaurant-svc container ]
 ```
 
-#### 3.2 Giao tiếp đồng bộ qua REST API trong Spring Boot
-Trong Java Spring Boot, chúng ta có thể thực hiện các cuộc gọi API đồng bộ dễ dàng bằng công cụ `RestTemplate`. Cấu hình URL endpoint gọi liên dịch vụ sẽ được nạp thông qua các biến môi trường động đã thiết lập từ Lesson 2.
+#### 3.2 Khái niệm Spring Cloud OpenFeign
+Trong Spring Boot, thay vì sử dụng RestTemplate viết code thủ công, lập trình viên thường dùng **OpenFeign** để thực hiện các cuộc gọi REST API. OpenFeign giúp lập trình viên viết REST client dưới dạng các Interface rất trực quan. Cú pháp gọi sẽ sử dụng trực tiếp tên container làm tên host trong URL.
 
 ---
 
-### PHẦN 4. DEMO VÀ THỰC HÀNH: TÍCH HỢP GIAO TIẾP VÀ DỌN DẸP PORT
+### PHẦN 4. HƯỚNG DẪN THỰC HÀNH CẤU HÌNH VÀ KIỂM TRA
 
-#### 4.1 Triển khai mã nguồn gọi liên dịch vụ bằng `RestTemplate`
+#### 4.1 Khai báo mã giả Feign Client gọi liên dịch vụ
+Dưới đây là mã giả (pseudocode) mô tả cách cấu hình Feign Client trong `user-service` để gọi sang API của `restaurant-service` lấy trạng thái đóng/mở cửa của nhà hàng:
 
-Dưới đây là cách dịch vụ `order-service` cấu hình và gọi sang `restaurant-service` để kiểm tra trạng thái hoạt động của nhà hàng trước khi tạo đơn hàng.
-
-##### Bước 1: Khai báo cấu hình `RestTemplate` Bean
 ```java
-package com.quickbite.order.config;
+// RestaurantClient.java
+package com.quickbite.user.client;
 
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
-@Configuration
-public class RestClientConfig {
-    @Bean
-    public RestTemplate restTemplate() {
-        return new RestTemplate();
-    }
+// "quickbite-restaurant" là tên container/service trong file docker-compose.yml
+@FeignClient(name = "quickbite-restaurant", url = "http://quickbite-restaurant:8082")
+public interface RestaurantClient {
+
+    @GetMapping("/restaurants/{id}/status")
+    boolean checkRestaurantStatus(@PathVariable("id") Long id);
 }
 ```
 
-##### Bước 2: Viết lớp dịch vụ xử lý kết nối
-```java
-package com.quickbite.order.service;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-
-@Service
-public class OrderValidationService {
-
-    private final RestTemplate restTemplate;
-    
-    // Nạp URL của restaurant-service từ biến môi trường cấu hình ở file application.yml
-    @Value("${services.restaurant-service.url}")
-    private String restaurantServiceUrl;
-
-    public OrderValidationService(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
-    }
-
-    public boolean checkRestaurantStatus(Long restaurantId) {
-        try {
-            // Xây dựng endpoint gọi sang restaurant-service
-            String endpoint = restaurantServiceUrl + "/restaurants/" + restaurantId + "/status";
-            
-            // Gọi API đồng bộ, mong đợi kết quả trả về kiểu Boolean
-            Boolean isOpen = restTemplate.getForObject(endpoint, Boolean.class);
-            
-            return isOpen != null && isOpen;
-        } catch (Exception e) {
-            // Xử lý khi xảy ra sự cố mất kết nối mạng hoặc server sập
-            System.err.println("Lỗi kết nối tới restaurant-service: " + e.getMessage());
-            return false; 
-        }
-    }
-}
-```
-
-#### 4.2 Cấu hình Docker Network đóng các port nội bộ
-Cập nhật file `docker-compose.yml` để các dịch vụ giao tiếp hoàn toàn qua mạng nội bộ. Lưu ý: dịch vụ `restaurant-service` và `notification-service` không cần mở port ra ngoài máy host nữa.
+#### 4.2 Cập nhật docker-compose.yml đóng cổng mạng ra ngoài
+Vì các container đã giao tiếp nội bộ trong mạng ảo mặc định, dịch vụ `restaurant-service` không cần mở cổng `8082` ra máy host vật lý nữa. Chúng ta sẽ loại bỏ từ khóa `ports` và chỉ sử dụng `expose` (hoặc để trống, vì mặc định các cổng bên trong mạng Compose mặc định đều thông suốt với nhau):
 
 ```yaml
 version: '3.8'
@@ -132,93 +87,79 @@ services:
       - POSTGRES_PASSWORD=secret
     volumes:
       - ./init-scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-    networks:
-      - quickbite-net
+      - quickbite-db-data:/var/lib/postgresql/data
 
-  # restaurant-service chạy cổng 8082
+  quickbite-user:
+    build:
+      context: ./user-service
+    container_name: quickbite-user
+    # Mở port 8081 ra ngoài host để Client/Browser có thể gọi vào kiểm thử
+    ports:
+      - "8081:8081"
+    environment:
+      - DB_HOST=quickbite-db
+      - DB_PORT=5432
+      - DB_NAME=quickbite_user_db
+      - DB_USERNAME=quickbite_user
+      - DB_PASSWORD=quickbite_user
+    depends_on:
+      - quickbite-db
+
   quickbite-restaurant:
     build:
       context: ./restaurant-service
     container_name: quickbite-restaurant
-    # KHÔNG dùng ports để mở cổng ra máy host nữa, chỉ expose nội bộ
+    # KHÔNG dùng ports mở ra host nữa, chỉ expose nội bộ trong mạng Compose
     expose:
       - "8082"
     environment:
       - DB_HOST=quickbite-db
-      - DB_NAME=quickbite_restaurant
+      - DB_PORT=5432
+      - DB_NAME=quickbite_restaurant_db
+      - DB_USERNAME=quickbite_restaurant
+      - DB_PASSWORD=quickbite_restaurant
     depends_on:
       - quickbite-db
-    networks:
-      - quickbite-net
 
-  # order-service cần mở port 8083 ra host để kiểm thử
-  quickbite-order:
-    build:
-      context: ./order-service
-    container_name: quickbite-order
-    ports:
-      - "8083:8083"
-    environment:
-      - DB_HOST=quickbite-db
-      - DB_NAME=quickbite_order
-      # Nạp tên container làm host cho biến kết nối
-      - RESTAURANT_SVC_HOST=quickbite-restaurant
-      - RESTAURANT_SVC_PORT=8082
-    depends_on:
-      - quickbite-db
-      - quickbite-restaurant
-    networks:
-      - quickbite-net
-
-networks:
-  quickbite-net:
-    driver: bridge
+volumes:
+  quickbite-db-data:
 ```
 
-#### 4.3 Thực hiện kiểm chứng kết nối
-1. Khởi động cụm dịch vụ: `docker compose up -d`.
-2. Kiểm tra xem `quickbite-order` có thể phân giải tên miền của `quickbite-restaurant` thành công hay không bằng công cụ ping thông qua lệnh exec:
+#### 4.3 Thực hiện kiểm chứng phân giải tên miền
+1. Khởi chạy hệ thống Compose:
    ```bash
-   docker compose exec quickbite-order ping -c 3 quickbite-restaurant
+   docker compose up -d
    ```
-3. **Kết quả mong đợi:** Lệnh ping trả về kết quả thành công, phân giải được dải IP nội bộ của container `quickbite-restaurant` (ví dụ: `172.20.0.3`) mà không gặp lỗi.
+2. Thực thi lệnh ping từ container `quickbite-user` sang container `quickbite-restaurant` bằng chính tên container để kiểm tra DNS hoạt động:
+   ```bash
+   docker compose exec quickbite-user ping -c 3 quickbite-restaurant
+   ```
+3. **Kết quả mong đợi:** Lệnh ping thực hiện thành công, hiển thị rõ DNS nội bộ đã phân giải tên miền `quickbite-restaurant` thành IP ảo của nó trong mạng (ví dụ: `172.18.0.4`).
 
 ---
 
-### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (GIAO TIẾP QUA PORT MÁY HOST)
+### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (localhost TRONG CONTAINER)
 
-* **Hiểu lầm thường gặp:** Khi hai container chạy trên cùng một máy chủ vật lý, chúng nên gọi nhau thông qua IP của máy host hoặc dùng từ khóa `localhost` (Ví dụ: `http://localhost:8082`) để tối ưu tốc độ truyền tải.
-* **Sự thật:** 
-  * Từ khóa `localhost` viết bên trong mã nguồn chạy trên container sẽ trỏ thẳng về **chính không gian cô lập của container đó**, không phải máy host vật lý.
-  * Nếu dùng IP máy host vật lý, gói tin sẽ phải đi qua các lớp định tuyến của card mạng vật lý rồi mới quay ngược trở lại card mạng ảo của Docker. Việc này gây ra độ trễ (overhead) không đáng có và phụ thuộc vào IP của máy host.
-  * Khi sử dụng cơ chế DNS nội bộ của Docker Network (giao tiếp trực tiếp bằng tên container), gói tin đi trực tiếp qua hạ tầng mạng ảo Bridge, đạt tốc độ truyền tải cực nhanh và bảo mật tuyệt đối vì dữ liệu không đi ra ngoài máy host.
+* **Hiểu lầm thường gặp:** Khi hai container chạy chung trên một máy chủ vật lý, chúng ta có thể cấu hình URL kết nối là `http://localhost:8082` để gọi sang nhau.
+* **Sự thật:** Không được. Từ khóa `localhost` viết bên trong mã nguồn chạy trong container sẽ trỏ thẳng về **chính không gian cô lập của container đó**, không phải máy host vật lý. Để kết nối, ta bắt buộc phải sử dụng tên của container đích (`quickbite-restaurant`) làm host trong URL kết nối nhờ cơ chế DNS nội bộ của Docker Network.
 
 ---
 
 ### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG (XÁC MINH KIẾN THỨC)
 
-1. **Tổng quan về cơ chế mạng Docker Container:**
-   * [Docker Container Networking - Docker Docs](https://docs.google.com/url?q=https://docs.docker.com/config/containers/container-networking/)
-2. **Hướng dẫn sử dụng RestTemplate trong Spring Boot:**
-   * [Spring RestTemplate Reference - Baeldung](https://docs.google.com/url?q=https://www.baeldung.com/spring-rest-template-list)
-3. **Cách phân giải DNS nội bộ của Docker:**
-   * [Docker DNS Service Discovery - Docker Docs](https://docs.google.com/url?q=https://docs.docker.com/network/#user-defined-bridge-networks)
+1. **Mạng mặc định trong Docker Compose:**
+   * [Docker Compose default network - Docker Docs](https://docs.docker.com/compose/networking/)
+2. **Cách phân giải DNS nội bộ của Docker:**
+   * [Docker DNS Service Discovery - Docker Docs](https://docs.docker.com/network/#user-defined-bridge-networks)
 
 ---
 
 ### PHẦN 7. CÂU HỎI ĐÁNH GIÁ NHANH
 
 #### Câu 1 (Hiểu bản chất)
-Tại sao mạng `default bridge` (mạng mặc định khi không khai báo `networks` cụ thể) lại không thể giúp `quickbite-order` gọi sang `quickbite-restaurant` bằng tên container, buộc chúng ta phải tạo một mạng `User-defined Bridge`?
-* *Gợi ý:* Docker Engine thiết kế mạng `default bridge` không tích hợp DNS Server nội bộ vì lý do tương thích ngược và bảo mật. Chỉ có mạng do người dùng tự định nghĩa (`User-defined bridge`) mới được kích hoạt dịch vụ DNS nội bộ để phân giải tên container thành IP.
+Tại sao khi chạy các container đơn lẻ bằng lệnh `docker run` thông thường mà không khai báo mạng cụ thể, chúng không thể gọi nhau bằng tên container, nhưng khi khởi chạy bằng tệp Compose thì chúng lại gọi nhau được?
+* *Gợi ý:* Lệnh `docker run` thông thường đưa các container vào mạng `default bridge` của Docker CLI, nơi DNS nội bộ bị tắt và không hỗ trợ phân giải tên container. Docker Compose tự động tạo một mạng ảo riêng biệt (tương đương User-defined Bridge Network) cho cụm dịch vụ, nơi DNS được kích hoạt sẵn để tự động phân giải tên container.
 
-#### Câu 2 (Đọc và dự đoán)
-Giả sử bạn chạy lệnh `docker compose stop quickbite-restaurant` để bảo trì dịch vụ nhà hàng. Khi khách hàng bấm tạo đơn hàng mới, điều gì xảy ra ở phía log của container `quickbite-order` khi chạy hàm `checkRestaurantStatus`?
-* *Gợi ý:* Hàm `restTemplate.getForObject` sẽ ném ra ngoại lệ `ResourceAccessException` (ví dụ: ConnectException - Connection refused hoặc Host unreachable). Khối catch sẽ hoạt động, in dòng log lỗi kết nối ra console và trả về kết quả `false`, ngăn cản khách tạo đơn hàng trên hệ thống.
-
-#### Câu 3 (Xử lý tình huống)
-Container `quickbite-order` của bạn bỗng dưng không thể kết nối tới `quickbite-restaurant` và báo lỗi `UnknownHostException: quickbite-restaurant`. Hãy đưa ra 3 bước chẩn đoán nhanh bằng Docker Compose CLI để xử lý lỗi này.
-* *Gợi ý:* 
-  1. Chạy `docker compose ps` để kiểm tra xem container `quickbite-restaurant` có đang ở trạng thái hoạt động (`Up`) hay đã bị dừng (`Exit`).
-  2. Kiểm tra xem cả hai container có cùng kết nối chung vào một mạng Docker Network hay không bằng lệnh `docker inspect` hoặc kiểm tra file compose.
-  3. Dùng lệnh `docker compose exec quickbite-order nslookup quickbite-restaurant` để kiểm tra xem DNS nội bộ có phân giải được IP hay không.
+#### Câu 2 (Xử lý tình huống)
+Nếu bạn thay đổi thuộc tính `container_name: quickbite-restaurant` thành `container_name: quickbite-restaurant-v2` trong file compose, bạn có cần cập nhật cấu hình URL kết nối Feign Client ở các dịch vụ khác gọi tới nó hay không?
+* *Gợi ý:* Có. Bởi vì DNS nội bộ phân giải tên miền dựa trên chính tên container được định nghĩa. Khi đổi tên container, các cuộc gọi cũ đến tên cũ sẽ gặp lỗi không tìm thấy host (`UnknownHostException`).

@@ -1,6 +1,6 @@
 # SESSION 04: DOCKER COMPOSE CƠ BẢN
 
-## LESSON 03: Biến môi trường và cấu hình port
+## LESSON 04: Biến môi trường và cấu hình port
 
 ---
 

@@ -1,6 +1,6 @@
 # SESSION 04: DOCKER COMPOSE CƠ BẢN
 
-## LESSON 05: Quản lý vòng đời hệ thống với Docker Compose
+## LESSON 06: Quản lý vòng đời hệ thống với Docker Compose
 
 ---
 

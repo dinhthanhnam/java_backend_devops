@@ -1,6 +1,6 @@
 # SESSION 04: DOCKER COMPOSE CƠ BẢN
 
-## LESSON 02: Cấu trúc file docker-compose.yml (services, image, build)
+## LESSON 03: Cấu trúc file docker-compose.yml (services, image, build)
 
 ---
 

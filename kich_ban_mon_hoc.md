@@ -483,108 +483,274 @@ exit
 
 # SESSION 04
 
-## DOCKER NETWORKING & MULTI-CONTAINER ARCHITECTURE
+## DOCKER COMPOSE VÀ DOCKERFILE
 
 ---
 
-### LESSON 01: Khái niệm mạng trong Docker (Bridge, Host, None)
+### LESSON 01: Dockerfile và cách đóng gói ứng dụng Spring Boot thực tế
 
 #### 1. Mục tiêu bài học
 
-* **Phân biệt** được cơ chế hoạt động, phạm vi áp dụng và mức độ cô lập của các driver mạng cơ bản trong Docker: `bridge`, `host`, và `none`.
-* **Giải thích** được tại sao driver `bridge` tùy biến (Custom Bridge Network) là lựa chọn tối ưu cho kiến trúc phân rã của QuickBite.
+* **Giải thích** được ý nghĩa của Dockerfile như là "nguồn sự thật duy nhất" (Source of Truth) cho đặc tả môi trường chạy.
+* **Biên soạn** đúng cấu trúc Dockerfile để đóng gói ứng dụng Java Spring Boot từ file JAR.
+* **Phân biệt** bản chất hoạt động của chỉ thị `ENTRYPOINT` và `CMD` (tiến trình Foreground PID 1 vs Background qua shell, cơ chế nhận tín hiệu tắt máy an toàn `SIGTERM`).
 
 #### 2. Bối cảnh hệ thống
 
-* **Trạng thái:** STATE 1 — Containerization (Các container độc lập).
-* **Vấn đề:** Mặc định khi khởi chạy, các container dịch vụ của QuickBite (`user-service`, `restaurant-service`) sẽ tự động rơi vào mạng `default bridge`. Trong mạng mặc định này, các container chỉ có thể giao tiếp với nhau bằng địa chỉ IP nội bộ (IP này thay đổi liên tục mỗi khi restart container), không thể phân giải tên gọi (Container Name) của nhau, gây mất ổn định kết nối.
+* **Trạng thái:** STATE 1 — Containerization (Đóng gói ứng dụng đơn lẻ).
+* **Vấn đề:** Để chạy `user-service` hoặc `restaurant-service` thủ công bằng lệnh `docker run`, ta phải truyền quá nhiều tham số phức tạp (port, volume, JRE, working dir, run jar command). Cấu hình này rất dễ sai sót và bị phân tán. Dockerfile ra đời làm bản thiết kế chuẩn hóa và nhất quán để tự động build thành image.
 
 #### 3. Nội dung trọng tâm
 
-* **Mạng Bridge (Mặc định và Tùy biến):** Tạo ra một switch ảo phần mềm trên máy host. Các container kết nối vào switch này sẽ nhận được một dải IP nội bộ riêng.
-* *Điểm cốt lõi:* Mạng **User-defined Bridge (Bridge tùy biến)** cung cấp cơ chế tự động phân giải tên miền nội bộ (Automatic Service Discovery) — các container gọi nhau trực tiếp bằng tên container thay vì IP.
-
-
-* **Mạng Host:** Container chia sẻ hoàn toàn không gian mạng với máy host (không có lớp NAT/cầu nối). Port của container gắn thẳng vào Port của máy host. Tốc độ nhanh nhất nhưng mất đi tính cô lập port.
-* **Mạng None:** Khóa toàn bộ stack mạng của container. Container hoàn toàn biệt lập, không thể kết nối ra ngoài và bên ngoài không thể gọi vào.
+* **Các chỉ thị cơ bản trong Dockerfile:** `FROM` (chọn base image JRE Alpine gọn nhẹ), `WORKDIR` (thư mục làm việc), `COPY` (sao chép file JAR từ máy host), `EXPOSE` (khai báo cổng), và `ENTRYPOINT`/`CMD` (lệnh khởi chạy).
+* **Cơ chế tắt máy an toàn (Graceful Shutdown):** Giải thích lý do sử dụng `ENTRYPOINT ["java", "-jar", "app.jar"]` ở dạng mảng (Exec Form) để Java chạy trực tiếp dưới PID 1, giúp nhận tín hiệu `SIGTERM` và đóng kết nối an toàn, thay vì dùng `CMD` dạng shell khiến tiến trình shell chiếm PID 1 và Java bị tắt cưỡng bức bằng `SIGKILL`.
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Tạo một mạng Bridge tùy biến mang tên `quickbite-net`, cho hai container kết nối vào và thực hiện lệnh ping qua lại bằng tên định danh.
+* **Mục tiêu demo:** Tạo Dockerfile cho `user-service`, thực hiện build image và chạy container.
 * **Command:**
 ```bash
-# 1. Tạo một mạng bridge tùy biến mới
-docker network create --driver bridge quickbite-net
+# 1. Đứng tại thư mục chứa source code user-service có file JAR đã build
+# Viết Dockerfile:
+# FROM eclipse-temurin:17-jre-alpine
+# WORKDIR /app
+# COPY build/libs/user-service.jar app.jar
+# EXPOSE 8081
+# ENTRYPOINT ["java", "-jar", "app.jar"]
 
-# 2. Liệt kê danh sách mạng để xác nhận
-docker network ls
+# 2. Thực hiện đóng gói image
+docker build -t quickbite-user-service:v1 .
 
-# 3. Khởi chạy container alpha tham gia vào mạng vừa tạo
-docker run -d --name service-alpha --network quickbite-net alpine sleep 3600
-
-# 4. Khởi chạy container beta tham gia vào mạng và thử ping sang alpha bằng TÊN
-docker run --rm --network quickbite-net alpine ping -c 3 service-alpha
-
+# 3. Khởi chạy container từ image tự đóng gói
+docker run -d -p 8081:8081 --name user-app quickbite-user-service:v1
 ```
-
-
-* **Output mong đợi:** Lệnh ping từ container beta sang tên `service-alpha` trả về kết quả phản hồi thành công cùng dải IP nội bộ được phân giải tự động.
+* **Output mong đợi:** Build image thành công dung lượng ~100MB. Container khởi chạy và log Spring Boot hiển thị mượt mà.
 
 #### 5. Điểm cần nhấn mạnh
 
-* Mạng `default bridge` của Docker không hỗ trợ tính năng tự động phân giải tên container (Service Discovery). Chỉ có mạng bridge do người dùng tự định nghĩa (`User-defined bridge`) mới có tính năng này.
-* Đây chính là chìa khóa để 4 dịch vụ Spring Boot của QuickBite tìm thấy nhau một cách ổn định trong môi trường container.
+* Bắt buộc sử dụng JRE Alpine thay vì JDK đầy đủ trên Production để tối ưu dung lượng và bảo mật (giảm bề mặt tấn công).
+* Khai báo Exec Form (`[...]`) trong `ENTRYPOINT` để ứng dụng nhận trực tiếp tín hiệu hệ thống.
 
 #### 6. Hiểu lầm thường gặp
 
-* **Hiểu sai:** Nghĩ rằng muốn hai container gọi được cho nhau thì bắt buộc phải mở cổng (expose port) ra ngoài máy host bằng tham số `-p`.
-* **Đính chính:** Tham số `-p` chỉ dùng khi muốn mở cổng cho thế giới bên ngoài hoặc máy host truy cập vào container. Nếu hai container nằm chung một mạng Docker, chúng có thể giao tiếp với nhau qua tất cả các cổng nội bộ một cách tự do mà không cần nới lỏng bảo mật ra bên ngoài.
+* **Hiểu sai:** Nghĩ rằng viết chỉ thị `EXPOSE 8081` trong Dockerfile là Docker sẽ tự động mở cổng ra máy host vật lý.
+* **Đính chính:** `EXPOSE` chỉ mang tính chất tài liệu hóa. Bạn bắt buộc phải dùng tham số `-p 8081:8081` khi chạy container để ánh xạ cổng ra ngoài.
 
 ---
 
-### LESSON 02: Liên kết các container (Service Discovery)
+### LESSON 02: Docker Compose và khái niệm hệ thống nhiều container
 
 #### 1. Mục tiêu bài học
 
-* **Vận dụng** cơ chế Service Discovery của Docker Network để kết nối ứng dụng Spring Boot tới cơ sở dữ liệu PostgreSQL chạy trong container.
-* **Kiểm chứng** tính ổn định của kết nối khi IP của container thay đổi nhưng tên container giữ nguyên.
+* **Giải thích** được định nghĩa, vai trò và sự cần thiết của hệ thống nhiều container (Multi-container System) trong kiến trúc Microservices.
+* **Hiểu bản chất** tại sao Docker Compose giải quyết nỗi đau của việc quản lý thủ công nhiều container.
+* **Phân tích** quy trình 3 bước hoạt động nền tảng: Đóng gói (Dockerfile) -> Khai báo (docker-compose.yml) -> Vận hành (docker compose CLI).
 
 #### 2. Bối cảnh hệ thống
 
-* **Trạng thái:** STATE 1 — Containerization.
-* **Vấn đề:** `restaurant-service` cần kết nối tới `quickbite-db` (Postgres). Nếu chúng ta cấu hình URL kết nối bằng IP nội bộ của container Postgres (ví dụ: `11.0.0.5`), hệ thống sẽ lỗi ngay lập tức khi container Postgres bị restart và Docker cấp cho nó một IP mới (ví dụ: `11.0.0.6`).
+* **Trạng thái:** STATE 2 — Multi-container Local System.
+* **Vấn đề:** Khi ứng dụng QuickBite phình to gồm `user-service`, `restaurant-service` và `quickbite-db`, việc gõ lệnh `docker run` thủ công cho từng container, tra cứu địa chỉ IP động qua `docker inspect` và cứng cấu hình IP kết nối sẽ dẫn tới sự đổ vỡ khi IP thay đổi (IP Drift). Hệ thống nhiều container đòi hỏi cơ chế quản trị cấu hình tập trung.
 
 #### 3. Nội dung trọng tâm
 
-* **Nguyên lý Service Discovery cục bộ:** Docker Engine tích hợp một DNS server nội bộ. Khi container A gọi container B bằng tên (`http://quickbite-db:5432`), DNS nội bộ sẽ tra cứu bảng ánh xạ tên -> IP hiện hành để định tuyến dòng dữ liệu chính xác.
-* **Thực thi liên kết hệ thống:** Gom database và backend vào chung hạ tầng mạng bảo mật, cấu hình chuỗi kết nối (Connection String) bằng tên định danh.
+* **Khái niệm hệ thống nhiều container:** Giải thích sự cần thiết của việc tách biệt container (đa dạng công nghệ, scale độc lập, cô lập lỗi).
+* **Docker Compose là gì:** Công cụ định nghĩa và chạy hệ thống đa container theo phong cách mô tả (Declarative YAML) thay vì mệnh lệnh CLI thủ công.
+* **Quy trình 3 bước:** Định nghĩa môi trường chạy (Dockerfile) -> Mô tả cấu trúc hệ thống (docker-compose.yml) -> Khởi chạy toàn bộ bằng một lệnh duy nhất (`docker compose up`).
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Khởi chạy một container Postgres, sau đó chạy một container công cụ để kiểm tra khả năng phân giải DNS nội bộ của Docker Network.
+* **Mục tiêu demo:** Cài đặt kiểm tra Docker Compose, viết một file compose tối giản chạy thử container Java tester để kiểm tra hoạt động.
 * **Command:**
 ```bash
-# Đảm bảo mạng quickbite-net đã được tạo từ bài trước
+# 1. Kiểm tra phiên bản Compose
+docker compose version
 
-# 1. Khởi chạy container database nằm trong mạng quickbite-net
-docker run -d --name quickbite-db --network quickbite-net -e POSTGRES_PASSWORD=secret postgres:15-alpine
+# 2. Tạo file docker-compose.yml mẫu tối giản:
+# version: '3.8'
+# services:
+#   java-tester:
+#     image: eclipse-temurin:17-jre-alpine
+#     command: java -version
 
-# 2. Sử dụng công cụ nslookup bên trong container kiểm tra DNS nội bộ
-docker run --rm --network quickbite-net busybox nslookup quickbite-db
-
+# 3. Khởi chạy và dọn dẹp
+docker compose up
+docker compose down
 ```
-
-
-* **Output mong đợi:** Lệnh `nslookup` trả về chính xác IP nội bộ của container `quickbite-db`.
+* **Output mong đợi:** In ra phiên bản Compose, container chạy in thông tin version Java rồi tự dừng và được dọn dẹp sạch sẽ.
 
 #### 5. Điểm cần nhấn mạnh
 
-* Tên container (`--name quickbite-db`) đóng vai trò như một Domain Name (Tên miền) nội bộ. Do đó, việc đặt tên container chuẩn hóa, tường minh là cực kỳ quan trọng trong DevOps.
+* Docker Compose gom tất cả tài nguyên (container, network, volume) vào một stack tập trung giúp dọn dẹp triệt để, không để lại rác hệ thống.
 
 #### 6. Hiểu lầm thường gặp
 
-* **Hiểu sai:** Cho rằng tính năng Service Discovery này hoạt động xuyên suốt giữa các máy chủ vật lý khác nhau một cách mặc định.
-* **Đính chính:** Cơ chế DNS nội bộ của driver `bridge` chỉ có hiệu lực trên phạm vi **một máy chủ vật lý độc lập (Single Host)**. Khi hệ thống mở rộng ra nhiều máy chủ, chúng ta cần các giải pháp mạng nâng cao hơn như mạng Overlay (Docker Swarm) hoặc Kubernetes.
+* **Hiểu sai:** Docker Compose là giải pháp tối ưu để triển khai và tự động co giãn (Auto Scaling) trên môi trường Production lớn nhiều server.
+* **Đính chính:** Docker Compose chỉ phục vụ môi trường local, staging hoặc production nhỏ chạy trên single host. Khi hệ thống lớn và phức tạp, cần chuyển sang Kubernetes hoặc Docker Swarm.
+
+---
+
+### LESSON 03: Cấu trúc file docker-compose.yml (services, image, build)
+
+#### 1. Mục tiêu bài học
+
+* **Đọc và giải thích** được cấu trúc định dạng của tệp `docker-compose.yml` (các từ khóa chính: `services`, `image`, `build`, `depends_on`, `entrypoint`).
+* **Vận dụng thuộc tính `build`** để tự động build image từ Dockerfile local khi up compose.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 2 — Multi-container Local System.
+* **Vấn đề:** Làm sao để vừa khởi chạy một database có sẵn trên registry (`postgres`), vừa tự build và chạy mã nguồn Java local của `user-service` chỉ bằng một lệnh duy nhất mà không cần chạy `docker build` thủ công trước?
+
+#### 3. Nội dung trọng tâm
+
+* **Cấu trúc YAML:** Định dạng phân cấp bằng thụt lề khoảng trắng, phân biệt các khóa cốt lõi của file Compose.
+* **Thuộc tính build:** Khai báo context đường dẫn tới thư mục chứa code và Dockerfile.
+* **Depends_on & Entrypoint:** Quản lý thứ tự khởi chạy (DB chạy trước backend) và ghi đè lệnh chạy mặc định.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Viết file `docker-compose.yml` tích hợp `quickbite-db` (postgres) và backend `quickbite-user` tự build từ Dockerfile.
+* **Command:**
+```bash
+# 1. Chuẩn bị cấu trúc thư mục gồm docker-compose.yml và thư mục con user-service (chứa Dockerfile và file JAR)
+# 2. Khởi chạy kèm tham số build bắt buộc
+docker compose up -d --build
+```
+* **Output mong đợi:** Compose tự động truy cập vào thư mục backend, build image từ Dockerfile, gắn thẻ và khởi động đồng thời cả 2 container database và backend.
+
+#### 5. Điểm cần nhấn mạnh
+
+* Thay đổi mã nguồn Java đòi hỏi phải biên dịch ra file JAR mới trên máy host và chạy lệnh kèm cờ `--build` thì Compose mới đóng gói lại image mới.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Trong một service, nếu khai báo cả từ khóa `image` và `build` sẽ gây lỗi cú pháp.
+* **Đính chính:** Hoàn toàn có thể. Khi đó Compose sẽ build từ Dockerfile và tự động đặt tên image theo nhãn khai báo ở `image`.
+
+---
+
+### LESSON 04: Biến môi trường và cấu hình port
+
+#### 1. Mục tiêu bài học
+
+* **Cấu hình** ánh xạ cổng (`ports`) để mở cổng truy cập từ bên ngoài vào container.
+* **Truyền biến môi trường** (`environment`) để cấu hình động cho ứng dụng Spring Boot lúc chạy.
+* **Bảo mật** thông tin nhạy cảm thông qua file ngoại vi `.env` và cơ chế nội suy biến.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 2 — Multi-container Local System.
+* **Vấn đề:** Nếu ta viết cứng mật khẩu quản trị database và các cấu hình cổng vào trực tiếp trong `docker-compose.yml` rồi push lên Git, dữ liệu nhạy cảm sẽ bị rò rỉ. Hơn nữa, việc chuyển đổi cổng và cấu hình giữa các môi trường (Dev, Staging, Prod) sẽ đòi hỏi sửa đổi file YAML liên tục.
+
+#### 3. Nội dung trọng tâm
+
+* **Port Mapping:** Phân biệt cổng ngoài máy host và cổng trong container.
+* **Nội suy biến (Interpolation):** Đọc giá trị từ file `.env` bằng cú pháp `${VARIABLE}`.
+* **Quy chuẩn bảo mật:** Khóa file `.env` chứa mật khẩu thật bằng `.gitignore`, chỉ push file `.env.example` làm mẫu lên Git.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Thiết lập file `.env` để nạp cổng, mật khẩu database và nạp cấu hình qua lệnh config.
+* **Command:**
+```bash
+# 1. Viết file .env: DB_PASSWORD=secret_pass ...
+# 2. Khai báo các biến nội suy trong docker-compose.yml
+# 3. Chạy lệnh kiểm thử nội suy biến
+docker compose config
+```
+* **Output mong đợi:** Lệnh config in ra toàn bộ cấu hình YAML hoàn chỉnh với các giá trị biến môi trường thực tế đã được điền chính xác.
+
+#### 5. Điểm cần nhấn mạnh
+
+* File `.env` mặc định được Compose tự động nhận diện nếu nằm cùng thư mục chạy lệnh.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Từ khóa `ports` và `expose` có chức năng giống nhau.
+* **Đính chính:** `ports` mở cổng ra ngoài máy host vật lý. `expose` chỉ khai báo cổng giao tiếp nội bộ giữa các container trong mạng ảo, máy host không thể kết nối trực tiếp.
+
+---
+
+### LESSON 05: Volume và network trong Docker Compose
+
+#### 1. Mục tiêu bài học
+
+* **Cấu hình Named Volume** để lưu trữ dữ liệu database bền vững, tránh mất dữ liệu khi xóa container.
+* **Ứng dụng Service Discovery** để kết nối microservices với database qua tên service thay vì IP cứng.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 2 — Multi-container Local System.
+* **Vấn đề:** Mặc định hệ thống file container là tạm thời, chạy `docker compose down` sẽ xóa sạch dữ liệu trong database Postgres. Đồng thời, nếu database restart đổi IP, backend sẽ mất kết nối. Ta cần giải pháp lưu trữ bền vững và mạng ảo tự phân giải DNS.
+
+#### 3. Nội dung trọng tâm
+
+* **Named Volume:** Khai báo volume toàn cục và mount vào `/var/lib/postgresql/data` của Postgres.
+* **User-defined Bridge Network:** Cơ chế mạng ảo mặc định của Compose, tự kích hoạt DNS nội bộ giúp phân giải tên service thành IP động.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Cấu hình volume và network trong file compose, chạy thử tạo dữ liệu, stop/down cụm và up lại để chứng minh dữ liệu còn nguyên vẹn.
+* **Command:**
+```bash
+# 1. Khai báo volumes và networks trong file compose
+# 2. Up cụm, tạo dữ liệu demo
+# 3. Down cụm và Up lại
+docker compose down
+docker compose up -d
+```
+* **Output mong đợi:** Dữ liệu cũ trong database vẫn tồn tại nguyên vẹn sau khi dựng lại container.
+
+#### 5. Điểm cần nhấn mạnh
+
+* DNS nội bộ của mạng bridge mặc định của Compose cho phép gọi thẳng tên service (ví dụ: `quickbite-db:5432`) làm host kết nối.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Lệnh `docker compose down` sẽ xóa toàn bộ dữ liệu trong Named Volume.
+* **Đính chính:** Lệnh này chỉ xóa container và mạng. Dữ liệu trong volume vật lý trên host vẫn được giữ an toàn 100%. Chỉ mất dữ liệu nếu cố tình thêm cờ `-v` (`docker compose down -v`).
+
+---
+
+### LESSON 06: Quản lý vòng đời hệ thống với Docker Compose
+
+#### 1. Mục tiêu bài học
+
+* **Làm chủ** toàn diện các câu lệnh quản lý vòng đời hệ thống (`up`, `down`, `stop`, `start`).
+* **Chẩn đoán lỗi** nhanh chóng thông qua xem danh sách (`ps`), log tập trung có màu sắc (`logs -f`) và tương tác trực tiếp (`exec`).
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 2 — Multi-container Local System.
+* **Vấn đề:** Khi up cả cụm lên, có thể backend lỗi kết nối database và crash ngay lập tức. Để chẩn đoán, ta không thể chạy logs thủ công cho từng container rời rạc mà cần luồng log tổng hợp đồng bộ dòng thời gian của toàn bộ cụm.
+
+#### 3. Nội dung trọng tâm
+
+* **Nhóm lệnh điều khiển:** Phân biệt `stop` (tạm dừng giữ container) vs `down` (xóa sạch container).
+* **Nhóm lệnh chẩn đoán:** Sử dụng `logs -f` có màu phân biệt giữa các service, sử dụng `exec` để kiểm tra kết nối nội bộ.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Thực hành chẩn đoán lỗi cụm container QuickBite bằng logs, ps và pg_isready.
+* **Command:**
+```bash
+# 1. Khởi chạy ngầm
+docker compose up -d
+# 2. Xem logs tổng hợp thời gian thực
+docker compose logs -f --tail=50
+# 3. Thực thi kiểm tra trạng thái database nội bộ
+docker compose exec quickbite-db pg_isready -U postgres
+```
+* **Output mong đợi:** Thấy logs của các container hiển thị phân biệt màu sắc, lệnh pg_isready báo database sẵn sàng kết nối.
+
+#### 5. Điểm cần nhấn mạnh
+
+* Nhấn Ctrl+C để thoát chế độ logs không làm ảnh hưởng tới trạng thái đang chạy của container.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Lệnh `docker compose stop` cũng giải phóng hoàn toàn bộ nhớ RAM và dọn sạch container khỏi hệ thống.
+* **Đính chính:** Lệnh `stop` chỉ dừng tiến trình, container vẫn tồn tại và chiếm tài nguyên lưu trữ cấu hình tạm. Bắt buộc dùng `down` để dọn dẹp sạch sẽ tài nguyên.
 
 ---
 

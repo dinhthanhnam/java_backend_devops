@@ -1,6 +1,6 @@
 # SESSION 04: DOCKER COMPOSE CƠ BẢN
 
-## LESSON 04: Volume và network trong Docker Compose
+## LESSON 05: Volume và network trong Docker Compose
 
 ---
 

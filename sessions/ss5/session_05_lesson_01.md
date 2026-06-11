@@ -1,333 +1,184 @@
 # SESSION 05: MULTI-SERVICES & API GATEWAY
 
-## LESSON 01: Kiến trúc đa dịch vụ và thiết kế thực thể JPA trong hệ thống QuickBite
+## LESSON 01: Kiến trúc đa dịch vụ và thiết kế thực thể trong hệ thống phân tán QuickBite
 
 ---
 
 ### PHẦN 1. MỤC TIÊU BÀI HỌC
 
 Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
-* **Giải thích** được kiến trúc đa dịch vụ (Multi-services Architecture) của nền tảng QuickBite và vai trò riêng biệt của từng dịch vụ.
-* **Hiểu bản chất** cấu trúc các lớp thực thể JPA (Entities) của 4 dịch vụ cốt lõi: `user-service`, `restaurant-service`, `order-service`, và `notification-service`.
-* **Phân tích và thiết kế** được giải pháp bảo toàn tính lịch sử của dữ liệu thông qua cơ chế Snapshot (lưu thông tin món ăn trực tiếp vào chi tiết đơn hàng thay vì chỉ trỏ ID).
-* **Nắm rõ nguyên tắc cô lập dữ liệu** (Database-per-service), hiểu lý do không tồn tại khóa ngoại vật lý giữa các cơ sở dữ liệu của các dịch vụ khác nhau.
+* **Giải thích** được cấu trúc đa dịch vụ (Multi-services Architecture) của nền tảng QuickBite và vai trò của từng thành phần.
+* **Hiểu bản chất** cấu trúc dữ liệu và thực thể của các dịch vụ cốt lõi: `user-service` và `restaurant-service`.
+* **Phân tích và thiết kế** được giải pháp bảo toàn dữ liệu lịch sử thông qua cơ chế Snapshot (lưu thông tin tên khách hàng, tên cửa hàng, tên món ăn và giá bán trực tiếp tại thời điểm đặt đơn thay vì chỉ liên kết ID).
+* **Nắm rõ nguyên tắc cô lập dữ liệu** (Database-per-service), hiểu lý do không thể sử dụng các quan hệ liên kết trực tiếp ở mức database (như `@OneToMany` hay `@ManyToMany` xuyên cơ sở dữ liệu) giữa các dịch vụ.
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (NỖI ĐAU CỦA THIẾT KẾ HỆ THỐNG THIẾU THỰC TẾ)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (THIẾT LẬP HỆ THỐNG PHÂN TÁN VÀ LƯU TRỮ LỊCH SỬ)
 
-Ở Session 4, chúng ta đã khởi chạy thử nghiệm một dịch vụ đơn lẻ (`user-service`) kết nối tới cơ sở dữ liệu (`quickbite-db`). Tuy nhiên, trong thực tế kinh doanh của một nền tảng đặt đồ ăn trực tuyến như QuickBite, nghiệp vụ diễn ra phức tạp hơn nhiều. Hệ thống cần quản lý thông tin khách hàng, nhà hàng, thực đơn, ví tiền, tài xế, đơn hàng và gửi thông báo.
+Khi chuyển đổi từ một hệ thống chạy đơn bản (Monolith) sang kiến trúc đa dịch vụ chạy độc lập, chúng ta gặp những thay đổi lớn về cách tổ chức cơ sở dữ liệu:
 
-Khi hệ thống phình to, việc thiết kế cơ sở dữ liệu và lớp thực thể thường gặp hai vấn đề chí mạng sau:
+1. **Ràng buộc dữ liệu trong kiến trúc Database-per-Service:**
+   * Trong hệ thống monolithic truyền thống, tất cả các bảng đều nằm chung một cơ sở dữ liệu. Việc lấy thông tin người dùng từ đơn hàng rất đơn giản bằng cách định nghĩa khóa ngoại hoặc liên kết `@ManyToOne User` trong Hibernate.
+   * Tuy nhiên, khi chuyển sang microservices, `user-service` quản lý database `quickbite_user_db`, còn `restaurant-service` quản lý `quickbite_restaurant_db`. Do nằm ở các database logic khác nhau (thậm chí có thể chạy trên các server vật lý khác nhau), chúng ta không thể thiết lập quan hệ khóa ngoại vật lý và cũng không thể thực hiện các câu lệnh SQL JOIN trực tiếp hay các liên kết JPA truyền thống. Ví dụ: `user-service` không thể truy cập thông tin của `restaurant-service` thông qua mối quan hệ `@OneToMany restaurants`. Mọi giao tiếp và truy vấn chéo bắt buộc phải thực hiện qua giao diện mạng (REST API) sử dụng các HTTP Client như **FeignClient**.
 
-1. **Lỗi "Underengineer" - Thiết kế thiếu tính lịch sử (Mất dấu Snapshot):**
-   * *Tình huống:* Trong bảng chi tiết đơn hàng (`order_items`), lập trình viên chỉ lưu trường `menu_item_id` để tham chiếu tới bảng thực đơn của nhà hàng nhằm tiết kiệm dung lượng.
-   * *Nỗi đau:* Hôm nay khách hàng đặt món "Phở bò" giá 50.000đ. Ngày mai, nhà hàng đổi tên món thành "Phở đặc biệt" và tăng giá lên 70.000đ. Khi khách hàng xem lại lịch sử đơn hàng của ngày hôm qua, hóa đơn sẽ hiển thị là "Phở đặc biệt" với giá 70.000đ! Điều này gây ra sự mâu thuẫn tài chính nghiêm trọng cho cả kế toán lẫn trải nghiệm người dùng.
-2. **Sự phụ thuộc chéo dữ liệu (Cross-Database Join):**
-   * *Tình huống:* Trong kiến trúc phân tán, mỗi dịch vụ sở hữu cơ sở dữ liệu riêng (Database-per-service). Dịch vụ đơn hàng (`order-service`) chạy trên DB `quickbite_order`, trong khi dịch vụ người dùng (`user-service`) chạy trên DB `quickbite_user`. 
-   * *Nỗi đau:* Nếu lập trình viên cố tình tạo liên kết khóa ngoại JPA như `@ManyToOne User user` hay viết câu lệnh SQL JOIN chéo giữa bảng `orders` và bảng `users`, ứng dụng sẽ crash ngay lập tức vì hai bảng này nằm ở hai máy chủ/cơ sở dữ liệu vật lý hoàn toàn cô lập.
-
-*Để giải quyết triệt để các vấn đề này, chúng ta cần một thiết kế thực thể JPA chuẩn hóa cho kiến trúc đa dịch vụ, áp dụng mẫu thiết kế Snapshot và tuân thủ nguyên tắc cô lập dữ liệu.*
+2. **Bài toán bảo toàn lịch sử dữ liệu (Snapshot Pattern):**
+   * Giả sử trong bảng chi tiết đơn hàng, lập trình viên chỉ lưu `menuItemId` để tham chiếu tới món ăn trong thực đơn của `restaurant-service`.
+   * Thực tế vận hành cho thấy: Hôm nay khách hàng đặt món "Trà sữa trân châu" với giá 30.000đ. Ngày mai, nhà hàng cập nhật giá món ăn này lên 40.000đ hoặc đổi tên món thành "Trà sữa đặc biệt". Nếu hệ thống chỉ lưu ID và truy cập động từ `restaurant-service`, khi khách hàng xem lại lịch sử đơn hàng cũ, hóa đơn sẽ hiển thị sai lệch thông tin và giá tiền so với thời điểm họ mua.
+   * Để giải quyết việc này, hệ thống cần chụp lại trạng thái dữ liệu (Snapshot) tại thời điểm giao dịch phát sinh. Các thông tin động dễ thay đổi như tên khách hàng (`customerName`), tên nhà hàng (`merchantName`), tên món ăn (`itemName`), và giá món (`price`) cần được sao chép và lưu cứng trực tiếp vào đơn hàng.
 
 ---
 
-### PHẦN 3. KIẾN THỨC CỐT LÕI (MÔ HÌNH THIẾT KẾ ĐỐI TƯỢNG TRONG HỆ THỐNG PHÂN TÁN)
+### PHẦN 3. KIẾN THỨC CỐT LÕI (MÔ HÌNH DỮ LIỆU TRONG HỆ THỐNG PHÂN TÁN)
 
-#### 3.1 Thiết kế Cơ sở dữ liệu riêng biệt (Database-per-Service Pattern)
-Trong kiến trúc Microservices, mỗi dịch vụ phải sở hữu hoàn toàn dữ liệu của nó để đảm bảo tính độc lập và khả năng mở rộng. 
-* **`user-service`** quản lý dữ liệu về người dùng (`users`), địa chỉ giao hàng (`user_addresses`) và ví tiền giả lập (`user_wallets`).
-* **`restaurant-service`** quản lý dữ liệu về nhà hàng (`restaurants`), danh mục thực đơn (`menu_categories`) và món ăn (`menu_items`).
-* **`order-service`** quản lý dữ liệu về đơn hàng (`orders`), chi tiết món ăn trong đơn (`order_items`) và lịch sử chuyển trạng thái đơn hàng (`order_status_history`).
-* **`notification-service`** quản lý lịch sử gửi thông báo (`notifications`).
+#### 3.1 Mô hình Database-per-Service
+Mỗi dịch vụ sở hữu cơ sở dữ liệu logic riêng để đảm bảo tính cô lập và tự chủ:
 
 ```text
-  ┌─────────────────┐      ┌────────────────────────┐      ┌─────────────────┐      ┌────────────────────────┐
-  │  user-service   │      │   restaurant-service   │      │  order-service  │      │  notification-service  │
-  └────────┬────────┘      └───────────┬────────────┘      └────────┬────────┘      └───────────┬────────────┘
-           ▼                           ▼                            ▼                           ▼
- ┌───────────────────┐       ┌────────────────────┐       ┌───────────────────┐       ┌────────────────────┐
- │  DB:              │       │  DB:               │       │  DB:              │       │  DB:               │
- │  quickbite_user   │       │  quickbite_rest    │       │  quickbite_order  │       │  quickbite_notif   │
- └───────────────────┘       └────────────────────┘       └───────────────────┘       └────────────────────┘
+  [ user-service ]           [ restaurant-service ]         [ order-service ]
+         │                            │                            │
+  (DB: quickbite_user_db)     (DB: quickbite_restaurant_db)  (DB: quickbite_order_db)
 ```
 
-#### 3.2 Cơ chế Snapshot trong thiết kế thực thể thương mại điện tử
-Khi khách hàng mua một món ăn, các thông tin mang tính thời điểm như **tên món ăn** và **giá tiền** phải được "chụp lại" (snapshot) và lưu trực tiếp vào thực thể `OrderItem`. 
-* Chúng ta chỉ giữ trường ID (`menuItemId`) như một mã tham chiếu tham khảo.
-* Tên món (`itemName`) và giá tiền (`price`) được sao chép cứng vào bảng `order_items` tại thời điểm tạo đơn hàng. Kể từ đó, mọi thay đổi về thực đơn của nhà hàng sẽ không làm sai lệch hóa đơn đã thanh toán.
+#### 3.2 Cơ chế Snapshot trong lưu trữ giao dịch
+Khi một đơn hàng được tạo ra, dữ liệu từ các dịch vụ khác sẽ được chụp lại và lưu trực tiếp vào database của `order-service`:
 
-#### 3.3 Ràng buộc lỏng qua ID (Soft References)
-Thay vì sử dụng các mối quan hệ JPA truyền thống như `@ManyToOne` trỏ đến một Entity của dịch vụ khác, các thực thể trong hệ thống Microservices liên kết với nhau qua các ID dạng số nguyên (`Long`).
-* Ví dụ: Trong thực thể `Order` của `order-service`, chúng ta lưu `customerId` và `restaurantId` dưới dạng trường `Long` thông thường, thay vì `@ManyToOne User user` hay `@ManyToOne Restaurant restaurant`.
-
----
-
-### PHẦN 4. DEMO VÀ THỰC HÀNH: THIẾT KẾ CÁC LỚP THỰC THỂ JPA CHO QUICKBITE
-
-Dưới đây là mã nguồn Java Spring Boot chi tiết định nghĩa cấu trúc Entity cho 4 dịch vụ cốt lõi của QuickBite. Tất cả đều sử dụng Spring Data JPA để ánh xạ xuống PostgreSQL.
-
-#### 4.1 Thực thể dịch vụ Người dùng (`user-service`)
-Dịch vụ này quản lý tài khoản, ví tiền và các địa chỉ nhận hàng của người dùng. Một User không thể đặt hàng nếu thiếu địa chỉ giao và ví tiền để thanh toán.
-
-```java
-// User.java
-package com.quickbite.user.entity;
-
-import jakarta.persistence.*;
-import java.util.List;
-
-@Entity 
-@Table(name = "users")
-public class User {
-    @Id 
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    private String username;
-    private String password;
-    private String fullName;
-
-    @Enumerated(EnumType.STRING)
-    private Role role; // CUSTOMER, DRIVER, MERCHANT
-
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    private List<UserAddress> addresses; // Danh sách địa chỉ nhận hàng
-
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
-    private UserWallet wallet; // Ví tiền điện tử giả lập
-    
-    // Getters, Setters, Constructors
-}
-
-// UserAddress.java
-package com.quickbite.user.entity;
-
-import jakarta.persistence.*;
-
-@Entity 
-@Table(name = "user_addresses")
-public class UserAddress {
-    @Id 
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    private String label; // Ví dụ: Nhà riêng, Văn phòng
-    private String detailAddress;
-    private boolean isDefault;
-    
-    @ManyToOne 
-    @JoinColumn(name = "user_id")
-    private User user;
-    
-    // Getters, Setters, Constructors
-}
-
-// UserWallet.java
-package com.quickbite.user.entity;
-
-import jakarta.persistence.*;
-import java.math.BigDecimal;
-
-@Entity 
-@Table(name = "user_wallets")
-public class UserWallet {
-    @Id 
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    private BigDecimal balance; // Số dư ví tiền
-    
-    @OneToOne 
-    @JoinColumn(name = "user_id")
-    private User user;
-    
-    // Getters, Setters, Constructors
-}
+```text
+[Thời điểm đặt đơn]
+- Lấy tên người dùng từ user-service        ──► Lưu vào orders.customer_name (Snapshot)
+- Lấy tên nhà hàng từ restaurant-service    ──► Lưu vào orders.merchant_name (Snapshot)
+- Lấy tên món ăn và giá từ thực đơn         ──► Lưu vào order_items.item_name & order_items.price (Snapshot)
 ```
 
-#### 4.2 Thực thể dịch vụ Nhà hàng (`restaurant-service`)
-Quản lý thông tin nhà hàng, danh mục thực đơn và chi tiết món ăn của từng nhà hàng.
+#### 3.3 Liên kết lỏng qua ID (Soft References) và Giao tiếp REST API
+Để liên kết thông tin giữa các dịch vụ, các thực thể không dùng liên kết JPA trực tiếp (như `@ManyToOne`) mà chỉ lưu trữ khóa chính của thực thể đối tác dưới dạng một trường số nguyên thông thường (`Long`).
+* Ví dụ: Thực thể `Order` lưu trường `customerId` (kiểu `Long`) thay vì đối tượng `User`.
+* Khi cần lấy thông tin chi tiết của người dùng, dịch vụ sẽ gọi API sang `user-service` thông qua một **FeignClient** (công cụ khai báo REST client trực quan của Spring Cloud):
 
 ```java
-// Restaurant.java
-package com.quickbite.restaurant.entity;
-
-import jakarta.persistence.*;
-import java.util.List;
-
-@Entity 
-@Table(name = "restaurants")
-public class Restaurant {
-    @Id 
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    private String name;
-    private Long ownerId; // Chỉ lưu ID tham chiếu sang User (Role: MERCHANT) ở user-service
-    private boolean isOpen;
-
-    @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL)
-    private List<MenuCategory> categories; // Phân mục: Đồ ăn, Nước uống...
-    
-    // Getters, Setters, Constructors
-}
-
-// MenuItem.java
-package com.quickbite.restaurant.entity;
-
-import jakarta.persistence.*;
-import java.math.BigDecimal;
-
-@Entity 
-@Table(name = "menu_items")
-public class MenuItem {
-    @Id 
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    private String name;
-    private BigDecimal basePrice;
-    private boolean isAvailable;
-
-    @ManyToOne 
-    @JoinColumn(name = "category_id")
-    private MenuCategory category;
-    
-    // Getters, Setters, Constructors
-}
-```
-
-#### 4.3 Thực thể dịch vụ Đơn hàng (`order-service`)
-Đóng vai trò trung tâm xử lý nghiệp vụ. Lưu lịch sử đơn hàng, chi tiết Snapshot món ăn và gán tài xế.
-
-```java
-// Order.java
-package com.quickbite.order.entity;
-
-import jakarta.persistence.*;
-import java.math.BigDecimal;
-import java.util.List;
-
-@Entity 
-@Table(name = "orders")
-public class Order {
-    @Id 
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    private Long customerId;        // Liên kết lỏng sang User ở user-service
-    private Long restaurantId;      // Liên kết lỏng sang Restaurant ở restaurant-service
-    private Long driverId;          // Sẽ được cập nhật khi có Tài xế nhận đơn
-    private Long deliveryAddressId; // Lưu ID địa chỉ giao hàng của User
-
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
-    private List<OrderItem> items;
-
-    private BigDecimal itemsPrice;  // Tổng tiền các món
-    private BigDecimal shippingFee;  // Phí giao hàng
-    private BigDecimal totalPrice;   // Tổng tiền khách phải trả (itemsPrice + shippingFee)
-
-    @Enumerated(EnumType.STRING)
-    private OrderStatus status; // PENDING, ACCEPTED, SHIPPING, DELIVERED, CANCELLED
-
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
-    private List<OrderStatusHistory> statusHistories; // Lưu dòng vết thời gian (Timeline)
-    
-    // Getters, Setters, Constructors
-}
-
-// OrderItem.java (Áp dụng kỹ thuật Snapshot để lưu thông tin tại thời điểm mua)
-package com.quickbite.order.entity;
-
-import jakarta.persistence.*;
-import java.math.BigDecimal;
-
-@Entity 
-@Table(name = "order_items")
-public class OrderItem {
-    @Id 
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    private Long menuItemId;    // Chỉ lưu ID tham chiếu tham khảo
-    private String itemName;    // SNAPSHOT: Sao chép cứng tên món ăn tại thời điểm mua
-    private Integer quantity;   // Số lượng món đặt
-    private BigDecimal price;   // SNAPSHOT: Sao chép cứng giá món ăn tại thời điểm mua
-
-    @ManyToOne 
-    @JoinColumn(name = "order_id")
-    private Order order;
-    
-    // Getters, Setters, Constructors
-}
-```
-
-#### 4.4 Thực thể dịch vụ Thông báo (`notification-service`)
-Dịch vụ này tiếp nhận sự kiện thay đổi trạng thái đơn hàng để gửi email, SMS hoặc thông báo in-app đến người dùng.
-
-```java
-// Notification.java
-package com.quickbite.notification.entity;
-
-import jakarta.persistence.*;
-import java.time.LocalDateTime;
-
-@Entity 
-@Table(name = "notifications")
-public class Notification {
-    @Id 
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    private Long userId; // Liên kết lỏng tới người nhận ở user-service
-    private String title;
-    private String content;
-    
-    @Enumerated(EnumType.STRING)
-    private NotificationType type; // IN_APP, EMAIL, SMS
-    
-    @Enumerated(EnumType.STRING)
-    private DeliveryStatus deliveryStatus; // PENDING, SENT, FAILED
-    
-    private LocalDateTime createdAt;
-    
-    // Getters, Setters, Constructors
+// Mã giả Feign Client trong Spring Boot
+@FeignClient(name = "user-service")
+public interface UserServiceClient {
+    @GetMapping("/users/{id}")
+    UserDTO getUserById(@PathVariable("id") Long id);
 }
 ```
 
 ---
 
-### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (FOREIGN KEY XUYÊN DATABASE)
+### PHẦN 4. THIẾT KẾ CẤU TRÚC BẢNG DỮ LIỆU (ASCII VISUALIZATION)
 
-* **Hiểu lầm thường gặp:** Có thể định nghĩa khóa ngoại vật lý và ánh xạ JPA (ví dụ: `@ManyToOne`) từ thực thể `Order` (trong database `quickbite_order`) tới thực thể `User` (trong database `quickbite_user`) thông qua một cấu hình JPA nâng cao nào đó.
-* **Sự thật:** Không thể. 
-  * Cơ chế khóa ngoại vật lý (Foreign Key) chỉ được hỗ trợ bởi hệ quản trị cơ sở dữ liệu khi các bảng nằm trong **cùng một database logic**.
-  * Trong kiến trúc Microservices, mỗi dịch vụ chạy trên một cơ sở dữ liệu hoàn toàn độc lập, thậm chí có thể nằm trên các máy chủ cơ sở dữ liệu vật lý khác nhau. Việc cố gắng tạo khóa ngoại chéo database sẽ phá vỡ tính cô lập (Decoupling) và khiến các dịch vụ không thể khởi động hoặc không thể chạy độc lập. 
-  * Cách duy nhất là lưu ID tham chiếu lỏng (`Long customerId`) và thực hiện truy vấn thông tin chi tiết qua giao tiếp API (REST, gRPC) hoặc đồng bộ dữ liệu.
+Dưới đây là thiết kế cấu trúc các bảng dữ liệu logic của hệ thống QuickBite, thể hiện rõ các khóa chính (PK), khóa ngoại nội bộ (FK) và các trường tham chiếu lỏng sang dịch vụ khác (Soft Ref):
+
+#### 4.1 Cơ sở dữ liệu: `quickbite_user_db` (Dịch vụ `user-service`)
+
+* **Bảng `users` (Quản lý tài khoản và vai trò):**
+  
+  | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+  | :--- | :--- | :--- | :--- |
+  | `id` | Bigint | PK, Auto Increment | Khóa chính |
+  | `username` | Varchar(50) | Unique, Not Null | Tên đăng nhập |
+  | `password` | Varchar(100)| Not Null | Mật khẩu mã hóa |
+  | `full_name`| Varchar(100)| Not Null | Họ và tên hiển thị |
+  | `role` | Varchar(20) | Not Null | Vai trò (CUSTOMER, DRIVER, MERCHANT) |
+
+* **Bảng `user_addresses` (Danh sách địa chỉ nhận hàng):**
+  
+  | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+  | :--- | :--- | :--- | :--- |
+  | `id` | Bigint | PK, Auto Increment | Khóa chính |
+  | `label` | Varchar(50) | Not Null | Nhãn địa chỉ (Nhà riêng, Công ty) |
+  | `detail_address` | Varchar(255) | Not Null | Địa chỉ chi tiết |
+  | `is_default` | Boolean | Not Null | Địa chỉ mặc định |
+  | `user_id` | Bigint | FK -> `users(id)` | Liên kết tới tài khoản sở hữu |
+
+* **Bảng `user_wallets` (Ví tiền giả lập để thanh toán):**
+  
+  | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+  | :--- | :--- | :--- | :--- |
+  | `id` | Bigint | PK, Auto Increment | Khóa chính |
+  | `balance` | Decimal(12,2)| Not Null | Số dư tài khoản |
+  | `user_id` | Bigint | FK -> `users(id)`, Unique | Liên kết 1-1 tới tài khoản sở hữu |
+
+---
+
+#### 4.2 Cơ sở dữ liệu: `quickbite_restaurant_db` (Dịch vụ `restaurant-service`)
+
+* **Bảng `restaurants` (Thông tin cửa hàng):**
+  
+  | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+  | :--- | :--- | :--- | :--- |
+  | `id` | Bigint | PK, Auto Increment | Khóa chính |
+  | `name` | Varchar(100)| Not Null | Tên nhà hàng |
+  | `owner_id` | Bigint | Soft Ref -> `users(id)` | ID của chủ cửa hàng (không tạo FK vật lý) |
+  | `is_open` | Boolean | Not Null | Trạng thái đóng/mở cửa |
+
+* **Bảng `menu_items` (Danh sách món ăn trong thực đơn):**
+  
+  | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+  | :--- | :--- | :--- | :--- |
+  | `id` | Bigint | PK, Auto Increment | Khóa chính |
+  | `name` | Varchar(100)| Not Null | Tên món ăn |
+  | `base_price`| Decimal(10,2)| Not Null | Giá bán mặc định |
+  | `is_available` | Boolean | Not Null | Trạng thái còn hàng/hết hàng |
+  | `restaurant_id`| Bigint | FK -> `restaurants(id)`| Liên kết tới nhà hàng sở hữu món ăn |
+
+---
+
+#### 4.3 Cơ sở dữ liệu: `quickbite_order_db` (Dịch vụ `order-service`)
+
+* **Bảng `orders` (Quản lý đơn hàng tổng quan):**
+  
+  | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+  | :--- | :--- | :--- | :--- |
+  | `id` | Bigint | PK, Auto Increment | Khóa chính |
+  | `customer_id`| Bigint | Soft Ref -> `users(id)` | ID khách đặt (không tạo FK vật lý) |
+  | `customer_name`| Varchar(100)| Not Null | **Snapshot:** Họ tên khách hàng lúc đặt đơn |
+  | `restaurant_id`| Bigint | Soft Ref -> `restaurants(id)`| ID nhà hàng (không tạo FK vật lý) |
+  | `merchant_name`| Varchar(100)| Not Null | **Snapshot:** Tên cửa hàng lúc đặt đơn |
+  | `driver_id` | Bigint | Soft Ref -> `users(id)` | ID tài xế nhận giao (cho phép Null) |
+  | `total_price`| Decimal(12,2)| Not Null | Tổng giá trị đơn hàng |
+  | `status` | Varchar(20) | Not Null | Trạng thái (PENDING, ACCEPTED, SHIPPING, DELIVERED) |
+
+* **Bảng `order_items` (Chi tiết món ăn trong đơn hàng):**
+  
+  | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+  | :--- | :--- | :--- | :--- |
+  | `id` | Bigint | PK, Auto Increment | Khóa chính |
+  | `order_id` | Bigint | FK -> `orders(id)` | Liên kết tới đơn hàng tổng |
+  | `menu_item_id`| Bigint | Soft Ref -> `menu_items(id)`| ID món ăn gốc |
+  | `item_name` | Varchar(100)| Not Null | **Snapshot:** Tên món ăn tại thời điểm mua |
+  | `quantity` | Integer | Not Null | Số lượng đặt mua |
+  | `price` | Decimal(10,2)| Not Null | **Snapshot:** Đơn giá bán tại thời điểm mua |
+
+---
+
+### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (FOREIGN KEY TRONG MICROSERVICES)
+
+* **Hiểu lầm thường gặp:** Có thể duy trì quan hệ khóa ngoại vật lý giữa bảng `orders` (trong database `quickbite_order_db`) và bảng `users` (trong database `quickbite_user_db`) nếu ta trỏ đúng địa chỉ kết nối IP.
+* **Sự thật:** Không thể tạo được. Khóa ngoại vật lý chỉ có thể được thiết lập khi hai bảng nằm trong cùng một cơ sở dữ liệu logic hoạt động trên cùng một công cụ lưu trữ. Khi đã phân tách thành Database-per-service, các cơ sở dữ liệu hoạt động hoàn toàn độc lập. Việc liên kết lỏng qua trường dữ liệu ID (`Long`) là giải pháp bắt buộc, đi kèm với việc sử dụng giao tiếp API (như Spring Cloud OpenFeign) để truy vấn thông tin khi cần thiết.
 
 ---
 
 ### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG (XÁC MINH KIẾN THỨC)
 
-1. **Nguyên lý thiết kế dữ liệu cô lập trong Microservices:**
-   * [Database per Service Pattern - Microservices.io](https://docs.google.com/url?q=https://microservices.io/patterns/data/database-per-service.html)
-2. **Hướng dẫn ánh xạ quan hệ thực thể với Spring Data JPA:**
-   * [Spring Data JPA Reference Documentation](https://docs.google.com/url?q=https://docs.spring.io/spring-data/jpa/docs/current/reference/html/)
-3. **Mẫu thiết kế lưu trữ lịch sử đơn hàng (Snapshot Pattern):**
-   * [Designing E-Commerce Database Schemas - Designing Data-Intensive Applications](https://docs.google.com/url?q=https://dataintensive.net/)
+1. **Mẫu thiết kế Database-per-Service:**
+   * [Database per Service Pattern - Microservices.io](https://microservices.io/patterns/data/database-per-service.html)
+2. **Khai báo giao tiếp mạng trong Spring với OpenFeign:**
+   * [Spring Cloud OpenFeign Official Documentation](https://spring.io/projects/spring-cloud-openfeign)
 
 ---
 
 ### PHẦN 7. CÂU HỎI ĐÁNH GIÁ NHANH
 
 #### Câu 1 (Hiểu bản chất)
-Tại sao trong thực thể `OrderItem` chúng ta bắt buộc phải lưu trữ cả trường `itemName` và `price` trực tiếp thay vì chỉ lưu `menuItemId` và truy vấn động từ `restaurant-service` mỗi khi hiển thị hóa đơn?
-* *Gợi ý:* Để đảm bảo tính toàn vẹn lịch sử (Snapshot Pattern). Nếu cửa hàng thay đổi giá món ăn hoặc cập nhật lại thực đơn trong tương lai, hóa đơn của các đơn hàng cũ đã đặt vẫn phải giữ nguyên thông tin tên món và giá cả tại đúng thời điểm khách đặt hàng.
+Tại sao trong thiết kế thực thể đơn hàng (`OrderItem`), chúng ta cần sao chép các trường thông tin như `item_name` và `price` trực tiếp từ thực đơn nhà hàng thay vì chỉ lưu `menuItemId` rồi truy vấn động từ `restaurant-service` mỗi khi khách xem lại lịch sử đơn hàng?
+* *Gợi ý:* Để áp dụng mẫu thiết kế Snapshot, bảo toàn tính lịch sử tài chính của giao dịch. Giá cả và tên món ăn có thể thay đổi trong tương lai, nhưng hóa đơn cũ của khách hàng thì bắt buộc phải giữ nguyên giá trị tại thời điểm giao dịch phát sinh.
 
 #### Câu 2 (Đọc và dự đoán)
-Điều gì sẽ xảy ra nếu lập trình viên định nghĩa thực thể `Order` có cấu hình ánh xạ JPA `@ManyToOne` kết nối trực tiếp đến thực thể `User` khi hai thực thể này được triển khai trên hai dịch vụ có cơ sở dữ liệu vật lý nằm độc lập?
-* *Gợi ý:* Ứng dụng sẽ gặp lỗi ngay lập tức khi khởi chạy hoặc khi thực hiện kiểm tra schema (DDL validation). Hibernate/JPA không thể tìm thấy bảng `users` trong cơ sở dữ liệu `quickbite_order` để thiết lập khóa ngoại, dẫn đến lỗi biên dịch cấu hình persistence unit.
+Nếu nhà hàng thay đổi tên từ "Phở 10 Lý Quốc Sư" thành "Phở Lý Quốc Sư - Chi nhánh Cầu Giấy", đơn hàng đã hoàn thành trước đó của khách hàng khi truy vấn lại sẽ hiển thị tên nhà hàng nào? Tại sao?
+* *Gợi ý:* Sẽ hiển thị tên cũ là "Phở 10 Lý Quốc Sư". Bởi vì tại thời điểm đặt đơn, tên nhà hàng đã được chụp lại và lưu trực tiếp vào trường `merchant_name` của bảng `orders`.
 
 #### Câu 3 (Xử lý tình huống)
-Để bảo toàn tính cô lập và hiệu năng của hệ thống QuickBite, khi dịch vụ `order-service` cần hiển thị thông tin hóa đơn gồm cả tên đầy đủ của Khách hàng (`fullName`), lập trình viên nên làm thế nào khi thực thể `Order` chỉ lưu trường `customerId`?
-* *Gợi ý:* Dịch vụ `order-service` sẽ gửi một HTTP request (ví dụ sử dụng Feign Client hoặc WebClient) tới dịch vụ `user-service` với tham số là `customerId` để truy vấn thông tin chi tiết người dùng (`fullName`) tại thời điểm hiển thị hóa đơn, thay vì tìm cách thực hiện lệnh JOIN cơ sở dữ liệu.
+Khi dịch vụ `order-service` cần thực hiện nghiệp vụ kiểm tra thông tin ví của người dùng trước khi duyệt đơn hàng, lập trình viên sẽ làm thế nào khi không thể viết câu lệnh SQL JOIN trực tiếp tới bảng `users` hay `user_wallets`?
+* *Gợi ý:* Dịch vụ `order-service` sẽ sử dụng FeignClient để gửi một HTTP request gọi API được expose bởi `user-service` (ví dụ: `GET /users/{id}/wallet`), nhận kết quả số dư tài khoản về để xử lý nghiệp vụ trên ứng dụng.
