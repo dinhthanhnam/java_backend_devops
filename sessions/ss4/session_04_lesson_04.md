@@ -37,66 +37,120 @@ Bạn commit file này và push lên kho lưu trữ mã nguồn chung của côn
 ### PHẦN 3. KIẾN THỨC CỐT LÕI (PORTS VS EXPOSE, BIẾN MÔI TRƯỜNG & TỆP .ENV)
 
 #### 3.1 Cấu hình Port (`ports`)
-Cú pháp ánh xạ cổng trong file Compose sử dụng định dạng:
+
+Ở Bài học 1, chúng ta đã khai báo thuộc tính `ports: - "5432:5432"` trong file `docker-compose.yml` của `quickbite-db` mà chưa giải thích chi tiết. Bản chất của thuộc tính này tương đương hoàn toàn với tham số `-p` (Publish Port) khi sử dụng lệnh `docker run` ở Bài học 1.
+
+Cú pháp ánh xạ cổng trong file Compose:
 ```yaml
 ports:
   - "HOST_PORT:CONTAINER_PORT"
 ```
-* **Ý nghĩa:** Docker Engine sẽ lắng nghe cổng `HOST_PORT` trên máy host vật lý và chuyển hướng (NAT) toàn bộ lưu lượng truy cập vào cổng `CONTAINER_PORT` nội bộ của container.
-* **Ví dụ:** `- "8081:8081"` mở cổng 8081 ra máy host để bạn truy cập được API Spring Boot qua `http://localhost:8081`.
+
+* **So sánh trực quan với Docker CLI:**
+  * **Lệnh Docker Run:** `docker run -p 5432:5432 ...`
+  * **Khai báo Compose:**
+    ```yaml
+    ports:
+      - "5432:5432"
+    ```
+* **Cơ chế hoạt động:** Docker Engine lắng nghe cổng `HOST_PORT` trên máy host vật lý và tự động định tuyến (NAT) toàn bộ traffic vào cổng `CONTAINER_PORT` bên trong container. Nhờ đó, có thể kết nối đến database từ bên ngoài thông qua: `postgresql://localhost:5432`.
 
 #### 3.2 Biến môi trường (`environment`)
-Thay vì viết cứng cấu hình trong file Java properties, Spring Boot cho phép nạp đè cấu hình thông qua các biến môi trường. Trong file Compose, ta truyền các biến này qua từ khóa `environment`:
+
+Thay vị viết cứng các thông số kết nối cơ sở dữ liệu bên trong tệp `application.yml` của Spring Boot (khiến việc đổi môi trường rất khó khăn), chúng ta nên nạp đè cấu hình thông qua các biến môi trường. Trong Docker Compose, ta truyền các biến này qua thuộc tính `environment`.
+
+Kế thừa từ Bài học 3, dưới đây là cách khai báo các biến môi trường trực tiếp trong `docker-compose.yml` cho dịch vụ `quickbite-user` để kết nối tới database dùng chung, khớp chính xác các khóa cấu hình mà ứng dụng Spring Boot thực tế yêu cầu:
+
 ```yaml
 services:
-  quickbite-user:
-    image: eclipse-temurin:17-jre-alpine
-    environment:
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=secret
-```
-
-#### 3.3 Tách biệt cấu hình bảo mật bằng file `.env`
-Để tránh lộ thông tin nhạy cảm trên Git, Docker Compose tự động tìm kiếm một file ẩn tên là `.env` nằm cùng thư mục với file `docker-compose.yml`. 
-
-1. **Cú pháp trong file `.env`** (chứa các cặp Key=Value thông thường):
-```env
-DB_PASSWORD=Super-Secret-DB-Password-123456
-USER_PORT=8081
-```
-2. **Cơ chế nội suy biến (Interpolation) trong `docker-compose.yml`:**
-   Chúng ta sử dụng cú pháp `${TÊN_BIẾN}` để gọi giá trị từ file `.env` nạp vào file Compose:
-```yaml
-services:
-  quickbite-db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-
   quickbite-user:
     build: ./user-service
     ports:
-      - "${USER_PORT}:8081"
+      - "8081:8081"
+    environment:
+      - DB_HOST=quickbite-db
+      - DB_PORT=5432
+      - DB_NAME=quickbite_user_db
+      - DB_USERNAME=quickbite_user
+      - DB_PASSWORD=quickbite_user
+      - SERVER_PORT=8081
+      - JWT_SECRET_KEY=daylachuoimahoabimatrikkei0987654321dacbietracroi
+      - JWT_EXPIRED_ACCESS=864000
+      - JWT_EXPIRED_REFRESH=7
+    networks:
+      - quickbite-net
+
+networks:
+  quickbite-net:
+    external: true
 ```
-3. **Quy tắc bảo mật quan trọng:**
-   * File `.env` chứa mật khẩu thực tế **tuyệt đối không được commit lên Git** (bắt buộc phải khai báo trong file `.gitignore`).
-   * Thay vào đó, bạn chỉ push file mẫu đặt tên là `.env.example` (chứa các key trống không có mật khẩu thật, ví dụ: `DB_PASSWORD=`) để làm tài liệu hướng dẫn cho các lập trình viên khác tự điền mật khẩu của riêng họ khi clone code về chạy.
+
+#### 3.3 Tách biệt cấu hình bảo mật bằng file `.env`
+
+Để tránh việc phải ghi trực tiếp mật khẩu và dải cổng kết nối vào trong tệp `docker-compose.yml` (gây lộ thông tin khi push lên Git), Docker Compose hỗ trợ cơ chế nạp biến tự động thông qua tệp ẩn `.env`.
+
+1. **Cú pháp trong file `.env`** (Đặt cùng cấp với file `docker-compose.yml`):
+```env
+# Database Common Configuration
+DB_HOST=quickbite-db
+DB_PORT=5432
+
+# User Service Specific Configuration
+USER_DB_NAME=quickbite_user_db
+USER_DB_USERNAME=quickbite_user
+USER_DB_PASSWORD=quickbite_user
+USER_SERVER_PORT=8081
+USER_JWT_SECRET_KEY=daylachuoimahoabimatrikkei0987654321dacbietracroi
+USER_JWT_EXPIRED_ACCESS=864000
+USER_JWT_EXPIRED_REFRESH=7
+```
+
+2. **Cơ chế nội suy biến (Interpolation) trong `docker-compose.yml`:**
+Chúng ta sử dụng cú pháp `${TÊN_BIẾN}` để kéo các giá trị từ `.env` vào file Compose:
+```yaml
+services:
+  quickbite-user:
+    build: ./user-service
+    ports:
+      - "${USER_SERVER_PORT}:${USER_SERVER_PORT}"
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${USER_DB_NAME}
+      - DB_USERNAME=${USER_DB_USERNAME}
+      - DB_PASSWORD=${USER_DB_PASSWORD}
+      - SERVER_PORT=${USER_SERVER_PORT}
+      - JWT_SECRET_KEY=${USER_JWT_SECRET_KEY}
+      - JWT_EXPIRED_ACCESS=${USER_JWT_EXPIRED_ACCESS}
+      - JWT_EXPIRED_REFRESH=${USER_JWT_EXPIRED_REFRESH}
+    networks:
+      - quickbite-net
+
+networks:
+  quickbite-net:
+    external: true
+```
 
 ---
 
 ### PHẦN 4. THỰC HÀNH: SỬ DỤNG FILE .ENV ĐỂ CẤU HÌNH HỆ THỐNG DOCKER COMPOSE
 
-Hãy thực hành cấu hình bảo mật hệ thống QuickBite local:
+Hãy thực hành cấu hình bảo mật hệ thống QuickBite local cho dịch vụ backend `user-service`:
 
-1. Tạo file `.env` nằm ở thư mục dự án của bạn:
+1. Tạo file `.env` nằm ở thư mục dự án `/quickbite-project/` của bạn:
    ```env
-   # Cấu hình Database
-   DB_USER=postgres
-   DB_PASSWORD=quickbite_db_secret_pass
+   # Database Common Configuration
+   DB_HOST=quickbite-db
    DB_PORT=5432
 
-   # Cấu hình User Service
-   USER_SERVICE_PORT=8081
+   # User Service Specific Configuration
+   USER_DB_NAME=quickbite_user_db
+   USER_DB_USERNAME=quickbite_user
+   USER_DB_PASSWORD=quickbite_user
+   USER_SERVER_PORT=8081
+   USER_JWT_SECRET_KEY=daylachuoimahoabimatrikkei0987654321dacbietracroi
+   USER_JWT_EXPIRED_ACCESS=864000
+   USER_JWT_EXPIRED_REFRESH=7
    ```
 2. Tạo file `.gitignore` để khóa file `.env` lại không cho đẩy lên Git:
    ```text
@@ -108,30 +162,34 @@ Hãy thực hành cấu hình bảo mật hệ thống QuickBite local:
 version: '3.8'
 
 services:
-  quickbite-db:
-    image: postgres:15-alpine
-    ports:
-      - "${DB_PORT}:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-
   quickbite-user:
     build:
       context: ./user-service
     ports:
-      - "${USER_SERVICE_PORT}:8081"
+      - "${USER_SERVER_PORT}:${USER_SERVER_PORT}"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://quickbite-db:5432/postgres
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${USER_DB_NAME}
+      - DB_USERNAME=${USER_DB_USERNAME}
+      - DB_PASSWORD=${USER_DB_PASSWORD}
+      - SERVER_PORT=${USER_SERVER_PORT}
+      - JWT_SECRET_KEY=${USER_JWT_SECRET_KEY}
+      - JWT_EXPIRED_ACCESS=${USER_JWT_EXPIRED_ACCESS}
+      - JWT_EXPIRED_REFRESH=${USER_JWT_EXPIRED_REFRESH}
+    networks:
+      - quickbite-net
+
+networks:
+  quickbite-net:
+    external: true  # Sử dụng chung mạng ảo với container database đang chạy ngầm
 ```
 4. Chạy lệnh kiểm tra tính hợp lệ và hiển thị cấu hình sau khi nội suy biến:
 ```bash
 docker compose config
 ```
-5. **Kết quả mong đợi:** Lệnh `config` sẽ đọc file `.env`, thay thế toàn bộ ký tự `${...}` thành giá trị thực tế và in ra cấu hình hoàn chỉnh. Bạn sẽ thấy rõ mật khẩu `quickbite_db_secret_pass` và các cổng đã được điền chính xác.
-6. Tiến hành khởi chạy cụm dịch vụ:
+5. **Kết quả mong đợi:** Lệnh `config` sẽ đọc file `.env`, thay thế toàn bộ ký tự `${...}` thành giá trị thực tế và in ra cấu hình hoàn chỉnh. Bạn sẽ thấy rõ mật khẩu và các cổng đã được điền chính xác.
+6. Tiến hành khởi chạy dịch vụ:
 ```bash
 docker compose up -d
 ```
@@ -164,5 +222,5 @@ Tại sao khi chạy lệnh `docker compose config` chúng ta không cần phả
 * *Gợi ý:* Vì theo thiết kế mặc định, Docker Compose CLI sẽ tự động tìm kiếm một tệp tin có tên chính xác là `.env` nằm trong cùng thư mục nơi lệnh `docker compose` được thực thi. Nếu muốn sử dụng một file env có tên khác (ví dụ: `.env.production`), bạn phải sử dụng cờ truyền file tường minh là `docker compose --env-file .env.production config`.
 
 #### Câu 2 (Xử lý tình huống)
-Nếu bạn thay đổi giá trị cổng `USER_SERVICE_PORT=8082` trong file `.env` khi cụm container `quickbite-user` đang hoạt động, container có tự động chuyển đổi sang lắng nghe tại cổng `8082` ngay lập tức hay không? Bạn cần chạy lệnh gì để nhận cấu hình mới?
+Nếu bạn thay đổi giá trị cổng `USER_SERVER_PORT=8082` trong file `.env` khi cụm container `quickbite-user` đang hoạt động, container có tự động chuyển đổi sang lắng nghe tại cổng `8082` ngay lập tức hay không? Bạn cần chạy lệnh gì để nhận cấu hình mới?
 * *Gợi ý:* Container không tự động nhận cổng mới ngay lập tức vì cấu hình port mapping được thiết lập tĩnh khi khởi tạo container. Để áp dụng cấu hình mới, bạn cần chạy lại lệnh: `docker compose up -d`. Docker Compose sẽ tự động phân tích phát hiện cấu hình file `.env` đã thay đổi, tự động dừng container cũ và tạo mới container `quickbite-user` chạy ở cổng `8082` mà không cần restart các container khác không thay đổi cấu hình.
