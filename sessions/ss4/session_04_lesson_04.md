@@ -1,170 +1,168 @@
 # SESSION 04: DOCKER COMPOSE CƠ BẢN
 
-## LESSON 04: Volume và network trong Docker Compose
+## LESSON 03: Biến môi trường và cấu hình port
 
 ---
 
 ### PHẦN 1. MỤC TIÊU BÀI HỌC
 
 Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
-* **Cấu hình Named Volume** trong Docker Compose để lưu trữ dữ liệu bền vững cho cơ sở dữ liệu PostgreSQL, tránh mất dữ liệu khi tắt container.
-* **Giải thích** được cơ chế tạo mạng mặc định và mạng tùy biến của Docker Compose.
-* **Vận dụng cơ chế Service Discovery** (Phát hiện dịch vụ tự động) để kết nối các microservices với database thông qua tên dịch vụ thay vì địa chỉ IP cứng.
-* **Kiểm chứng** tính toàn vẹn của dữ liệu và mạng sau các chu trình xóa/dựng cụm container.
+* **Cấu hình chính xác** ánh xạ cổng (`ports`) để mở cổng kết nối từ máy host vào trong container.
+* **Vận dụng** cơ chế truyền biến môi trường (`environment`) vào container để thay đổi cấu hình runtime của ứng dụng Spring Boot linh hoạt.
+* **Thiết lập và quản lý bảo mật** thông số cấu hình nhạy cảm (như mật khẩu database, token API) bằng tệp cấu hình ngoại vi `.env`.
+* **Sử dụng lệnh kiểm tra** cấu hình Compose (`docker compose config`) trước khi khởi chạy hệ thống.
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (NỖI ĐAU MẤT DỮ LIỆU & IP BỊ THAY ĐỔI)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (HIỂM HỌA LỘ MẬT KHẨU TRÊN GIT)
 
-Hãy tưởng tượng bạn đang chạy thử nghiệm hệ thống QuickBite trên local bằng Docker Compose. 
-1. **Nỗi đau mất sạch dữ liệu:** Bạn khởi chạy database bằng `docker compose up -d`, tạo tài khoản, đăng ký món ăn demo rất mất thời gian. Cuối buổi chiều, trước khi tắt máy ra về, bạn gõ lệnh dọn dẹp hệ thống: `docker compose down`. Sáng hôm sau, bạn bật lại hệ thống bằng `docker compose up -d`. Bạn bàng hoàng nhận ra toàn bộ tài khoản và món ăn đã biến mất không dấu vết, database trở lại trạng thái trống rỗng như lúc mới cài.
-2. **Nỗi đau IP biến động:** Dịch vụ `user-service` cần gọi tới database. Nếu bạn điền cứng địa chỉ IP của container database (ví dụ: `172.19.0.2`), kết nối sẽ lỗi ngay lập tức khi database restart và được cấp IP mới (ví dụ: `172.19.0.3`).
-
-*Hai vấn đề nghiêm trọng này sẽ được giải quyết triệt để thông qua hai cơ chế cốt lõi của Docker Compose: **Volumes** (Lưu trữ bền vững) và **Networks** (Mạng ảo nội bộ & DNS).*
-
----
-
-### PHẦN 3. KIẾN THỨC CỐT LÕI (DOCKER VOLUMES & DOCKER NETWORKS TRONG COMPOSE)
-
-#### 3.1 Docker Volumes trong Compose (Named Volume)
-Mặc định, hệ thống file bên trong container là tạm thời (Ephemereal). Mọi dữ liệu ghi vào đó sẽ bị xóa sạch khi container bị hủy bỏ.
-Để lưu trữ dữ liệu bền vững (Persistence), chúng ta sử dụng **Named Volume** (Volume có tên định danh):
-* **Cú pháp khai báo:** Chúng ta khai báo khối `volumes:` toàn cục ở cuối file Compose, sau đó mount volume đó vào thư mục lưu trữ dữ liệu của database bên trong container.
-* **Đường dẫn lưu dữ liệu PostgreSQL:** PostgreSQL lưu toàn bộ database tại thư mục `/var/lib/postgresql/data` trong container.
+Hãy tưởng tượng bạn đang viết tệp `docker-compose.yml` để triển khai hệ thống QuickBite. Bạn điền trực tiếp mật khẩu quản trị cơ sở dữ liệu vào file cấu hình:
 ```yaml
 services:
   quickbite-db:
     image: postgres:15-alpine
-    volumes:
-      - db-data:/var/lib/postgresql/data  # Mount Named Volume vào thư mục dữ liệu
-
-volumes:
-  db-data:  # Khai báo Named Volume toàn cục
+    environment:
+      POSTGRES_PASSWORD: "Super-Secret-DB-Password-123456"
 ```
-* **Cơ chế hoạt động:** Docker Engine sẽ tạo một thư mục quản lý riêng trên ổ cứng máy host và liên kết nó với thư mục dữ liệu của Postgres. Khi container bị xóa đi, thư mục trên máy host vẫn an toàn nguyên vẹn. Khi container mới khởi chạy và mount vào volume này, toàn bộ dữ liệu cũ sẽ lập tức xuất hiện trở lại.
+Bạn commit file này và push lên kho lưu trữ mã nguồn chung của công ty (GitLab/GitHub). 
 
-#### 3.2 Docker Networks trong Compose & Service Discovery
-Mặc định, khi bạn khởi chạy một tệp Compose, Docker Compose sẽ tự động làm 3 việc:
-1. Tạo ra một mạng bridge riêng biệt dành cho dự án (thường đặt tên là `[tên_thư_mục_dự_án]_default`).
-2. Tự động đưa tất cả các container (services) được khai báo trong file Compose tham gia vào mạng chung này.
-3. Kích hoạt dịch vụ **DNS nội bộ** của Docker.
+* **Hiểm họa xảy ra:** 
+  * Sáng hôm sau, Tech Lead và đội an ninh thông tin (Security Team) phát hiện ra thông tin nhạy cảm bị công khai. Bất kỳ ai có quyền xem code đều đọc được mật khẩu database. Đây là lỗ hổng bảo mật nghiêm trọng trong DevOps gọi là **Hardcoded Credentials Leak**.
+  * Hơn thế nữa, khi bạn mang file Compose này sang deploy ở môi trường khác (như Staging hay Production), bạn lại phải sửa trực tiếp file `docker-compose.yml` để thay đổi mật khẩu và cổng kết nối của từng môi trường. Việc này vi phạm hoàn toàn nguyên lý **"Build một lần, chạy mọi nơi"** (Build once, run anywhere).
 
-##### Cơ chế Service Discovery (Phát hiện dịch vụ)
-Nhờ DNS nội bộ hoạt động trong mạng chung, các container có thể gọi nhau trực tiếp bằng **Tên dịch vụ (Service Name)** được khai báo trong file Compose (như `quickbite-db`, `quickbite-user`) thay vì sử dụng địa chỉ IP nội bộ không ổn định.
-
-```text
-  [ user-service (Service Name) ]
-                │
-                ▼ (Kết nối qua URL: jdbc:postgresql://quickbite-db:5432/postgres)
-  [ DNS nội bộ của Docker Compose ] (Tự dịch "quickbite-db" -IP 172.19.0.3)
-                │
-                ▼
-  [ quickbite-db (Service Name) ]
-```
-
-[!TIP]
-**So sánh trực quan: Nếu làm bằng lệnh Docker thủ công thì sao?**
-Để dễ hình dung những gì Docker Compose đang âm thầm tự động hóa dưới nền, đây là cách bạn phải gõ thủ công bằng các lệnh CLI đơn lẻ:
-```bash
-# Bước 1: Tự tạo một mạng bridge tùy biến bằng tay
-docker network create --driver bridge quickbite-net
-
-# Bước 2: Khởi chạy container database và ném vào mạng ảo đó
-docker run -d --name quickbite-db --network quickbite-net -e POSTGRES_PASSWORD=secret_password postgres:15-alpine
-
-# Bước 3: Khởi chạy container backend kết nối vào chung mạng ảo để DNS nội bộ nhận diện được tên
-docker run -d --name quickbite-user --network quickbite-net -p 8081:8081 -v /path/to/libs:/app -w /app eclipse-temurin:17-jre-alpine java -jar user-service.jar
-```
-* **Kết luận:** Thay vì phải gõ và quản lý 3 lệnh rời rạc cùng dải tham số phức tạp ở trên, Docker Compose chỉ đơn giản là đọc file `docker-compose.yml` rồi tự chạy đống lệnh này thay cho bạn.
-
+*Để giải quyết triệt để vấn đề bảo mật và tính linh hoạt cấu hình, chúng ta cần phân tách mã nguồn và thông tin cấu hình nhạy cảm thông qua **Biến môi trường** và file **`.env`**.*
 
 ---
 
-### PHẦN 4. THỰC HÀNH: KHAI BÁO VOLUME VÀ NETWORK LIÊN KẾT ĐA CONTAINER
+### PHẦN 3. KIẾN THỨC CỐT LÕI (PORTS VS EXPOSE, BIẾN MÔI TRƯỜNG & TỆP .ENV)
 
-Hãy cập nhật tệp `docker-compose.yml` để hoàn thiện hạ tầng mạng và lưu trữ bền vững cho QuickBite:
+#### 3.1 Cấu hình Port (`ports`)
+Cú pháp ánh xạ cổng trong file Compose sử dụng định dạng:
+```yaml
+ports:
+  - "HOST_PORT:CONTAINER_PORT"
+```
+* **Ý nghĩa:** Docker Engine sẽ lắng nghe cổng `HOST_PORT` trên máy host vật lý và chuyển hướng (NAT) toàn bộ lưu lượng truy cập vào cổng `CONTAINER_PORT` nội bộ của container.
+* **Ví dụ:** `- "8081:8081"` mở cổng 8081 ra máy host để bạn truy cập được API Spring Boot qua `http://localhost:8081`.
 
-1. Viết tệp `docker-compose.yml` hoàn chỉnh:
+#### 3.2 Biến môi trường (`environment`)
+Thay vì viết cứng cấu hình trong file Java properties, Spring Boot cho phép nạp đè cấu hình thông qua các biến môi trường. Trong file Compose, ta truyền các biến này qua từ khóa `environment`:
+```yaml
+services:
+  quickbite-user:
+    image: eclipse-temurin:17-jre-alpine
+    environment:
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=secret
+```
+
+#### 3.3 Tách biệt cấu hình bảo mật bằng file `.env`
+Để tránh lộ thông tin nhạy cảm trên Git, Docker Compose tự động tìm kiếm một file ẩn tên là `.env` nằm cùng thư mục với file `docker-compose.yml`. 
+
+1. **Cú pháp trong file `.env`** (chứa các cặp Key=Value thông thường):
+```env
+DB_PASSWORD=Super-Secret-DB-Password-123456
+USER_PORT=8081
+```
+2. **Cơ chế nội suy biến (Interpolation) trong `docker-compose.yml`:**
+   Chúng ta sử dụng cú pháp `${TÊN_BIẾN}` để gọi giá trị từ file `.env` nạp vào file Compose:
+```yaml
+services:
+  quickbite-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+  quickbite-user:
+    build: ./user-service
+    ports:
+      - "${USER_PORT}:8081"
+```
+3. **Quy tắc bảo mật quan trọng:**
+   * File `.env` chứa mật khẩu thực tế **tuyệt đối không được commit lên Git** (bắt buộc phải khai báo trong file `.gitignore`).
+   * Thay vào đó, bạn chỉ push file mẫu đặt tên là `.env.example` (chứa các key trống không có mật khẩu thật, ví dụ: `DB_PASSWORD=`) để làm tài liệu hướng dẫn cho các lập trình viên khác tự điền mật khẩu của riêng họ khi clone code về chạy.
+
+---
+
+### PHẦN 4. THỰC HÀNH: SỬ DỤNG FILE .ENV ĐỂ CẤU HÌNH HỆ THỐNG DOCKER COMPOSE
+
+Hãy thực hành cấu hình bảo mật hệ thống QuickBite local:
+
+1. Tạo file `.env` nằm ở thư mục dự án của bạn:
+   ```env
+   # Cấu hình Database
+   DB_USER=postgres
+   DB_PASSWORD=quickbite_db_secret_pass
+   DB_PORT=5432
+
+   # Cấu hình User Service
+   USER_SERVICE_PORT=8081
+   ```
+2. Tạo file `.gitignore` để khóa file `.env` lại không cho đẩy lên Git:
+   ```text
+   .env
+   /build/
+   ```
+3. Viết file `docker-compose.yml` sử dụng các biến nội suy:
 ```yaml
 version: '3.8'
 
 services:
   quickbite-db:
     image: postgres:15-alpine
+    ports:
+      - "${DB_PORT}:5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: secret_password
-    volumes:
-      - quickbite-db-volume:/var/lib/postgresql/data
-    networks:
-      - quickbite-net
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
 
   quickbite-user:
     build:
       context: ./user-service
     ports:
-      - "8081:8081"
+      - "${USER_SERVICE_PORT}:8081"
     environment:
-      # Sử dụng tên service "quickbite-db" làm host kết nối database
       SPRING_DATASOURCE_URL: jdbc:postgresql://quickbite-db:5432/postgres
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: secret_password
-    networks:
-      - quickbite-net
-    depends_on:
-      - quickbite-db
-
-volumes:
-  quickbite-db-volume: # Khai báo Named Volume lưu trữ database
-
-networks:
-  quickbite-net:
-    driver: bridge # Khai báo mạng ảo bridge tùy biến cho dự án
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
 ```
-2. Khởi chạy hệ thống:
+4. Chạy lệnh kiểm tra tính hợp lệ và hiển thị cấu hình sau khi nội suy biến:
+```bash
+docker compose config
+```
+5. **Kết quả mong đợi:** Lệnh `config` sẽ đọc file `.env`, thay thế toàn bộ ký tự `${...}` thành giá trị thực tế và in ra cấu hình hoàn chỉnh. Bạn sẽ thấy rõ mật khẩu `quickbite_db_secret_pass` và các cổng đã được điền chính xác.
+6. Tiến hành khởi chạy cụm dịch vụ:
 ```bash
 docker compose up -d
 ```
-3. Kiểm tra xem volume và network đã được tạo thành công chưa:
-```bash
-docker volume ls
-# Kết quả mong đợi: Hiển thị volume tên [thư_mục_dự_án]_quickbite-db-volume
-
-docker network ls
-# Kết quả mong đợi: Hiển thị mạng tên [thư_mục_dự_án]_quickbite-net
-```
-4. **Kiểm tra độ bền vững dữ liệu:**
-   * Truy cập vào database qua `docker exec` tạo thử một bảng dữ liệu hoặc chạy ứng dụng đăng ký người dùng.
-   * Chạy lệnh xóa cụm dịch vụ: `docker compose down`.
-   * Khởi chạy lại: `docker compose up -d`.
-   * Truy cập lại database để kiểm tra. **Kết quả mong đợi:** Toàn bộ dữ liệu bạn đã tạo trước đó vẫn còn nguyên vẹn 100%.
 
 ---
 
-### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (MẠNG MẶC ĐỊNH CỦA DOCKER COMPOSE)
+### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (PORTS VS EXPOSE TRONG COMPOSE)
 
-* **Hiểu sai:** Mạng mặc định tự động tạo ra khi chạy Docker Compose hoạt động giống hệt mạng mặc định (`default bridge`) của Docker CLI khi chạy lệnh `docker run` đơn lẻ.
-* **Đính chính:** **Hoàn toàn khác nhau về bản chất.**
-  * Mạng mặc định của Docker CLI (`default bridge`) **không hỗ trợ tính năng tự động phân giải tên container (DNS nội bộ)**. Container chỉ có thể kết nối với nhau qua IP.
-  * Mạng mặc định do Docker Compose tự động tạo ra cho dự án thực chất là một mạng **User-defined Bridge Network**. Mạng này tự động bật sẵn dịch vụ DNS nội bộ, cho phép các dịch vụ gọi nhau bằng tên service một cách hoàn toàn tự động và ổn định. Do đó, bạn không cần phải tự tạo mạng thủ công như ở các bài học trước.
+* **Hiểu sai:** Từ khóa `ports` và `expose` đều dùng để mở cổng dịch vụ của container ra ngoài máy host vật lý.
+* **Đính chính:** Hoàn toàn khác nhau.
+  * `ports`: Ánh xạ cổng ra ngoài máy host vật lý, cho phép bất kỳ ai từ bên ngoài (hoặc trình duyệt máy host) kết nối vào container.
+  * `expose`: Chỉ mang tính chất khai báo cổng hoạt động nội bộ. Các container khác kết nối chung mạng Docker có thể gọi vào cổng này, nhưng **máy host vật lý hoàn toàn không thể kết nối trực tiếp** được vào cổng này.
+  * **Lời khuyên bảo mật:** Đối với database PostgreSQL nội bộ (`quickbite-db`), chúng ta chỉ cần dùng `expose: - "5432"` (hoặc không cần khai báo nếu các container dùng chung mạng tùy biến), tuyệt đối không dùng `ports` để tránh nguy cơ hacker quét và tấn công trực tiếp vào database của bạn từ bên ngoài internet.
 
 ---
 
 ### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG (XÁC MINH KIẾN THỨC)
 
-1. **Quản lý mạng trong Docker Compose:**
-   * [Networking in Docker Compose - Docker Docs](https://docs.docker.com/compose/networking/)
-2. **Quản lý dữ liệu bằng Volume trong Docker Compose:**
-   * [Volumes in Docker Compose - Docker Docs](https://docs.docker.com/compose/compose-file/07-volumes/)
+1. **Cách sử dụng biến môi trường trong Docker Compose:**
+   * [Environment variables in Docker Compose - Docker Docs](https://docs.docker.com/compose/environment-variables/)
+2. **Đặc tả cấu hình thuộc tính Ports và Expose:**
+   * [Compose file ports reference - Docker Docs](https://docs.docker.com/compose/compose-file/05-services/#ports)
 
 ---
 
 ### PHẦN 7. CÂU HỎI ĐÁNH GIÁ NHANH
 
 #### Câu 1 (Hiểu bản chất)
-Named Volume lưu trữ dữ liệu thực tế ở đâu trên máy host vật lý chạy hệ điều hành Linux?
-* *Gợi ý:* Trên các hệ điều hành Linux, Docker Engine quản lý toàn bộ các Named Volumes tại thư mục mặc định `/var/lib/docker/volumes/[tên_volume]/_data`. Khi container hoạt động và ghi dữ liệu, Docker sẽ ánh xạ các hoạt động ghi file trực tiếp xuống thư mục vật lý này của máy host.
+Tại sao khi chạy lệnh `docker compose config` chúng ta không cần phải truyền đường dẫn file `.env` mà Docker Compose vẫn tự động tìm thấy và nạp được dữ liệu?
+* *Gợi ý:* Vì theo thiết kế mặc định, Docker Compose CLI sẽ tự động tìm kiếm một tệp tin có tên chính xác là `.env` nằm trong cùng thư mục nơi lệnh `docker compose` được thực thi. Nếu muốn sử dụng một file env có tên khác (ví dụ: `.env.production`), bạn phải sử dụng cờ truyền file tường minh là `docker compose --env-file .env.production config`.
 
 #### Câu 2 (Xử lý tình huống)
-Nếu bạn chạy hai dự án Microservices hoàn toàn khác nhau trên cùng một máy host vật lý (dự án A nằm ở thư mục `quickbite-dev` và dự án B nằm ở thư mục `hotel-booking`), các container của dự án B có thể gọi được các container của dự án A bằng tên service của chúng được không? Tại sao?
-* *Gợi ý:* Không được. Mặc định, mỗi tệp Docker Compose khi khởi chạy sẽ tạo ra một mạng bridge cô lập riêng biệt dựa trên tên của thư mục dự án (ví dụ mạng `quickbite-dev_default` và mạng `hotel-booking_default`). Do các container nằm ở hai mạng ảo cô lập khác nhau, DNS của mạng B không thể nhìn thấy và phân giải được tên miền của các container thuộc mạng A. Đây là cơ chế bảo mật cô lập tuyệt vời giúp tránh nhiễu cấu hình giữa các dự án chạy chung một server.
+Nếu bạn thay đổi giá trị cổng `USER_SERVICE_PORT=8082` trong file `.env` khi cụm container `quickbite-user` đang hoạt động, container có tự động chuyển đổi sang lắng nghe tại cổng `8082` ngay lập tức hay không? Bạn cần chạy lệnh gì để nhận cấu hình mới?
+* *Gợi ý:* Container không tự động nhận cổng mới ngay lập tức vì cấu hình port mapping được thiết lập tĩnh khi khởi tạo container. Để áp dụng cấu hình mới, bạn cần chạy lại lệnh: `docker compose up -d`. Docker Compose sẽ tự động phân tích phát hiện cấu hình file `.env` đã thay đổi, tự động dừng container cũ và tạo mới container `quickbite-user` chạy ở cổng `8082` mà không cần restart các container khác không thay đổi cấu hình.

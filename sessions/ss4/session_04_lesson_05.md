@@ -1,122 +1,170 @@
 # SESSION 04: DOCKER COMPOSE CƠ BẢN
 
-## LESSON 05: Quản lý vòng đời hệ thống với Docker Compose
+## LESSON 04: Volume và network trong Docker Compose
 
 ---
 
 ### PHẦN 1. MỤC TIÊU BÀI HỌC
 
 Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
-* **Làm chủ** toàn diện các câu lệnh quản lý vòng đời cụm container thông qua Docker Compose CLI (`up`, `down`, `stop`, `start`).
-* **Thực hiện chẩn đoán lỗi** nhanh chóng bằng cách kiểm tra danh sách container (`ps`) và stream log tổng hợp (`logs -f`) của toàn bộ hệ thống.
-* **Tương tác trực tiếp** với các container trong cụm bằng câu lệnh thực thi dòng lệnh (`exec`).
-* **Phân biệt** được phạm vi ảnh hưởng của việc xóa tài nguyên (`down`) và dừng tài nguyên (`stop`).
+* **Cấu hình Named Volume** trong Docker Compose để lưu trữ dữ liệu bền vững cho cơ sở dữ liệu PostgreSQL, tránh mất dữ liệu khi tắt container.
+* **Giải thích** được cơ chế tạo mạng mặc định và mạng tùy biến của Docker Compose.
+* **Vận dụng cơ chế Service Discovery** (Phát hiện dịch vụ tự động) để kết nối các microservices với database thông qua tên dịch vụ thay vì địa chỉ IP cứng.
+* **Kiểm chứng** tính toàn vẹn của dữ liệu và mạng sau các chu trình xóa/dựng cụm container.
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (MA TRẬN LỖI KHI KHỞI CHẠY ĐỒNG THỜI)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (NỖI ĐAU MẤT DỮ LIỆU & IP BỊ THAY ĐỔI)
 
-Hãy tưởng tượng bạn vừa thực hiện lệnh khởi chạy toàn bộ hệ thống QuickBite bằng Docker Compose:
-```bash
-docker compose up -d
+Hãy tưởng tượng bạn đang chạy thử nghiệm hệ thống QuickBite trên local bằng Docker Compose. 
+1. **Nỗi đau mất sạch dữ liệu:** Bạn khởi chạy database bằng `docker compose up -d`, tạo tài khoản, đăng ký món ăn demo rất mất thời gian. Cuối buổi chiều, trước khi tắt máy ra về, bạn gõ lệnh dọn dẹp hệ thống: `docker compose down`. Sáng hôm sau, bạn bật lại hệ thống bằng `docker compose up -d`. Bạn bàng hoàng nhận ra toàn bộ tài khoản và món ăn đã biến mất không dấu vết, database trở lại trạng thái trống rỗng như lúc mới cài.
+2. **Nỗi đau IP biến động:** Dịch vụ `user-service` cần gọi tới database. Nếu bạn điền cứng địa chỉ IP của container database (ví dụ: `172.19.0.2`), kết nối sẽ lỗi ngay lập tức khi database restart và được cấp IP mới (ví dụ: `172.19.0.3`).
+
+*Hai vấn đề nghiêm trọng này sẽ được giải quyết triệt để thông qua hai cơ chế cốt lõi của Docker Compose: **Volumes** (Lưu trữ bền vững) và **Networks** (Mạng ảo nội bộ & DNS).*
+
+---
+
+### PHẦN 3. KIẾN THỨC CỐT LÕI (DOCKER VOLUMES & DOCKER NETWORKS TRONG COMPOSE)
+
+#### 3.1 Docker Volumes trong Compose (Named Volume)
+Mặc định, hệ thống file bên trong container là tạm thời (Ephemereal). Mọi dữ liệu ghi vào đó sẽ bị xóa sạch khi container bị hủy bỏ.
+Để lưu trữ dữ liệu bền vững (Persistence), chúng ta sử dụng **Named Volume** (Volume có tên định danh):
+* **Cú pháp khai báo:** Chúng ta khai báo khối `volumes:` toàn cục ở cuối file Compose, sau đó mount volume đó vào thư mục lưu trữ dữ liệu của database bên trong container.
+* **Đường dẫn lưu dữ liệu PostgreSQL:** PostgreSQL lưu toàn bộ database tại thư mục `/var/lib/postgresql/data` trong container.
+```yaml
+services:
+  quickbite-db:
+    image: postgres:15-alpine
+    volumes:
+      - db-data:/var/lib/postgresql/data  # Mount Named Volume vào thư mục dữ liệu
+
+volumes:
+  db-data:  # Khai báo Named Volume toàn cục
 ```
-Màn hình terminal in ra trạng thái cả `quickbite-db` và `quickbite-user` đều báo `Started` màu xanh lá cây. 
+* **Cơ chế hoạt động:** Docker Engine sẽ tạo một thư mục quản lý riêng trên ổ cứng máy host và liên kết nó với thư mục dữ liệu của Postgres. Khi container bị xóa đi, thư mục trên máy host vẫn an toàn nguyên vẹn. Khi container mới khởi chạy và mount vào volume này, toàn bộ dữ liệu cũ sẽ lập tức xuất hiện trở lại.
 
-Tuy nhiên, khi bạn mở trình duyệt hoặc Postman gửi API request tới cổng `8081` của `quickbite-user`, hệ thống báo lỗi `500 Internal Server Error` hoặc lỗi không phản hồi. Bạn rơi vào ma trận hoang mang:
-* *Database đã thực sự sẵn sàng nhận kết nối chưa?*
-* *Hay database đang chạy lỗi khởi động nên sập?*
-* *Hay mã nguồn Java của backend bị ném ngoại lệ (Exception) lúc kết nối?*
+#### 3.2 Docker Networks trong Compose & Service Discovery
+Mặc định, khi bạn khởi chạy một tệp Compose, Docker Compose sẽ tự động làm 3 việc:
+1. Tạo ra một mạng bridge riêng biệt dành cho dự án (thường đặt tên là `[tên_thư_mục_dự_án]_default`).
+2. Tự động đưa tất cả các container (services) được khai báo trong file Compose tham gia vào mạng chung này.
+3. Kích hoạt dịch vụ **DNS nội bộ** của Docker.
 
-Nếu làm theo cách cũ, bạn phải mở 2 terminal mới chạy 2 lệnh `docker logs` riêng biệt cho từng container để so khớp dòng thời gian lỗi. Việc này cực kỳ mất thời gian và khiến bạn bối rối không biết nguyên nhân gốc rễ bắt đầu từ đâu.
-
-*Để chẩn đoán nhanh và vận hành hệ thống trơn tru, bạn cần làm chủ bộ câu lệnh quản lý vòng đời và chẩn đoán của Docker Compose CLI.*
-
----
-
-### PHẦN 3. KIẾN THỨC CỐT LÕI (CÁC LỆNH ĐIỀU KHIỂN DOCKER COMPOSE CLI CHỦ CHỐT)
-
-Docker Compose CLI cung cấp các công cụ tương tác trực tiếp với toàn bộ "stack" (ngăn xếp) container của bạn:
+##### Cơ chế Service Discovery (Phát hiện dịch vụ)
+Nhờ DNS nội bộ hoạt động trong mạng chung, các container có thể gọi nhau trực tiếp bằng **Tên dịch vụ (Service Name)** được khai báo trong file Compose (như `quickbite-db`, `quickbite-user`) thay vì sử dụng địa chỉ IP nội bộ không ổn định.
 
 ```text
-                 [ File cấu hình: docker-compose.yml ]
-                                   │
-               ┌───────────────────┼───────────────────┐
-               ▼                   ▼                   ▼
-      [ Khởi tạo & Chạy ]     [ Giám sát & Check ]    [ Dừng & Dọn dẹp ]
-      - compose up            - compose ps            - compose stop
-      - compose start         - compose logs          - compose down
+  [ user-service (Service Name) ]
+                │
+                ▼ (Kết nối qua URL: jdbc:postgresql://quickbite-db:5432/postgres)
+  [ DNS nội bộ của Docker Compose ] (Tự dịch "quickbite-db" -IP 172.19.0.3)
+                │
+                ▼
+  [ quickbite-db (Service Name) ]
 ```
 
-#### 3.1 Nhóm lệnh khởi tạo và dừng
-* `docker compose up -d`: Khởi chạy toàn bộ hệ thống chạy ngầm dưới nền (Detached mode). Lệnh này sẽ tự động tạo mạng, volume, build image (nếu cấu hình build) và khởi chạy container.
-* `docker compose stop`: Tạm dừng hoạt động của các container (trạng thái container chuyển thành `Exited`), nhưng **không xóa bỏ** container. Dữ liệu ghi tạm trong container vẫn được giữ nguyên.
-* `docker compose start`: Khởi động lại các container đã bị dừng bởi lệnh `stop`.
-* `docker compose down`: Dừng và **xóa bỏ hoàn toàn** các container và mạng ảo của dự án. Lệnh này giúp dọn sạch RAM và CPU của máy.
+[!TIP]
+**So sánh trực quan: Nếu làm bằng lệnh Docker thủ công thì sao?**
+Để dễ hình dung những gì Docker Compose đang âm thầm tự động hóa dưới nền, đây là cách bạn phải gõ thủ công bằng các lệnh CLI đơn lẻ:
+```bash
+# Bước 1: Tự tạo một mạng bridge tùy biến bằng tay
+docker network create --driver bridge quickbite-net
 
-#### 3.2 Nhóm lệnh chẩn đoán và tương tác
-* `docker compose ps`: Liệt kê danh sách các container thuộc dự án hiện hành kèm theo ID, trạng thái hoạt động (Up/Exit), và cổng ánh xạ mạng.
-* `docker compose logs -f`: Stream log tổng hợp của **tất cả** các container trong cụm thời gian thực.
-  * *Điểm ưu việt:* Docker Compose sẽ tự động phân tách log của từng dịch vụ bằng các màu sắc khác nhau và chèn thêm tiền tố tên dịch vụ ở đầu dòng (ví dụ: `quickbite-user-1  |`, `quickbite-db-1    |`). Điều này giúp bạn dễ dàng theo dõi trình tự lỗi diễn ra giữa các dịch vụ.
-* `docker compose exec [tên_service] [lệnh]`: Chạy một lệnh trực tiếp bên trong một container đang hoạt động của cụm (tương tự `docker exec`).
+# Bước 2: Khởi chạy container database và ném vào mạng ảo đó
+docker run -d --name quickbite-db --network quickbite-net -e POSTGRES_PASSWORD=secret_password postgres:15-alpine
+
+# Bước 3: Khởi chạy container backend kết nối vào chung mạng ảo để DNS nội bộ nhận diện được tên
+docker run -d --name quickbite-user --network quickbite-net -p 8081:8081 -v /path/to/libs:/app -w /app eclipse-temurin:17-jre-alpine java -jar user-service.jar
+```
+* **Kết luận:** Thay vì phải gõ và quản lý 3 lệnh rời rạc cùng dải tham số phức tạp ở trên, Docker Compose chỉ đơn giản là đọc file `docker-compose.yml` rồi tự chạy đống lệnh này thay cho bạn.
+
 
 ---
 
-### PHẦN 4. THỰC HÀNH: CHẨN ĐOÁN VÀ ĐIỀU KHIỂN CỤM CONTAINER QUICKBITE
+### PHẦN 4. THỰC HÀNH: KHAI BÁO VOLUME VÀ NETWORK LIÊN KẾT ĐA CONTAINER
 
-Hãy thực hành quy trình chẩn đoán lỗi tiêu chuẩn của một kỹ sư DevOps:
+Hãy cập nhật tệp `docker-compose.yml` để hoàn thiện hạ tầng mạng và lưu trữ bền vững cho QuickBite:
 
-1. Khởi chạy hệ thống ở chế độ chạy ngầm:
+1. Viết tệp `docker-compose.yml` hoàn chỉnh:
+```yaml
+version: '3.8'
+
+services:
+  quickbite-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret_password
+    volumes:
+      - quickbite-db-volume:/var/lib/postgresql/data
+    networks:
+      - quickbite-net
+
+  quickbite-user:
+    build:
+      context: ./user-service
+    ports:
+      - "8081:8081"
+    environment:
+      # Sử dụng tên service "quickbite-db" làm host kết nối database
+      SPRING_DATASOURCE_URL: jdbc:postgresql://quickbite-db:5432/postgres
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: secret_password
+    networks:
+      - quickbite-net
+    depends_on:
+      - quickbite-db
+
+volumes:
+  quickbite-db-volume: # Khai báo Named Volume lưu trữ database
+
+networks:
+  quickbite-net:
+    driver: bridge # Khai báo mạng ảo bridge tùy biến cho dự án
+```
+2. Khởi chạy hệ thống:
 ```bash
 docker compose up -d
 ```
-2. Kiểm tra danh sách trạng thái của cụm container:
+3. Kiểm tra xem volume và network đã được tạo thành công chưa:
 ```bash
-docker compose ps
+docker volume ls
+# Kết quả mong đợi: Hiển thị volume tên [thư_mục_dự_án]_quickbite-db-volume
+
+docker network ls
+# Kết quả mong đợi: Hiển thị mạng tên [thư_mục_dự_án]_quickbite-net
 ```
-   * **Kết quả mong đợi:** Màn hình hiển thị bảng danh sách các container, đảm bảo cột `STATUS` hiển thị `Up` cho cả database và backend.
-3. Stream log tổng hợp để giám sát quá trình khởi động:
-```bash
-docker compose logs -f --tail=50
-```
-   * Quan sát cách các dòng log đan xen nhau. Nhấn `Ctrl + C` để thoát chế độ xem log (lưu ý: việc thoát logs không làm dừng container).
-4. Kiểm tra xem database PostgreSQL đã thực sự sẵn sàng nhận kết nối hay chưa bằng công cụ chẩn đoán nội bộ của Postgres:
-```bash
-docker compose exec quickbite-db pg_isready -U postgres
-```
-   * **Kết quả mong đợi:** Console trả về thông báo: `/var/run/postgresql:5432 - accepting connections`.
-5. Dọn dẹp sạch sẽ tài nguyên hệ thống sau khi làm việc xong:
-```bash
-docker compose down
-```
+4. **Kiểm tra độ bền vững dữ liệu:**
+   * Truy cập vào database qua `docker exec` tạo thử một bảng dữ liệu hoặc chạy ứng dụng đăng ký người dùng.
+   * Chạy lệnh xóa cụm dịch vụ: `docker compose down`.
+   * Khởi chạy lại: `docker compose up -d`.
+   * Truy cập lại database để kiểm tra. **Kết quả mong đợi:** Toàn bộ dữ liệu bạn đã tạo trước đó vẫn còn nguyên vẹn 100%.
 
 ---
 
-### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (DOCKER COMPOSE DOWN VS STOP)
+### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (MẠNG MẶC ĐỊNH CỦA DOCKER COMPOSE)
 
-* **Hiểu sai:** Lệnh `docker compose down` sẽ xóa sạch toàn bộ dữ liệu của tôi trong database.
-* **Sự thật:** Không hề.
-  * Lệnh `docker compose down` chỉ xóa container và network ảo. Dữ liệu nằm trong **Named Volumes** vật lý trên máy host vẫn được giữ an toàn 100%. Khi bạn gõ `docker compose up -d` trở lại, dữ liệu database cũ sẽ tự động xuất hiện.
-  * **Trường hợp mất dữ liệu thật:** Chỉ xảy ra khi bạn cố tình truyền thêm cờ xóa volume: `docker compose down -v` (hoặc `--volumes`). Cờ `-v` sẽ ép Docker xóa sạch cả Named Volumes lưu trữ. Hãy cực kỳ cẩn thận với cờ này trên môi trường Staging/Production!
+* **Hiểu sai:** Mạng mặc định tự động tạo ra khi chạy Docker Compose hoạt động giống hệt mạng mặc định (`default bridge`) của Docker CLI khi chạy lệnh `docker run` đơn lẻ.
+* **Đính chính:** **Hoàn toàn khác nhau về bản chất.**
+  * Mạng mặc định của Docker CLI (`default bridge`) **không hỗ trợ tính năng tự động phân giải tên container (DNS nội bộ)**. Container chỉ có thể kết nối với nhau qua IP.
+  * Mạng mặc định do Docker Compose tự động tạo ra cho dự án thực chất là một mạng **User-defined Bridge Network**. Mạng này tự động bật sẵn dịch vụ DNS nội bộ, cho phép các dịch vụ gọi nhau bằng tên service một cách hoàn toàn tự động và ổn định. Do đó, bạn không cần phải tự tạo mạng thủ công như ở các bài học trước.
 
 ---
 
 ### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG (XÁC MINH KIẾN THỨC)
 
-1. **Tài liệu tra cứu lệnh Docker Compose CLI:**
-   * [Docker Compose CLI Command Reference - Docker Docs](https://docs.docker.com/reference/cli/docker/compose/)
-2. **Chi tiết về lệnh docker compose down:**
-   * [Docker Compose Down command reference - Docker Docs](https://docs.docker.com/reference/cli/docker/compose/down/)
+1. **Quản lý mạng trong Docker Compose:**
+   * [Networking in Docker Compose - Docker Docs](https://docs.docker.com/compose/networking/)
+2. **Quản lý dữ liệu bằng Volume trong Docker Compose:**
+   * [Volumes in Docker Compose - Docker Docs](https://docs.docker.com/compose/compose-file/07-volumes/)
 
 ---
 
 ### PHẦN 7. CÂU HỎI ĐÁNH GIÁ NHANH
 
 #### Câu 1 (Hiểu bản chất)
-Khi chạy lệnh `docker compose logs -f`, nếu bạn muốn chỉ xem log của duy nhất container backend `quickbite-user` thì gõ lệnh thế nào?
-* *Gợi ý:* Bạn chỉ cần truyền thêm tên của service đó vào sau câu lệnh: `docker compose logs -f quickbite-user`. Docker Compose sẽ lọc và chỉ stream log của riêng service này.
+Named Volume lưu trữ dữ liệu thực tế ở đâu trên máy host vật lý chạy hệ điều hành Linux?
+* *Gợi ý:* Trên các hệ điều hành Linux, Docker Engine quản lý toàn bộ các Named Volumes tại thư mục mặc định `/var/lib/docker/volumes/[tên_volume]/_data`. Khi container hoạt động và ghi dữ liệu, Docker sẽ ánh xạ các hoạt động ghi file trực tiếp xuống thư mục vật lý này của máy host.
 
 #### Câu 2 (Xử lý tình huống)
-Tech Lead yêu cầu bạn kiểm thử xem database `quickbite-db` có thể phản hồi truy vấn SQL trực tiếp hay không mà không cần mở cổng database ra ngoài máy host. Bạn làm thế nào?
-* *Gợi ý:* Bạn sử dụng lệnh `docker compose exec` để truy cập vào trình quản trị psql trực tiếp bên trong container đang chạy:
-  `docker compose exec quickbite-db psql -U postgres -c "SELECT 1;"`
-  Lệnh này sẽ thực thi truy vấn SQL nội bộ bên trong container và trả trực tiếp kết quả về terminal máy host của bạn mà không cần expose cổng mạng ra bên ngoài.
+Nếu bạn chạy hai dự án Microservices hoàn toàn khác nhau trên cùng một máy host vật lý (dự án A nằm ở thư mục `quickbite-dev` và dự án B nằm ở thư mục `hotel-booking`), các container của dự án B có thể gọi được các container của dự án A bằng tên service của chúng được không? Tại sao?
+* *Gợi ý:* Không được. Mặc định, mỗi tệp Docker Compose khi khởi chạy sẽ tạo ra một mạng bridge cô lập riêng biệt dựa trên tên của thư mục dự án (ví dụ mạng `quickbite-dev_default` và mạng `hotel-booking_default`). Do các container nằm ở hai mạng ảo cô lập khác nhau, DNS của mạng B không thể nhìn thấy và phân giải được tên miền của các container thuộc mạng A. Đây là cơ chế bảo mật cô lập tuyệt vời giúp tránh nhiễu cấu hình giữa các dự án chạy chung một server.

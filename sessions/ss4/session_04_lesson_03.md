@@ -1,168 +1,152 @@
 # SESSION 04: DOCKER COMPOSE CƠ BẢN
 
-## LESSON 03: Biến môi trường và cấu hình port
+## LESSON 02: Cấu trúc file docker-compose.yml (services, image, build)
 
 ---
 
 ### PHẦN 1. MỤC TIÊU BÀI HỌC
 
 Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
-* **Cấu hình chính xác** ánh xạ cổng (`ports`) để mở cổng kết nối từ máy host vào trong container.
-* **Vận dụng** cơ chế truyền biến môi trường (`environment`) vào container để thay đổi cấu hình runtime của ứng dụng Spring Boot linh hoạt.
-* **Thiết lập và quản lý bảo mật** thông số cấu hình nhạy cảm (như mật khẩu database, token API) bằng tệp cấu hình ngoại vi `.env`.
-* **Sử dụng lệnh kiểm tra** cấu hình Compose (`docker compose config`) trước khi khởi chạy hệ thống.
+* **Đọc và giải thích** cấu trúc định dạng tệp tin `docker-compose.yml` (các thành phần chính: `version`, `services`, `image`, `build`).
+* **Biên soạn** thành thạo một tệp tin `Dockerfile` cơ bản để đóng gói ứng dụng Spring Boot.
+* **Vận dụng thuộc tính `build`** trong Docker Compose để tự động hóa quy trình build image từ Dockerfile và khởi chạy container chỉ với một câu lệnh.
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (HIỂM HỌA LỘ MẬT KHẨU TRÊN GIT)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (NỖI ĐAU QUÊN BUILD CODE MỚI)
 
-Hãy tưởng tượng bạn đang viết tệp `docker-compose.yml` để triển khai hệ thống QuickBite. Bạn điền trực tiếp mật khẩu quản trị cơ sở dữ liệu vào file cấu hình:
-```yaml
-services:
-  quickbite-db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_PASSWORD: "Super-Secret-DB-Password-123456"
+Hãy tưởng tượng bạn đang sửa đổi một tính năng trong mã nguồn của `user-service`. Sau khi sửa code xong, bạn chạy Gradle để compile ra file JAR mới tại `build/libs/user-service.jar`. 
+
+Để cập nhật tính năng mới này chạy trong container trên máy local, bạn phải thực hiện thủ công 3 bước:
+```bash
+# 1. Tự chạy lệnh build để đóng gói image mới từ Dockerfile
+docker build -t quickbite-user:v2 .
+
+# 2. Xóa container cũ đang chạy bản code cũ
+docker stop quickbite-user && docker rm quickbite-user
+
+# 3. Chạy container mới từ image vừa build
+docker run -d --name quickbite-user -p 8081:8081 quickbite-user:v2
 ```
-Bạn commit file này và push lên kho lưu trữ mã nguồn chung của công ty (GitLab/GitHub). 
 
-* **Hiểm họa xảy ra:** 
-  * Sáng hôm sau, Tech Lead và đội an ninh thông tin (Security Team) phát hiện ra thông tin nhạy cảm bị công khai. Bất kỳ ai có quyền xem code đều đọc được mật khẩu database. Đây là lỗ hổng bảo mật nghiêm trọng trong DevOps gọi là **Hardcoded Credentials Leak**.
-  * Hơn thế nữa, khi bạn mang file Compose này sang deploy ở môi trường khác (như Staging hay Production), bạn lại phải sửa trực tiếp file `docker-compose.yml` để thay đổi mật khẩu và cổng kết nối của từng môi trường. Việc này vi phạm hoàn toàn nguyên lý **"Build một lần, chạy mọi nơi"** (Build once, run anywhere).
+* **Vấn đề rủi ro:** 
+  * Quy trình này quá rườm rà. Lập trình viên rất dễ quên chạy bước 1 (quên build lại image mới) mà trực tiếp restart lại container. 
+  * Kết quả là container khởi chạy thành công nhưng vẫn chạy trên phiên bản code cũ nằm trong image cũ. Bạn sẽ mất hàng giờ để debug mệt mỏi chỉ vì câu hỏi: *"Tại sao em đã sửa code trên máy rồi mà log lỗi của container vẫn hiển thị dòng lỗi cũ?"*
 
-*Để giải quyết triệt để vấn đề bảo mật và tính linh hoạt cấu hình, chúng ta cần phân tách mã nguồn và thông tin cấu hình nhạy cảm thông qua **Biến môi trường** và file **`.env`**.*
+*Để tự động hóa hoàn toàn chuỗi thao tác: "Build code -> Đóng gói Image -> Tạo Container mới", Docker Compose cung cấp cơ chế tự build image thông qua từ khóa `build`.*
 
 ---
 
-### PHẦN 3. KIẾN THỨC CỐT LÕI (PORTS VS EXPOSE, BIẾN MÔI TRƯỜNG & TỆP .ENV)
+### PHẦN 3. KIẾN THỨC CỐT LÕI (CẤU TRÚC docker-compose.yml & DOCKERFILE CƠ BẢN)
 
-#### 3.1 Cấu hình Port (`ports`)
-Cú pháp ánh xạ cổng trong file Compose sử dụng định dạng:
-```yaml
-ports:
-  - "HOST_PORT:CONTAINER_PORT"
+#### 3.1 Cấu trúc cơ bản của docker-compose.yml
+Tệp cấu hình của Docker Compose được viết bằng định dạng YAML (phân biệt các khối dữ liệu bằng thụt lề khoảng trắng, tuyệt đối không dùng phím Tab). Các từ khóa nền tảng bao gồm:
+* `version`: Chỉ định phiên bản định dạng của file Compose (phổ biến nhất hiện nay là `'3.8'`).
+* `services`: Khối dữ liệu chứa định nghĩa của tất cả các container trong cụm dịch vụ.
+* `image`: Tên Docker Image được lấy từ Docker Hub (ví dụ: `postgres:15-alpine`).
+
+#### 3.2 Dockerfile cơ bản cho Spring Boot
+Để Docker Compose có thể build một image nội bộ cho dịch vụ Spring Boot của bạn, chúng ta phải chuẩn bị một file tên là `Dockerfile` (không có phần mở rộng đuôi) nằm tại thư mục gốc của project backend (ví dụ: `/user-service/Dockerfile`):
+
+```dockerfile
+# Bước 1: Chọn image JRE Java 17 gọn nhẹ
+FROM eclipse-temurin:17-jre-alpine
+
+# Bước 2: Đặt thư mục làm việc mặc định trong container
+WORKDIR /app
+
+# Bước 3: Sao chép file JAR đã build từ máy host vào container
+COPY build/libs/user-service.jar app.jar
+
+# Bước 4: Khai báo lệnh chạy ứng dụng khi khởi động container
+ENTRYPOINT ["java", "-jar", "app.jar"]
 ```
-* **Ý nghĩa:** Docker Engine sẽ lắng nghe cổng `HOST_PORT` trên máy host vật lý và chuyển hướng (NAT) toàn bộ lưu lượng truy cập vào cổng `CONTAINER_PORT` nội bộ của container.
-* **Ví dụ:** `- "8081:8081"` mở cổng 8081 ra máy host để bạn truy cập được API Spring Boot qua `http://localhost:8081`.
 
-#### 3.2 Biến môi trường (`environment`)
-Thay vì viết cứng cấu hình trong file Java properties, Spring Boot cho phép nạp đè cấu hình thông qua các biến môi trường. Trong file Compose, ta truyền các biến này qua từ khóa `environment`:
+#### 3.3 Khai báo thuộc tính `build` trong Compose
+Thay vì chỉ định cứng một image có sẵn trên mạng thông qua key `image`, chúng ta sử dụng key `build` trỏ tới Dockerfile cục bộ:
+* `context`: Thư mục chứa mã nguồn của dịch vụ (nơi Docker tìm kiếm file Dockerfile và file JAR).
+* `dockerfile`: Tên file Dockerfile (mặc định là `Dockerfile`, có thể bỏ qua nếu bạn đặt tên file đúng chuẩn).
+
+Ví dụ cấu trúc khai báo dịch vụ tự build trong `docker-compose.yml`:
 ```yaml
 services:
   quickbite-user:
-    image: eclipse-temurin:17-jre-alpine
-    environment:
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=secret
-```
-
-#### 3.3 Tách biệt cấu hình bảo mật bằng file `.env`
-Để tránh lộ thông tin nhạy cảm trên Git, Docker Compose tự động tìm kiếm một file ẩn tên là `.env` nằm cùng thư mục với file `docker-compose.yml`. 
-
-1. **Cú pháp trong file `.env`** (chứa các cặp Key=Value thông thường):
-```env
-DB_PASSWORD=Super-Secret-DB-Password-123456
-USER_PORT=8081
-```
-2. **Cơ chế nội suy biến (Interpolation) trong `docker-compose.yml`:**
-   Chúng ta sử dụng cú pháp `${TÊN_BIẾN}` để gọi giá trị từ file `.env` nạp vào file Compose:
-```yaml
-services:
-  quickbite-db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-
-  quickbite-user:
-    build: ./user-service
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
     ports:
-      - "${USER_PORT}:8081"
+      - "8081:8081"
 ```
-3. **Quy tắc bảo mật quan trọng:**
-   * File `.env` chứa mật khẩu thực tế **tuyệt đối không được commit lên Git** (bắt buộc phải khai báo trong file `.gitignore`).
-   * Thay vào đó, bạn chỉ push file mẫu đặt tên là `.env.example` (chứa các key trống không có mật khẩu thật, ví dụ: `DB_PASSWORD=`) để làm tài liệu hướng dẫn cho các lập trình viên khác tự điền mật khẩu của riêng họ khi clone code về chạy.
 
 ---
 
-### PHẦN 4. THỰC HÀNH: SỬ DỤNG FILE .ENV ĐỂ CẤU HÌNH HỆ THỐNG DOCKER COMPOSE
+### PHẦN 4. THỰC HÀNH: KHỞI TẠO FILE COMPOSE VỚI DOCKERFILE VÀ KEY BUILD
 
-Hãy thực hành cấu hình bảo mật hệ thống QuickBite local:
+Hãy tạo cấu trúc thư mục dự án QuickBite local và khởi chạy tự động build:
 
-1. Tạo file `.env` nằm ở thư mục dự án của bạn:
-   ```env
-   # Cấu hình Database
-   DB_USER=postgres
-   DB_PASSWORD=quickbite_db_secret_pass
-   DB_PORT=5432
-
-   # Cấu hình User Service
-   USER_SERVICE_PORT=8081
-   ```
-2. Tạo file `.gitignore` để khóa file `.env` lại không cho đẩy lên Git:
+1. Thiết lập cấu trúc thư mục mẫu:
    ```text
-   .env
-   /build/
+   quickbite-project/
+   ├── docker-compose.yml
+   └── user-service/
+       ├── Dockerfile
+       └── build/
+           └── libs/
+               └── user-service.jar  (File JAR đã được build sẵn từ Gradle)
    ```
-3. Viết file `docker-compose.yml` sử dụng các biến nội suy:
+2. Viết nội dung file `docker-compose.yml` tại thư mục gốc:
 ```yaml
 version: '3.8'
 
 services:
   quickbite-db:
     image: postgres:15-alpine
-    ports:
-      - "${DB_PORT}:5432"
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: secret
 
   quickbite-user:
     build:
       context: ./user-service
     ports:
-      - "${USER_SERVICE_PORT}:8081"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://quickbite-db:5432/postgres
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      - "8081:8081"
 ```
-4. Chạy lệnh kiểm tra tính hợp lệ và hiển thị cấu hình sau khi nội suy biến:
+3. Chạy lệnh build và start cụm dịch vụ đồng thời:
 ```bash
-docker compose config
+docker compose up --build
 ```
-5. **Kết quả mong đợi:** Lệnh `config` sẽ đọc file `.env`, thay thế toàn bộ ký tự `${...}` thành giá trị thực tế và in ra cấu hình hoàn chỉnh. Bạn sẽ thấy rõ mật khẩu `quickbite_db_secret_pass` và các cổng đã được điền chính xác.
-6. Tiến hành khởi chạy cụm dịch vụ:
-```bash
-docker compose up -d
-```
+4. **Kết quả mong đợi:** Docker Compose tự động truy cập vào thư mục `./user-service`, thực thi lệnh build đóng gói file JAR thành image tĩnh, đặt tên image tạm thời, sau đó khởi chạy container database và backend cùng một lúc.
 
 ---
 
-### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (PORTS VS EXPOSE TRONG COMPOSE)
+### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (KẾT HỢP IMAGE VS BUILD TRONG SERVICE)
 
-* **Hiểu sai:** Từ khóa `ports` và `expose` đều dùng để mở cổng dịch vụ của container ra ngoài máy host vật lý.
-* **Đính chính:** Hoàn toàn khác nhau.
-  * `ports`: Ánh xạ cổng ra ngoài máy host vật lý, cho phép bất kỳ ai từ bên ngoài (hoặc trình duyệt máy host) kết nối vào container.
-  * `expose`: Chỉ mang tính chất khai báo cổng hoạt động nội bộ. Các container khác kết nối chung mạng Docker có thể gọi vào cổng này, nhưng **máy host vật lý hoàn toàn không thể kết nối trực tiếp** được vào cổng này.
-  * **Lời khuyên bảo mật:** Đối với database PostgreSQL nội bộ (`quickbite-db`), chúng ta chỉ cần dùng `expose: - "5432"` (hoặc không cần khai báo nếu các container dùng chung mạng tùy biến), tuyệt đối không dùng `ports` để tránh nguy cơ hacker quét và tấn công trực tiếp vào database của bạn từ bên ngoài internet.
+* **Hiểu lầm:** Trong một service của file Compose, chúng ta chỉ được phép khai báo một trong hai từ khóa: hoặc là `image`, hoặc là `build`. Nếu khai báo cả hai sẽ gây lỗi cú pháp.
+* **Sự thật:** Hoàn toàn có thể khai báo cả hai. 
+  * Ví dụ:
+```yaml
+quickbite-user:
+  build: ./user-service
+  image: quickbite-user-service:v1.0.0
+```
+  * **Cơ chế hoạt động:** Khi bạn chạy `docker compose up --build`, Docker Compose sẽ build image từ thư mục `./user-service` theo hướng dẫn Dockerfile, nhưng thay vì đặt tên ngẫu nhiên, nó sẽ tự động gán nhãn tên image đó là `quickbite-user-service:v1.0.0`. Kỹ thuật này rất quan trọng để tag tên image tự build trước khi đẩy (push) lên kho lưu trữ Docker Registry.
 
 ---
 
 ### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG (XÁC MINH KIẾN THỨC)
 
-1. **Cách sử dụng biến môi trường trong Docker Compose:**
-   * [Environment variables in Docker Compose - Docker Docs](https://docs.docker.com/compose/environment-variables/)
-2. **Đặc tả cấu hình thuộc tính Ports và Expose:**
-   * [Compose file ports reference - Docker Docs](https://docs.docker.com/compose/compose-file/05-services/#ports)
+1. **Đặc tả cấu trúc file Docker Compose (Services section):**
+   * [Compose file services reference - Docker Docs](https://docs.docker.com/compose/compose-file/05-services/)
+2. **Chi tiết về cấu hình build trong Compose:**
+   * [Compose Build definition - Docker Docs](https://docs.docker.com/compose/compose-file/build/)
 
 ---
 
 ### PHẦN 7. CÂU HỎI ĐÁNH GIÁ NHANH
 
 #### Câu 1 (Hiểu bản chất)
-Tại sao khi chạy lệnh `docker compose config` chúng ta không cần phải truyền đường dẫn file `.env` mà Docker Compose vẫn tự động tìm thấy và nạp được dữ liệu?
-* *Gợi ý:* Vì theo thiết kế mặc định, Docker Compose CLI sẽ tự động tìm kiếm một tệp tin có tên chính xác là `.env` nằm trong cùng thư mục nơi lệnh `docker compose` được thực thi. Nếu muốn sử dụng một file env có tên khác (ví dụ: `.env.production`), bạn phải sử dụng cờ truyền file tường minh là `docker compose --env-file .env.production config`.
+Trong file Dockerfile của Spring Boot, tại sao ta nên sử dụng chỉ thị `ENTRYPOINT ["java", "-jar", "app.jar"]` thay vì chỉ thị `CMD java -jar app.jar`?
+* *Gợi ý:* Sử dụng cú pháp dạng mảng (Exec Form) như `ENTRYPOINT ["java", "-jar", "app.jar"]` giúp tiến trình Java chạy trực tiếp dưới dạng PID 1 (tiến trình gốc của container). Điều này cho phép container nhận trực tiếp các tín hiệu hệ thống (như SIGTERM khi chạy lệnh `docker stop`) để tắt ứng dụng một cách êm ái (Graceful Shutdown). Trong khi đó, dùng CMD dạng chuỗi (Shell Form) sẽ khởi chạy tiến trình qua một shell `/bin/sh -c`, khiến Java chạy dưới dạng tiến trình con của shell và không thể nhận được tín hiệu tắt của hệ thống, dẫn đến việc tắt cưỡng bức và mất dữ liệu.
 
 #### Câu 2 (Xử lý tình huống)
-Nếu bạn thay đổi giá trị cổng `USER_SERVICE_PORT=8082` trong file `.env` khi cụm container `quickbite-user` đang hoạt động, container có tự động chuyển đổi sang lắng nghe tại cổng `8082` ngay lập tức hay không? Bạn cần chạy lệnh gì để nhận cấu hình mới?
-* *Gợi ý:* Container không tự động nhận cổng mới ngay lập tức vì cấu hình port mapping được thiết lập tĩnh khi khởi tạo container. Để áp dụng cấu hình mới, bạn cần chạy lại lệnh: `docker compose up -d`. Docker Compose sẽ tự động phân tích phát hiện cấu hình file `.env` đã thay đổi, tự động dừng container cũ và tạo mới container `quickbite-user` chạy ở cổng `8082` mà không cần restart các container khác không thay đổi cấu hình.
+Nếu bạn thay đổi mã nguồn Java trong `user-service`, sau đó chỉ chạy lệnh `docker compose up` mà không dùng cờ `--build`, Docker Compose có tự động phát hiện mã nguồn Java thay đổi để build lại image mới hay không? Tại sao?
+* *Gợi ý:* Không. Docker Compose chỉ tự động build lại image nếu nó phát hiện thư mục context bị thiếu image tương ứng, hoặc bản thân file `Dockerfile` có sự thay đổi. Nó không có khả năng tự chui vào mã nguồn Java kiểm tra xem code có thay đổi hay không. Do đó, mỗi khi cập nhật code Java, bạn bắt buộc phải build lại file JAR mới trên máy host và chạy lệnh kèm cờ build: `docker compose up --build` để ép hệ thống đóng gói lại image mới.

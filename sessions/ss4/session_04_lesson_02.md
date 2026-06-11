@@ -1,152 +1,143 @@
 # SESSION 04: DOCKER COMPOSE CƠ BẢN
 
-## LESSON 02: Cấu trúc file docker-compose.yml (services, image, build)
+## LESSON 01: Docker Compose và khái niệm hệ thống nhiều container
 
 ---
 
 ### PHẦN 1. MỤC TIÊU BÀI HỌC
 
 Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
-* **Đọc và giải thích** cấu trúc định dạng tệp tin `docker-compose.yml` (các thành phần chính: `version`, `services`, `image`, `build`).
-* **Biên soạn** thành thạo một tệp tin `Dockerfile` cơ bản để đóng gói ứng dụng Spring Boot.
-* **Vận dụng thuộc tính `build`** trong Docker Compose để tự động hóa quy trình build image từ Dockerfile và khởi chạy container chỉ với một câu lệnh.
+* **Giải thích** được định nghĩa, vai trò và sự cần thiết của hệ thống nhiều container (Multi-container System) trong kiến trúc Microservices.
+* **Hiểu bản chất** tại sao Docker Compose là công cụ tối ưu để thay thế quy trình quản trị, cấu hình thủ công bằng các câu lệnh `docker run` đơn lẻ.
+* **Phân tích** được quy trình 3 bước hoạt động nền tảng của Docker Compose: Đóng gói (Dockerfile) -> Khai báo (docker-compose.yml) -> Vận hành (docker compose CLI).
+* **Kiểm tra và xác thực** cài đặt Docker Compose trên môi trường local (WSL 2 / Linux).
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (NỖI ĐAU QUÊN BUILD CODE MỚI)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (NỖI ĐAU CỦA VIỆC QUẢN LÝ THỦ CÔNG)
 
-Hãy tưởng tượng bạn đang sửa đổi một tính năng trong mã nguồn của `user-service`. Sau khi sửa code xong, bạn chạy Gradle để compile ra file JAR mới tại `build/libs/user-service.jar`. 
+Hãy tưởng tượng bạn đang tiếp quản dự án QuickBite ở môi trường phát triển local. Hệ thống lúc này đã phình to ra 3 thành phần cốt lõi:
+1. **`quickbite-db` (Database):** Container chạy PostgreSQL 15 để lưu trữ dữ liệu.
+2. **`user-service` (Dịch vụ người dùng):** Ứng dụng Spring Boot chạy Java 17 cần kết nối tới `quickbite-db`.
+3. **`restaurant-service` (Dịch vụ nhà hàng):** Ứng dụng Spring Boot chạy Java 21 cần kết nối tới `quickbite-db`.
 
-Để cập nhật tính năng mới này chạy trong container trên máy local, bạn phải thực hiện thủ công 3 bước:
+Để dựng môi trường chạy thử nghiệm toàn bộ hệ thống này, bạn phải mở terminal lên và gõ tuần tự các câu lệnh sau:
 ```bash
-# 1. Tự chạy lệnh build để đóng gói image mới từ Dockerfile
-docker build -t quickbite-user:v2 .
+# 1. Khởi chạy Database
+docker run -d --name quickbite-db -e POSTGRES_PASSWORD=secret postgres:15-alpine
 
-# 2. Xóa container cũ đang chạy bản code cũ
-docker stop quickbite-user && docker rm quickbite-user
+# 2. Bạn phải tìm địa chỉ IP nội bộ của container database vừa chạy
+docker inspect quickbite-db
+#Ví dụ tìm được địa chỉ: 172.17.0.2
 
-# 3. Chạy container mới từ image vừa build
-docker run -d --name quickbite-user -p 8081:8081 quickbite-user:v2
+# 3. Khởi chạy User Service, truyền cứng địa chỉ IP 172.17.0.2 của DB vào biến kết nối
+docker run -d --name quickbite-user -p 8081:8081 -v /path/to/user-service/build/libs:/app -w /app -e SPRING_DATASOURCE_URL=jdbc:postgresql://172.17.0.2:5432/postgres -e SPRING_DATASOURCE_USERNAME=postgres -e SPRING_DATASOURCE_PASSWORD=secret eclipse-temurin:17-jre-alpine java -jar user-service.jar
+
+# 4. Khởi chạy Restaurant Service, cũng truyền cứng địa chỉ IP 172.17.0.2 của DB vào biến kết nối
+docker run -d --name quickbite-restaurant -p 8082:8082 -v /path/to/restaurant-service/build/libs:/app -w /app -e SPRING_DATASOURCE_URL=jdbc:postgresql://172.17.0.2:5432/postgres -e SPRING_DATASOURCE_USERNAME=postgres -e SPRING_DATASOURCE_PASSWORD=secret eclipse-temurin:21-jre-alpine java -jar restaurant-service.jar
 ```
 
-* **Vấn đề rủi ro:** 
-  * Quy trình này quá rườm rà. Lập trình viên rất dễ quên chạy bước 1 (quên build lại image mới) mà trực tiếp restart lại container. 
-  * Kết quả là container khởi chạy thành công nhưng vẫn chạy trên phiên bản code cũ nằm trong image cũ. Bạn sẽ mất hàng giờ để debug mệt mỏi chỉ vì câu hỏi: *"Tại sao em đã sửa code trên máy rồi mà log lỗi của container vẫn hiển thị dòng lỗi cũ?"*
+* **Nỗi đau bắt đầu:** 
+  * **Tra cứu IP thủ công phiền phức:** Bạn phải gõ lệnh `docker inspect` rất dài và phức tạp chỉ để lấy địa chỉ IP động của container database.
+  * **IP biến động (IP Drift):** Nếu container `quickbite-db` gặp lỗi tự khởi động lại và nhận một IP mới (ví dụ: `172.17.0.3`), cả hai backend sẽ lập tức bị mất kết nối và crash. Bạn lại phải đi inspect lấy IP mới rồi gõ lại các câu lệnh run backend từ đầu.
+  * **Sai lệch cú pháp:** Chỉ cần gõ sai một ký tự trong đường dẫn volume hoặc cổng, cả cụm sẽ lỗi. Việc dừng dọn dẹp cũng bắt buộc bạn gõ thủ công `docker stop` và `docker rm` từng container một.
 
-*Để tự động hóa hoàn toàn chuỗi thao tác: "Build code -> Đóng gói Image -> Tạo Container mới", Docker Compose cung cấp cơ chế tự build image thông qua từ khóa `build`.*
+*Để giải phóng lập trình viên khỏi gánh nặng gõ lệnh và kiểm soát IP thủ công, Docker cung cấp một công cụ quản lý cấu hình tập trung vô cùng mạnh mẽ: **Docker Compose**.*
 
 ---
 
-### PHẦN 3. KIẾN THỨC CỐT LÕI (CẤU TRÚC docker-compose.yml & DOCKERFILE CƠ BẢN)
+### PHẦN 3. KIẾN THỨC CỐT LÕI (DOCKER COMPOSE LÀ GÌ?)
 
-#### 3.1 Cấu trúc cơ bản của docker-compose.yml
-Tệp cấu hình của Docker Compose được viết bằng định dạng YAML (phân biệt các khối dữ liệu bằng thụt lề khoảng trắng, tuyệt đối không dùng phím Tab). Các từ khóa nền tảng bao gồm:
-* `version`: Chỉ định phiên bản định dạng của file Compose (phổ biến nhất hiện nay là `'3.8'`).
-* `services`: Khối dữ liệu chứa định nghĩa của tất cả các container trong cụm dịch vụ.
-* `image`: Tên Docker Image được lấy từ Docker Hub (ví dụ: `postgres:15-alpine`).
+#### 3.1 Khái niệm
+**Docker Compose** là một công cụ dùng để định nghĩa và chạy các ứng dụng Docker đa container (Multi-container Docker Applications). 
 
-#### 3.2 Dockerfile cơ bản cho Spring Boot
-Để Docker Compose có thể build một image nội bộ cho dịch vụ Spring Boot của bạn, chúng ta phải chuẩn bị một file tên là `Dockerfile` (không có phần mở rộng đuôi) nằm tại thư mục gốc của project backend (ví dụ: `/user-service/Dockerfile`):
+Thay vì quản lý các container bằng các câu lệnh động CLI đơn lẻ (Imperative Style - Phong cách Mệnh lệnh), Docker Compose chuyển sang phong cách **Declarative (Mô tả trạng thái)**: Bạn chỉ cần viết tất cả cấu hình mong muốn (tên container, port, network, volume, biến môi trường) vào một tệp tin cấu hình duy nhất có tên là `docker-compose.yml` (dạng ngôn ngữ YAML). Docker Compose sẽ đọc tệp tin này và tự động dựng, quản lý toàn bộ hệ thống giúp bạn.
 
-```dockerfile
-# Bước 1: Chọn image JRE Java 17 gọn nhẹ
-FROM eclipse-temurin:17-jre-alpine
-
-# Bước 2: Đặt thư mục làm việc mặc định trong container
-WORKDIR /app
-
-# Bước 3: Sao chép file JAR đã build từ máy host vào container
-COPY build/libs/user-service.jar app.jar
-
-# Bước 4: Khai báo lệnh chạy ứng dụng khi khởi động container
-ENTRYPOINT ["java", "-jar", "app.jar"]
+```text
+  [ Cấu hình tập trung: docker-compose.yml ]
+                     │
+         Khởi chạy (docker compose up)
+                     │
+     ┌───────────────┼───────────────┐
+     ▼               ▼               ▼
+[ Container 1 ] [ Container 2 ] [ Container 3 ]
+ (quickbite-db)  (user-service) (restaurant-service)
 ```
 
-#### 3.3 Khai báo thuộc tính `build` trong Compose
-Thay vì chỉ định cứng một image có sẵn trên mạng thông qua key `image`, chúng ta sử dụng key `build` trỏ tới Dockerfile cục bộ:
-* `context`: Thư mục chứa mã nguồn của dịch vụ (nơi Docker tìm kiếm file Dockerfile và file JAR).
-* `dockerfile`: Tên file Dockerfile (mặc định là `Dockerfile`, có thể bỏ qua nếu bạn đặt tên file đúng chuẩn).
+#### 3.2 Quy trình 3 bước làm việc tiêu chuẩn với Docker Compose
+Quy trình phát triển và vận hành ứng dụng bằng Docker Compose được tóm tắt qua 3 bước cốt lõi:
 
-Ví dụ cấu trúc khai báo dịch vụ tự build trong `docker-compose.yml`:
-```yaml
-services:
-  quickbite-user:
-    build:
-      context: ./user-service
-      dockerfile: Dockerfile
-    ports:
-      - "8081:8081"
-```
+1. **Đóng gói (Define):** Viết `Dockerfile` cho từng service của bạn để định nghĩa môi trường chạy tĩnh (ví dụ: Spring Boot code + JDK).
+2. **Khai báo (Declare):** Viết tệp tin `docker-compose.yml` khai báo các service, các port cần expose, volume lưu dữ liệu, mạng kết nối và thứ tự ưu tiên khởi chạy.
+3. **Vận hành (Run):** Chỉ cần chạy một câu lệnh duy nhất: `docker compose up`. Docker Compose sẽ tự động kéo các image cần thiết, build các image nội bộ, tạo mạng và khởi chạy toàn bộ các dịch vụ đồng thời.
 
 ---
 
-### PHẦN 4. THỰC HÀNH: KHỞI TẠO FILE COMPOSE VỚI DOCKERFILE VÀ KEY BUILD
+### PHẦN 4. THỰC HÀNH CƠ BẢN: KIỂM TRA DOCKER COMPOSE VÀ UP THỬ CONTAINER
 
-Hãy tạo cấu trúc thư mục dự án QuickBite local và khởi chạy tự động build:
+#### 4.1 Kiểm tra phiên bản Docker Compose
+Hiện nay, Docker Compose v2 đã được tích hợp trực tiếp làm plugin của Docker CLI. Do đó, bạn không còn phải dùng lệnh `docker-compose` (có dấu gạch ngang của v1 cũ) nữa mà chuyển sang sử dụng trực tiếp lệnh:
 
-1. Thiết lập cấu trúc thư mục mẫu:
-   ```text
-   quickbite-project/
-   ├── docker-compose.yml
-   └── user-service/
-       ├── Dockerfile
-       └── build/
-           └── libs/
-               └── user-service.jar  (File JAR đã được build sẵn từ Gradle)
-   ```
-2. Viết nội dung file `docker-compose.yml` tại thư mục gốc:
+```bash
+docker compose version
+```
+* **Kết quả mong đợi:** Terminal trả về phiên bản Docker Compose đang hoạt động (ví dụ: `Docker Compose version v2.20.2` hoặc mới hơn).
+* **Xử lý sự cố (Nếu gặp lỗi "docker: 'compose' is not a docker command" hoặc báo thiếu command):**
+  Điều này có nghĩa là bạn mới chỉ cài đặt lõi Docker Engine cơ bản mà quên chưa cài đặt các plugin mở rộng đi kèm. Hãy mở terminal trên WSL 2 / Linux Ubuntu và chạy lệnh sau để bổ sung đầy đủ:
+```bash
+sudo apt-get update
+sudo apt-get install -y docker-buildx-plugin docker-compose-plugin
+```
+  *(Sau khi cài đặt thành công, hãy gõ lại lệnh `docker compose version` để kiểm chứng).*
+
+#### 4.2 Viết và khởi chạy tệp Compose tối giản
+Hãy tạo một thư mục trống và thực hành viết file compose đầu tiên để kiểm tra hoạt động:
+
+1. Tạo file `docker-compose.yml`:
 ```yaml
 version: '3.8'
 
 services:
-  quickbite-db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_PASSWORD: secret
-
-  quickbite-user:
-    build:
-      context: ./user-service
-    ports:
-      - "8081:8081"
+   java-tester:
+      image: eclipse-temurin:17-jre-alpine
+      command: java -version
 ```
-3. Chạy lệnh build và start cụm dịch vụ đồng thời:
+2. Khởi chạy file Compose bằng lệnh:
 ```bash
-docker compose up --build
+docker compose up
 ```
-4. **Kết quả mong đợi:** Docker Compose tự động truy cập vào thư mục `./user-service`, thực thi lệnh build đóng gói file JAR thành image tĩnh, đặt tên image tạm thời, sau đó khởi chạy container database và backend cùng một lúc.
+3. **Kết quả mong đợi:** Docker Compose sẽ tự động kéo image `eclipse-temurin:17-jre-alpine` (nếu chưa có ở local), khởi chạy một container, in thông tin phiên bản Java 17 ra console rồi tự động dừng lại.
+4. Dọn dẹp tài nguyên vừa tạo:
+   ```bash
+   docker compose down
+   ```
 
 ---
 
-### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (KẾT HỢP IMAGE VS BUILD TRONG SERVICE)
+### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (DOCKER COMPOSE VS KUBERNETES)
 
-* **Hiểu lầm:** Trong một service của file Compose, chúng ta chỉ được phép khai báo một trong hai từ khóa: hoặc là `image`, hoặc là `build`. Nếu khai báo cả hai sẽ gây lỗi cú pháp.
-* **Sự thật:** Hoàn toàn có thể khai báo cả hai. 
-  * Ví dụ:
-```yaml
-quickbite-user:
-  build: ./user-service
-  image: quickbite-user-service:v1.0.0
-```
-  * **Cơ chế hoạt động:** Khi bạn chạy `docker compose up --build`, Docker Compose sẽ build image từ thư mục `./user-service` theo hướng dẫn Dockerfile, nhưng thay vì đặt tên ngẫu nhiên, nó sẽ tự động gán nhãn tên image đó là `quickbite-user-service:v1.0.0`. Kỹ thuật này rất quan trọng để tag tên image tự build trước khi đẩy (push) lên kho lưu trữ Docker Registry.
+* **Hiểu lầm thường gặp:** Docker Compose có thể dùng để deploy và scale ứng dụng Microservices lớn trên môi trường Production thực tế với hàng trăm máy chủ vật lý.
+* **Sự thật:** Docker Compose chỉ được thiết kế cho môi trường **phát triển local (Development), Staging hoặc triển khai Production quy mô nhỏ chạy trên một máy chủ duy nhất (Single Host)**. 
+  * Docker Compose không thể tự động giám sát sức khỏe container và khởi động lại trên máy chủ khác khi máy chủ vật lý bị sập phần cứng (lỗi Node).
+  * Khi hệ thống mở rộng lên hàng trăm server, cần tính năng tự động co giãn (Auto Scaling), tự phục hồi (Self-healing) và định tuyến giao thông phức tạp, chúng ta phải chuyển sang sử dụng các bộ điều phối (Orchestrators) như **Docker Swarm** hoặc **Kubernetes (K8s)**.
 
 ---
 
 ### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG (XÁC MINH KIẾN THỨC)
 
-1. **Đặc tả cấu trúc file Docker Compose (Services section):**
-   * [Compose file services reference - Docker Docs](https://docs.docker.com/compose/compose-file/05-services/)
-2. **Chi tiết về cấu hình build trong Compose:**
-   * [Compose Build definition - Docker Docs](https://docs.docker.com/compose/compose-file/build/)
+1. **Tổng quan về Docker Compose từ trang chủ:**
+   * [Docker Compose Overview - Docker Docs](https://docs.google.com/url?q=https://docs.docker.com/compose/)
+2. **Hướng dẫn cài đặt Docker Compose trên các môi trường:**
+   * [Install Docker Compose - Docker Docs](https://docs.docker.com/compose/install/)
 
 ---
 
 ### PHẦN 7. CÂU HỎI ĐÁNH GIÁ NHANH
 
 #### Câu 1 (Hiểu bản chất)
-Trong file Dockerfile của Spring Boot, tại sao ta nên sử dụng chỉ thị `ENTRYPOINT ["java", "-jar", "app.jar"]` thay vì chỉ thị `CMD java -jar app.jar`?
-* *Gợi ý:* Sử dụng cú pháp dạng mảng (Exec Form) như `ENTRYPOINT ["java", "-jar", "app.jar"]` giúp tiến trình Java chạy trực tiếp dưới dạng PID 1 (tiến trình gốc của container). Điều này cho phép container nhận trực tiếp các tín hiệu hệ thống (như SIGTERM khi chạy lệnh `docker stop`) để tắt ứng dụng một cách êm ái (Graceful Shutdown). Trong khi đó, dùng CMD dạng chuỗi (Shell Form) sẽ khởi chạy tiến trình qua một shell `/bin/sh -c`, khiến Java chạy dưới dạng tiến trình con của shell và không thể nhận được tín hiệu tắt của hệ thống, dẫn đến việc tắt cưỡng bức và mất dữ liệu.
+Tại sao từ phiên bản Docker Compose v2, câu lệnh CLI lại chuyển từ `docker-compose` (gạch ngang) sang `docker compose` (khoảng trắng)?
+* *Gợi ý:* Docker Compose v1 trước đây được viết bằng ngôn ngữ Python dưới dạng một công cụ độc lập tách biệt với Docker CLI chính. Kể từ phiên bản v2, Docker Compose đã được viết lại bằng ngôn ngữ Go và tích hợp trực tiếp làm một plugin của Docker CLI. Do đó, cú pháp chuyển thành lệnh con `docker compose` để đồng bộ hóa và tối ưu hóa hiệu năng giao tiếp.
 
-#### Câu 2 (Xử lý tình huống)
-Nếu bạn thay đổi mã nguồn Java trong `user-service`, sau đó chỉ chạy lệnh `docker compose up` mà không dùng cờ `--build`, Docker Compose có tự động phát hiện mã nguồn Java thay đổi để build lại image mới hay không? Tại sao?
-* *Gợi ý:* Không. Docker Compose chỉ tự động build lại image nếu nó phát hiện thư mục context bị thiếu image tương ứng, hoặc bản thân file `Dockerfile` có sự thay đổi. Nó không có khả năng tự chui vào mã nguồn Java kiểm tra xem code có thay đổi hay không. Do đó, mỗi khi cập nhật code Java, bạn bắt buộc phải build lại file JAR mới trên máy host và chạy lệnh kèm cờ build: `docker compose up --build` để ép hệ thống đóng gói lại image mới.
+#### Câu 2 (So sánh triết lý)
+So sánh sự khác nhau về tính bền vững và dọn dẹp tài nguyên giữa việc chạy các container bằng file Bash Script chứa các lệnh `docker run` và chạy bằng file `docker-compose.yml` kết hợp lệnh `docker compose down`.
+* *Gợi ý:* Chạy bằng Bash script chỉ đơn giản là thực thi tuần tự các câu lệnh đơn lẻ, Docker không hề biết các container đó có mối liên kết với nhau. Khi muốn tắt đi, bạn phải tự tìm kiếm và viết lệnh stop/rm từng container một cách thủ công. Với Docker Compose, tất cả tài nguyên (container, network, volume) được định nghĩa chung trong một "stack" (ngăn xếp). Lệnh `docker compose down` sẽ tự động phân tích và dọn dẹp sạch sẽ toàn bộ các tài nguyên liên quan trong stack đó một cách an toàn và triệt để, không để lại rác trên hệ thống.
