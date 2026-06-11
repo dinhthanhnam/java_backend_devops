@@ -14,22 +14,20 @@ Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (MA TRẬN LỖI KHI KHỞI CHẠY ĐỒNG THỜI)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (MA TRẬN LỖI TRONG KIẾN TRÚC TÁCH BIỆT DỊCH VỤ)
 
-Hãy tưởng tượng bạn vừa thực hiện lệnh khởi chạy toàn bộ hệ thống QuickBite bằng Docker Compose:
+Hãy tưởng tượng bạn vừa thực hiện lệnh khởi chạy dịch vụ backend `quickbite-user` trong thư mục `quickbite-project`:
 ```bash
 docker compose up -d
 ```
-Màn hình terminal in ra trạng thái cả `quickbite-db` và `quickbite-user` đều báo `Started` màu xanh lá cây. 
+Màn hình terminal in ra trạng thái container `quickbite-user` báo `Started` màu xanh lá cây. 
 
-Tuy nhiên, khi bạn mở trình duyệt hoặc Postman gửi API request tới cổng `8081` của `quickbite-user`, hệ thống báo lỗi `500 Internal Server Error` hoặc lỗi không phản hồi. Bạn rơi vào ma trận hoang mang:
-* *Database đã thực sự sẵn sàng nhận kết nối chưa?*
-* *Hay database đang chạy lỗi khởi động nên sập?*
-* *Hay mã nguồn Java của backend bị ném ngoại lệ (Exception) lúc kết nối?*
+Tuy nhiên, khi bạn mở trình duyệt hoặc gửi API request tới cổng `8081`, bạn nhận được thông báo lỗi từ Spring Boot (ví dụ: `HikariPool-1 - Connection is not available`). Bạn nhận ra backend không thể kết nối tới cơ sở dữ liệu. Bạn tự đặt câu hỏi:
+* *Bạn đã thực sự khởi động container database `quickbite-db` ở thư mục `quickbite-database` chưa?*
+* *Nếu đã khởi động, database đã thực sự sẵn sàng nhận kết nối chưa, hay nó vẫn đang chạy script khởi tạo dữ liệu?*
+* *Hay thông số tài khoản, mật khẩu cấu hình trong tệp `.env` của backend bị gõ sai?*
 
-Nếu làm theo cách cũ, bạn phải mở 2 terminal mới chạy 2 lệnh `docker logs` riêng biệt cho từng container để so khớp dòng thời gian lỗi. Việc này cực kỳ mất thời gian và khiến bạn bối rối không biết nguyên nhân gốc rễ bắt đầu từ đâu.
-
-*Để chẩn đoán nhanh và vận hành hệ thống trơn tru, bạn cần làm chủ bộ câu lệnh quản lý vòng đời và chẩn đoán của Docker Compose CLI.*
+Để chẩn đoán nhanh lỗi kết nối giữa các dịch vụ trong các cụm khác nhau mà không phải mở nhiều terminal riêng lẻ, bạn cần làm chủ các công cụ quản lý vòng đời và chẩn đoán của Docker/Docker Compose CLI.
 
 ---
 
@@ -61,33 +59,41 @@ Docker Compose CLI cung cấp các công cụ tương tác trực tiếp với t
 
 ---
 
-### PHẦN 4. THỰC HÀNH: CHẨN ĐOÁN VÀ ĐIỀU KHIỂN CỤM CONTAINER QUICKBITE
+### PHẦN 4. THỰC HÀNH: CHẨN ĐOÁN VÀ ĐIỀU KHIỂN DỊCH VỤ QUICKBITE
 
-Hãy thực hành quy trình chẩn đoán lỗi tiêu chuẩn của một kỹ sư DevOps:
+Hãy thực hành quy trình chẩn đoán lỗi tiêu chuẩn của một kỹ sư DevOps đối với các cụm dịch vụ độc lập:
 
-1. Khởi chạy hệ thống ở chế độ chạy ngầm:
+1. **Khởi chạy Backend Service** (Đứng tại thư mục `quickbite-project`):
 ```bash
 docker compose up -d
 ```
-2. Kiểm tra danh sách trạng thái của cụm container:
+2. **Kiểm tra danh sách trạng thái của backend:**
 ```bash
 docker compose ps
 ```
-   * **Kết quả mong đợi:** Màn hình hiển thị bảng danh sách các container, đảm bảo cột `STATUS` hiển thị `Up` cho cả database và backend.
-3. Stream log tổng hợp để giám sát quá trình khởi động:
+   * **Kết quả mong đợi:** Cột `STATUS` hiển thị `Up` cho container backend.
+3. **Stream log của backend để giám sát quá trình khởi động:**
 ```bash
 docker compose logs -f --tail=50
 ```
-   * Quan sát cách các dòng log đan xen nhau. Nhấn `Ctrl + C` để thoát chế độ xem log (lưu ý: việc thoát logs không làm dừng container).
-4. Kiểm tra xem database PostgreSQL đã thực sự sẵn sàng nhận kết nối hay chưa bằng công cụ chẩn đoán nội bộ của Postgres:
-```bash
-docker compose exec quickbite-db pg_isready -U postgres
-```
-   * **Kết quả mong đợi:** Console trả về thông báo: `/var/run/postgresql:5432 - accepting connections`.
-5. Dọn dẹp sạch sẽ tài nguyên hệ thống sau khi làm việc xong:
-```bash
-docker compose down
-```
+   * Nhấn `Ctrl + C` để thoát chế độ xem log (không làm dừng container).
+4. **Kiểm tra xem container Database chạy độc lập đã sẵn sàng nhận kết nối chưa:**
+   Vì database `quickbite-db` thuộc một tệp Compose khác, bạn không thể gọi `docker compose exec` trực tiếp từ thư mục `quickbite-project`. Thay vào đó, bạn có hai cách:
+   * **Cách 1 (Khuyên dùng):** Sử dụng lệnh Docker CLI toàn cục (máy host vật lý) với tên container đã cố định là `quickbite-db`:
+     ```bash
+     docker exec -it quickbite-db pg_isready -U postgres
+     ```
+   * **Cách 2:** Di chuyển vào thư mục `/quickbite-database/` và gọi qua Compose CLI:
+     ```bash
+     docker compose exec quickbite-db pg_isready -U postgres
+     ```
+   * **Kết quả mong đợi:** Console trả ra dòng chữ `/var/run/postgresql:5432 - accepting connections`.
+5. **Dừng và dọn dẹp Backend Service sau khi làm việc xong:**
+   Đứng tại thư mục `quickbite-project` và chạy:
+   ```bash
+   docker compose down
+   ```
+   *(Lưu ý: Lệnh này chỉ tắt và xóa container backend, giữ nguyên container database đang chạy ngầm ở cụm độc lập để tiếp tục phục vụ các bài test khác).*
 
 ---
 

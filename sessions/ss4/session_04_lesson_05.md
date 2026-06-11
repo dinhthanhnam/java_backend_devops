@@ -22,26 +22,46 @@ Hãy tưởng tượng bạn đang chạy thử nghiệm hệ thống QuickBite 
 
 *Hai vấn đề nghiêm trọng này sẽ được giải quyết triệt để thông qua hai cơ chế cốt lõi của Docker Compose: **Volumes** (Lưu trữ bền vững) và **Networks** (Mạng ảo nội bộ & DNS).*
 
+> [!NOTE]
+> **Kế thừa từ Bài học 3:** Ở Bài học 3, khi xây dựng cụm Database chạy độc lập và liên kết với dịch vụ backend, chúng ta đã khai báo thuộc tính `volumes` và `networks` như một giải pháp thực nghiệm để hệ thống hoạt động. Trong bài học này (Bài học 5), chúng ta sẽ đi sâu phân tích cơ chế hoạt động chi tiết bên dưới, so sánh các phương pháp cấu hình khác nhau và làm rõ bản chất kỹ thuật của chúng.
+
 ---
 
 ### PHẦN 3. KIẾN THỨC CỐT LÕI (DOCKER VOLUMES & DOCKER NETWORKS TRONG COMPOSE)
 
-#### 3.1 Docker Volumes trong Compose (Named Volume)
-Mặc định, hệ thống file bên trong container là tạm thời (Ephemereal). Mọi dữ liệu ghi vào đó sẽ bị xóa sạch khi container bị hủy bỏ.
-Để lưu trữ dữ liệu bền vững (Persistence), chúng ta sử dụng **Named Volume** (Volume có tên định danh):
-* **Cú pháp khai báo:** Chúng ta khai báo khối `volumes:` toàn cục ở cuối file Compose, sau đó mount volume đó vào thư mục lưu trữ dữ liệu của database bên trong container.
-* **Đường dẫn lưu dữ liệu PostgreSQL:** PostgreSQL lưu toàn bộ database tại thư mục `/var/lib/postgresql/data` trong container.
+#### 3.1 Docker Volumes trong Compose (Lưu trữ dữ liệu bền vững)
+
+Mặc định, hệ thống file bên trong container là tạm thời (Ephemeral). Mọi dữ liệu ghi vào đó sẽ bị xóa sạch khi container bị hủy bỏ.
+Để lưu trữ dữ liệu bền vững (Persistence), chúng ta sử dụng cơ chế chia sẻ ổ đĩa của Docker. Trong Docker Compose, có hai hình thức lưu trữ dữ liệu phổ biến nhất:
+
+##### A. Named Volumes (Volume định danh do Docker tự quản lý)
+* **Cú pháp khai báo:** Chúng ta khai báo tên volume trong khối `volumes:` toàn cục ở cuối file Compose, sau đó mount volume đó vào thư mục bên trong container.
+* **Ví dụ:**
 ```yaml
 services:
   quickbite-db:
     image: postgres:15-alpine
     volumes:
-      - db-data:/var/lib/postgresql/data  # Mount Named Volume vào thư mục dữ liệu
+      - db-data:/var/lib/postgresql/data  # Ánh xạ Named Volume vào container
 
 volumes:
-  db-data:  # Khai báo Named Volume toàn cục
+  db-data:  # Khai báo Named Volume toàn cục ở cuối file
 ```
-* **Cơ chế hoạt động:** Docker Engine sẽ tạo một thư mục quản lý riêng trên ổ cứng máy host và liên kết nó với thư mục dữ liệu của Postgres. Khi container bị xóa đi, thư mục trên máy host vẫn an toàn nguyên vẹn. Khi container mới khởi chạy và mount vào volume này, toàn bộ dữ liệu cũ sẽ lập tức xuất hiện trở lại.
+* **Bản chất hoạt động:** Docker Engine tự động tạo và quản lý một thư mục ẩn chuyên dụng trên ổ cứng máy host (ví dụ: `/var/lib/docker/volumes/[tên_volume]/_data` trên Linux). Lập trình viên không cần chỉ định đường dẫn thư mục cụ thể trên máy host.
+* **Đặc điểm:** Hiệu năng đọc ghi cực cao, an toàn vì tránh được việc can thiệp nhầm hoặc xóa nhầm từ người dùng máy host, hoàn toàn độc lập với cấu trúc hệ điều hành máy host. Phù hợp nhất cho việc lưu trữ dữ liệu động phát sinh trong quá trình chạy (như file database PostgreSQL).
+
+##### B. Bind Mounts (Liên kết trực tiếp thư mục/tệp từ máy host)
+* **Cú pháp khai báo:** Chỉ định đường dẫn tương đối (bắt đầu bằng `./`) hoặc tuyệt đối của thư mục/tệp trên máy host vật lý sang thư mục bên trong container, không khai báo ở khối `volumes:` ở cuối file.
+* **Ví dụ:**
+```yaml
+services:
+  quickbite-db:
+    image: postgres:15-alpine
+    volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql  # Mount trực tiếp tệp cấu hình
+```
+* **Bản chất hoạt động:** Docker trực tiếp ánh xạ (gắn kết) thư mục hoặc file cụ thể từ ổ đĩa máy host vào container. Mọi sự thay đổi ở máy host sẽ phản ánh lập tức vào container và ngược lại.
+* **Đặc điểm:** Thích hợp cho việc nạp file cấu hình tĩnh (như file khởi tạo `.sql`, cấu hình Nginx `.conf`) hoặc phát triển code hot-reload (mount thư mục code gốc từ host vào container). Điểm yếu là phụ thuộc chặt chẽ vào cấu trúc đường dẫn thư mục và hệ điều hành của máy host (Windows vs Linux).
 
 #### 3.2 Docker Networks trong Compose & Service Discovery
 Mặc định, khi bạn khởi chạy một tệp Compose, Docker Compose sẽ tự động làm 3 việc:
@@ -62,82 +82,180 @@ Nhờ DNS nội bộ hoạt động trong mạng chung, các container có thể
   [ quickbite-db (Service Name) ]
 ```
 
-[!TIP]
-**So sánh trực quan: Nếu làm bằng lệnh Docker thủ công thì sao?**
-Để dễ hình dung những gì Docker Compose đang âm thầm tự động hóa dưới nền, đây là cách bạn phải gõ thủ công bằng các lệnh CLI đơn lẻ:
-```bash
-# Bước 1: Tự tạo một mạng bridge tùy biến bằng tay
-docker network create --driver bridge quickbite-net
+##### Phân biệt cấu hình mạng ảo: Tạo mới (`name` + `driver`) vs Tham chiếu mạng ngoài (`external: true`)
 
-# Bước 2: Khởi chạy container database và ném vào mạng ảo đó
-docker run -d --name quickbite-db --network quickbite-net -e POSTGRES_PASSWORD=secret_password postgres:15-alpine
+Khi định nghĩa mạng ảo (`networks`) trong tệp `docker-compose.yml`, có hai cách tiếp cận chính tùy thuộc vào vòng đời của mạng:
 
-# Bước 3: Khởi chạy container backend kết nối vào chung mạng ảo để DNS nội bộ nhận diện được tên
-docker run -d --name quickbite-user --network quickbite-net -p 8081:8081 -v /path/to/libs:/app -w /app eclipse-temurin:17-jre-alpine java -jar user-service.jar
+1. **Khởi tạo và định danh mạng bridge ảo mới (Tạo mới):**
+```yaml
+networks:
+  quickbite-net:
+    name: quickbite-net  # Đặt tên cố định cho mạng ảo bridge
+    driver: bridge
 ```
-* **Kết luận:** Thay vì phải gõ và quản lý 3 lệnh rời rạc cùng dải tham số phức tạp ở trên, Docker Compose chỉ đơn giản là đọc file `docker-compose.yml` rồi tự chạy đống lệnh này thay cho bạn.
+   * **Bản chất:** Khi chạy lệnh `docker compose up`, Docker Compose sẽ **tự động tạo ra** một mạng bridge ảo mới trên máy host có tên vật lý chính xác là `quickbite-net`.
+   * **Vòng đời:** Mạng này được quản lý và sở hữu trực tiếp bởi cụm Compose hiện tại. Khi bạn chạy lệnh `docker compose down`, mạng ảo này sẽ **bị xóa bỏ hoàn toàn** cùng các container.
+   * **Ứng dụng:** Thường khai báo tại cụm dịch vụ đóng vai trò là "chủ thể hạ tầng nền tảng" (ở đây là dự án quản lý database chung `quickbite-database`).
 
+2. **Tham chiếu mạng ảo có sẵn (`external: true`):**
+```yaml
+networks:
+  quickbite-net:
+    external: true
+```
+   * **Bản chất:** Khi khởi chạy, Docker Compose sẽ **không tự tạo mới** mạng bridge, mà đi **tìm kiếm và kết nối** các container vào một mạng ảo có tên `quickbite-net` đã được tạo sẵn từ trước (được tạo thủ công hoặc bởi cụm Compose khác).
+   * **Vòng đời:** Hoàn toàn độc lập với tệp Compose hiện tại. Khi bạn chạy `docker compose down`, các container sẽ bị ngắt kết nối nhưng mạng `quickbite-net` **vẫn tồn tại nguyên vẹn** trên hệ thống.
+   * **Ứng dụng:** Khai báo tại các ứng dụng độc lập (như dịch vụ backend `quickbite-project`) cần kết nối giao tiếp với cơ sở dữ liệu dùng chung. Nếu mạng này chưa được tạo từ trước, lệnh khởi động Compose sẽ báo lỗi và dừng lại.
 
----
+### PHẦN 4. THỰC HÀNH: PHÂN CHIA HẠ TẦNG VÀ KIỂM CHỨNG BỀN VỮNG DỮ LIỆU
 
-### PHẦN 4. THỰC HÀNH: KHAI BÁO VOLUME VÀ NETWORK LIÊN KẾT ĐA CONTAINER
+Hãy hoàn thiện thiết lập cho hệ thống QuickBite bằng cách phân bổ tệp cấu hình cho hai phần độc lập: Database (Stateful) và User Service (Stateless), sử dụng mạng ảo chung `quickbite-net` và Named Volume để bảo vệ dữ liệu.
 
-Hãy cập nhật tệp `docker-compose.yml` để hoàn thiện hạ tầng mạng và lưu trữ bền vững cho QuickBite:
+#### 4.1 Chuẩn bị cấu trúc thư mục và các file cấu hình
 
-1. Viết tệp `docker-compose.yml` hoàn chỉnh:
+Hãy đảm bảo bạn đã tạo đúng cấu trúc thư mục như sau ở môi trường phát triển:
+
+```text
+Thư mục làm việc/
+├── quickbite-database/              # Dự án quản lý cơ sở dữ liệu chung
+│   ├── docker-compose.yml           # Khởi chạy PostgreSQL
+│   └── init-db.sql                  # Khởi tạo các DB và User con
+│
+└── quickbite-project/               # Dự án mã nguồn microservices
+    ├── docker-compose.yml           # Khởi chạy user-service dùng biến môi trường
+    ├── .env                         # Tệp cấu hình bảo mật chứa biến môi trường cục bộ
+    └── user-service/
+        ├── Dockerfile
+        └── build/libs/user-service.jar
+```
+
+##### 1. File cấu hình Database (`quickbite-database/docker-compose.yml`)
 ```yaml
 version: '3.8'
 
 services:
   quickbite-db:
     image: postgres:15-alpine
+    container_name: quickbite-db
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: secret_password
     volumes:
       - quickbite-db-volume:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     networks:
       - quickbite-net
+    restart: always
 
+volumes:
+  quickbite-db-volume: # Named Volume được quản lý bởi Docker để lưu trữ dữ liệu Postgres
+
+networks:
+  quickbite-net:
+    name: quickbite-net  # Đặt tên cố định cho mạng bridge dùng chung
+    driver: bridge
+```
+
+##### 2. File cấu hình Environment (`quickbite-project/.env`)
+```env
+# Database Common Configuration
+DB_HOST=quickbite-db
+DB_PORT=5432
+
+# User Service Specific Configuration
+USER_DB_NAME=quickbite_user_db
+USER_DB_USERNAME=quickbite_user
+USER_DB_PASSWORD=quickbite_user
+USER_SERVER_PORT=8081
+USER_JWT_SECRET_KEY=daylachuoimahoabimatrikkei0987654321dacbietracroi
+USER_JWT_EXPIRED_ACCESS=864000
+USER_JWT_EXPIRED_REFRESH=7
+```
+
+##### 3. File cấu hình Backend Service (`quickbite-project/docker-compose.yml`)
+```yaml
+version: '3.8'
+
+services:
   quickbite-user:
     build:
       context: ./user-service
     ports:
-      - "8081:8081"
+      - "${USER_SERVER_PORT}:${USER_SERVER_PORT}"
     environment:
-      # Sử dụng tên service "quickbite-db" làm host kết nối database
-      SPRING_DATASOURCE_URL: jdbc:postgresql://quickbite-db:5432/postgres
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: secret_password
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${USER_DB_NAME}
+      - DB_USERNAME=${USER_DB_USERNAME}
+      - DB_PASSWORD=${USER_DB_PASSWORD}
+      - SERVER_PORT=${USER_SERVER_PORT}
+      - JWT_SECRET_KEY=${USER_JWT_SECRET_KEY}
+      - JWT_EXPIRED_ACCESS=${USER_JWT_EXPIRED_ACCESS}
+      - JWT_EXPIRED_REFRESH=${USER_JWT_EXPIRED_REFRESH}
     networks:
       - quickbite-net
-    depends_on:
-      - quickbite-db
-
-volumes:
-  quickbite-db-volume: # Khai báo Named Volume lưu trữ database
 
 networks:
   quickbite-net:
-    driver: bridge # Khai báo mạng ảo bridge tùy biến cho dự án
+    external: true  # Khai báo sử dụng mạng ảo bên ngoài được tạo ở Bài 1
 ```
-2. Khởi chạy hệ thống:
+
+#### 4.2 Quy trình kiểm chứng độ bền vững dữ liệu và giao tiếp mạng
+
+1. **Khởi chạy cụm Database:**
+Di chuyển vào thư mục `/quickbite-database/` và chạy:
 ```bash
 docker compose up -d
 ```
-3. Kiểm tra xem volume và network đã được tạo thành công chưa:
+2. **Khởi chạy Backend Service:**
+Di chuyển vào thư mục `/quickbite-project/` và chạy:
+```bash
+docker compose up -d --build
+```
+3. **Kiểm tra xem volume và network đã được tạo thành công chưa:**
 ```bash
 docker volume ls
-# Kết quả mong đợi: Hiển thị volume tên [thư_mục_dự_án]_quickbite-db-volume
+# Kết quả mong đợi: Hiển thị volume tên quickbite-database_quickbite-db-volume
 
 docker network ls
-# Kết quả mong đợi: Hiển thị mạng tên [thư_mục_dự_án]_quickbite-net
+# Kết quả mong đợi: Hiển thị mạng bridge mang tên quickbite-net
 ```
-4. **Kiểm tra độ bền vững dữ liệu:**
-   * Truy cập vào database qua `docker exec` tạo thử một bảng dữ liệu hoặc chạy ứng dụng đăng ký người dùng.
-   * Chạy lệnh xóa cụm dịch vụ: `docker compose down`.
-   * Khởi chạy lại: `docker compose up -d`.
-   * Truy cập lại database để kiểm tra. **Kết quả mong đợi:** Toàn bộ dữ liệu bạn đã tạo trước đó vẫn còn nguyên vẹn 100%.
+4. **Tạo dữ liệu thử nghiệm trong Database:**
+   Truy cập trực tiếp vào container database và tạo một bảng thử nghiệm:
+```bash
+docker compose exec quickbite-db psql -U postgres -d quickbite_user_db -c "CREATE TABLE test_volume (id serial PRIMARY KEY, note VARCHAR(50)); INSERT INTO test_volume (note) VALUES ('Du lieu van con an toan!');"
+```
+5. **Thực hiện xóa cụm dịch vụ để giả lập sự cố/nâng cấp:**
+   * Tắt và xóa container backend:
+     Di chuyển sang thư mục `/quickbite-project/` và chạy:
+```bash
+docker compose down
+```
+   * Tắt và xóa container database:
+     Di chuyển sang thư mục `/quickbite-database/` và chạy:
+```bash
+docker compose down
+```
+   *(Tại thời điểm này, cả 2 container backend và database đã bị xóa hoàn toàn khỏi hệ thống, giải phóng bộ nhớ RAM và CPU).*
+
+6. **Khởi chạy lại Database để xác minh dữ liệu:**
+   Di chuyển vào `/quickbite-database/` và khởi chạy lại container:
+```bash
+docker compose up -d
+```
+Truy cập lại database để kiểm tra bảng `test_volume` vừa tạo:
+```bash
+docker compose exec quickbite-db psql -U postgres -d quickbite_user_db -c "SELECT * FROM test_volume;"
+```
+   * **Kết quả mong đợi:** Console trả ra bảng dữ liệu chứa dòng chữ `'Du lieu van con an toan!'`. Dữ liệu hoàn toàn không bị mất đi nhờ cơ chế Named Volume.
+7. **Khởi chạy lại Backend Service:**
+   Di chuyển vào `/quickbite-project/` và chạy:
+   ```bash
+   docker compose up -d
+   ```
+   Dịch vụ backend sẽ khởi động lại, kết nối lại mượt mà tới database đang chạy nhờ mạng ảo dùng chung `quickbite-net` có sẵn.
 
 ---
 

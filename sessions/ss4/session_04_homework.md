@@ -40,58 +40,66 @@ Bạn hãy đóng vai trò kỹ sư DevOps viết file đóng gói cho dịch v�
 
 ---
 
-### BÀI TẬP 2 (Mức độ Khá): Thiết lập Docker Compose khởi chạy database PostgreSQL
+### BÀI TẬP 2 (Mức độ Khá): Thiết lập Docker Compose khởi chạy database PostgreSQL dùng chung
 
 #### 1. Mục tiêu mong muốn đạt được
-* **Biên soạn đúng cú pháp YAML** cho tệp tin `docker-compose.yml`.
-* **Khai báo và khởi chạy dịch vụ** Postgres thông qua Docker Compose CLI.
+* **Biên soạn đúng cú pháp YAML** cho tệp tin `docker-compose.yml` của database.
+* **Tích hợp script SQL tự động** để tạo các user và database biệt lập cho cả 4 dịch vụ trong toàn bộ khóa học.
+* **Khai báo và khởi chạy** cơ sở dữ liệu Postgres dùng chung qua Docker Compose.
 
 #### 2. Mô tả yêu cầu
-Bắt đầu dựng hạ tầng tập trung cho QuickBite bằng cách tạo file Compose:
-1. Tạo file đặt tên chính xác là `docker-compose.yml` nằm ở thư mục gốc của toàn bộ dự án (`/quickbite-project/docker-compose.yml`).
-2. Khai báo dịch vụ cơ sở dữ liệu với cấu hình:
-   * Tên service trong compose: `quickbite-db`.
-   * Sử dụng image `postgres:15-alpine`.
-   * Ánh xạ cổng `-p 5432:5432` ra ngoài máy host.
-   * Truyền mật khẩu database `secret` qua biến môi trường `POSTGRES_PASSWORD`.
+Bạn hãy đóng vai trò kỹ sư DevOps thiết lập hệ quản trị cơ sở dữ liệu trung tâm cho QuickBite:
+1. Tạo thư mục đặt tên là `quickbite-database` nằm ngoài thư mục ứng dụng backend.
+2. Bên trong thư mục này, tạo file SQL khởi tạo `init-db.sql` có nội dung giống như đã hướng dẫn ở Phần 5.2 của Bài học 1 (tạo user, database và grant privileges cho cả 4 dịch vụ: `user`, `restaurant`, `order`, `notification`).
+3. Tạo file `docker-compose.yml` cấu hình chạy PostgreSQL 15-alpine:
+   * Tên service: `quickbite-db`.
+   * Đặt tên container cố định: `container_name: quickbite-db`.
+   * Ánh xạ cổng `5432:5432`.
+   * Mount Named Volume `quickbite-db-volume` vào thư mục lưu trữ dữ liệu của Postgres.
+   * Mount file `init-db.sql` vào `/docker-entrypoint-initdb.d/init-db.sql`.
+   * Khai báo mạng ảo chung là `quickbite-net` với driver `bridge` và đặt tên cố định mạng này là `quickbite-net`.
 
 #### 3. Kiểm thử và kết quả mong muốn
-1. Khởi chạy dịch vụ Compose ở chế độ chạy ngầm:
+1. Khởi chạy cụm database ở chế độ chạy ngầm:
    ```bash
    docker compose up -d
    ```
-2. Kiểm tra trạng thái:
+2. Kiểm tra trạng thái container, volume, và network:
    ```bash
    docker compose ps
+   docker volume ls
+   docker network ls
    ```
-3. **Kết quả mong đợi:** Container chạy thành công ở trạng thái `Up`, cổng `5432` được mở ra host.
-4. Chạy lệnh dừng hệ thống:
+3. **Kết quả mong đợi:** Container `quickbite-db` chạy thành công (STATUS = Up), volume và mạng ảo `quickbite-net` được khởi tạo thành công.
+4. Kiểm tra việc khởi tạo tự động các database con (Ví dụ `quickbite_user_db`):
    ```bash
-   docker compose down
+   docker exec -it quickbite-db psql -U postgres -l
    ```
+   *(Console phải hiển thị danh sách các database con đã được tạo thành công như quickbite_user_db, quickbite_restaurant_db, v.v.).*
 
 #### 4. Hướng dẫn nộp bài
-* Đẩy file `docker-compose.yml` (phiên bản Bài 2) lên Git tại thư mục gốc: `/docker-compose.yml`.
-* Chụp ảnh màn hình terminal chạy lệnh `docker compose ps` hiển thị rõ database đang chạy. Lưu hình ảnh tại: `/homework/session_04/exercise_02/compose_db.png`.
+* Đẩy thư mục `quickbite-database/` chứa tệp `docker-compose.yml` và `init-db.sql` lên Git.
+* Chụp ảnh màn hình danh sách cơ sở dữ liệu hiển thị trên terminal sau khi chạy lệnh kiểm tra database con. Lưu hình ảnh tại: `/homework/session_04/exercise_02/databases_created.png`.
 
 ---
 
-### BÀI TẬP 3 (Mức độ Khá): Liên kết backend tự build và database qua Service Discovery trong Compose
+### BÀI TẬP 3 (Mức độ Khá): Liên kết backend tự build và database qua mạng ảo dùng chung
 
 #### 1. Mục tiêu mong muốn đạt được
-* **Ứng dụng thuộc tính `build`** để Compose tự động build image từ Dockerfile.
-* **Cấu hình liên kết mạng** cho phép các container tự tìm thấy nhau qua DNS bằng tên service.
+* **Ứng dụng thuộc tính `build`** để Compose tự động build image từ Dockerfile local của backend.
+* **Cấu hình liên kết mạng ngoài (`external`)** để kết nối microservice với database đang chạy ngầm trên mạng ảo chung.
 
 #### 2. Mô tả yêu cầu
-Bây giờ, hãy bổ sung dịch vụ `user-service` vào trong file `docker-compose.yml` của Bài 2:
-1. Khai báo thêm service backend đặt tên là `quickbite-user`.
-2. Sử dụng key `build` để chỉ định Context trỏ tới thư mục `./user-service`.
-3. Ánh xạ cổng `8081:8081` ra ngoài máy host.
-4. Cấu hình biến môi trường kết nối database cho Spring Boot. **Lưu ý quan trọng:** Không sử dụng IP, hãy cấu hình Spring URL kết nối sử dụng chính tên service database: `jdbc:postgresql://quickbite-db:5432/postgres`.
-5. Đặt cấu hình `depends_on` để đảm bảo container database khởi chạy trước backend.
+Bây giờ, hãy tạo tệp Compose để chạy dịch vụ backend `user-service` kết nối tới database dùng chung:
+1. Tạo thư mục đặt tên là `quickbite-project`. Di chuyển thư mục `user-service` chứa mã nguồn của bạn vào trong `quickbite-project/`.
+2. Tạo file `docker-compose.yml` tại `/quickbite-project/docker-compose.yml`.
+3. Khai báo service `quickbite-user` tự động build từ thư mục `./user-service`.
+4. Ánh xạ cổng `8081:8081` ra ngoài máy host.
+5. Thiết lập biến môi trường kết nối cơ sở dữ liệu cho Spring Boot kết nối tới database `quickbite-db` (cổng `5432`, db name `quickbite_user_db`, user `quickbite_user`, password `quickbite_user`).
+6. Khai báo tham gia mạng ảo `quickbite-net` và chỉ định đây là mạng ngoài (`external: true`).
 
 #### 3. Kiểm thử và kết quả mong muốn
-1. Chạy lệnh build và khởi động:
+1. Khởi chạy dịch vụ backend kèm build image mới:
    ```bash
    docker compose up -d --build
    ```
@@ -103,95 +111,92 @@ Bây giờ, hãy bổ sung dịch vụ `user-service` vào trong file `docker-co
 4. Truy cập `http://localhost:8081/actuator/health` hiển thị thành công trạng thái `UP`.
 
 #### 4. Hướng dẫn nộp bài
-* Đập nhật file `docker-compose.yml` của bạn chứa cả 2 service và nộp lên Git.
+* Đẩy tệp `/quickbite-project/docker-compose.yml` lên Git.
 * Chụp ảnh màn hình console logs của `quickbite-user` báo kết nối database thành công. Lưu hình ảnh tại: `/homework/session_04/exercise_03/integration_logs.png`.
 
 ---
 
-### BÀI TẬP 4 (Mức độ Khá): Khai báo Named Volume bảo vệ bền vững dữ liệu Database
+### BÀI TẬP 4 (Mức độ Khá): Xác minh khả năng bảo toàn dữ liệu của Database qua chu trình tắt/dựng độc lập
 
 #### 1. Mục tiêu mong muốn đạt được
-* **Khai báo và mount Named Volume** chính xác trong file Compose.
-* **Xác minh khả năng bảo toàn dữ liệu** của cơ sở dữ liệu qua các chu trình tắt/dựng container.
+* **Hiểu bản chất** hoạt động của Named Volume trên container database chạy độc lập.
+* **Xác minh dữ liệu được giữ an toàn** ngay cả khi container database bị xóa hoàn toàn.
 
 #### 2. Mô tả yêu cầu
-Tránh mất mát dữ liệu database khi thực hiện lệnh dọn dẹp hệ thống:
-1. Cập nhật file `docker-compose.yml` khai báo một Named Volume toàn cục ở cuối file đặt tên là `quickbite-db-volume`.
-2. Mount volume này vào thư mục lưu trữ dữ liệu `/var/lib/postgresql/data` của service `quickbite-db`.
-3. Khởi chạy lại hệ thống.
-
-#### 3. Kiểm thử và kết quả mong muốn
-1. Khởi chạy: `docker compose up -d`.
-2. Đăng nhập vào database qua container và tạo thử một bảng mẫu:
+Thực hiện chu trình dọn dẹp và khởi tạo lại database để kiểm tra tính toàn vẹn dữ liệu:
+1. Sử dụng lệnh CLI toàn cục để truy cập database `quickbite_user_db` và tạo một bảng mẫu:
    ```bash
-   docker compose exec quickbite-db psql -U postgres -c "CREATE TABLE test_homework(id serial PRIMARY KEY, name VARCHAR(50));"
+   docker exec -it quickbite-db psql -U quickbite_user -d quickbite_user_db -c "CREATE TABLE homework_table (id serial PRIMARY KEY, val VARCHAR(50)); INSERT INTO homework_table (val) VALUES ('Dữ liệu bài tập 4 an toàn!');"
    ```
-3. Dừng và xóa sạch container:
+2. Thực hiện xóa toàn bộ container database (di chuyển vào thư mục `quickbite-database` và chạy lệnh):
    ```bash
    docker compose down
    ```
-4. Bật lại cụm container:
+3. Khởi chạy lại container database:
    ```bash
    docker compose up -d
    ```
-5. Kiểm tra lại sự tồn tại của bảng vừa tạo:
+4. Thực hiện kiểm tra lại dữ liệu trong bảng `homework_table`.
+
+#### 3. Kiểm thử và kết quả mong muốn
+1. Chạy truy vấn SQL từ terminal để lấy dữ liệu từ bảng vừa tạo:
    ```bash
-   docker compose exec quickbite-db psql -U postgres -c "SELECT * FROM test_homework;"
+   docker exec -it quickbite-db psql -U quickbite_user -d quickbite_user_db -c "SELECT * FROM homework_table;"
    ```
-6. **Kết quả mong đợi:** Lệnh SQL thực thi thành công mà không báo lỗi thiếu bảng (`relation "test_homework" does not exist`). Chứng tỏ dữ liệu đã được bảo toàn nguyên vẹn.
+2. **Kết quả mong đợi:** Lệnh SQL thực thi thành công và hiển thị dòng dữ liệu `'Dữ liệu bài tập 4 an toàn!'` mà không báo lỗi thiếu bảng. Chứng tỏ Named Volume `quickbite-db-volume` hoạt động hoàn hảo.
 
 #### 4. Hướng dẫn nộp bài
-* Cập nhật tệp `docker-compose.yml` chứa cấu hình volume và nộp lên Git.
-* Chụp màn hình terminal chạy lệnh SELECT kiểm tra bảng thành công sau khi restart. Lưu tại: `/homework/session_04/exercise_04/volume_verify.png`.
+* Chụp ảnh màn hình terminal chạy truy vấn SQL thành công hiển thị rõ chuỗi dữ liệu sau khi dựng lại container database. Lưu tại: `/homework/session_04/exercise_04/volume_verify.png`.
 
 ---
 
 ### BÀI TẬP 5 (Mức độ Giỏi): Phân tách cấu hình bảo mật ra file biến môi trường ngoại vi `.env`
 
 #### 1. Mục tiêu mong muốn đạt được
-* **Tách biệt dữ liệu nhạy cảm** ra khỏi file định nghĩa hạ tầng Compose.
+* **Tách biệt thông tin nhạy cảm** (tài khoản kết nối DB, cổng dịch vụ) ra khỏi mã nguồn hạ tầng YAML của backend.
 * **Áp dụng cơ chế nội suy biến** của Docker Compose.
+* **Tổ chức biến môi trường khoa học**, tránh xung đột cấu hình giữa các dịch vụ trong hệ thống Microservices bằng cách tiền tố hóa (prefix) các biến riêng của từng service.
 
 #### 2. Mô tả yêu cầu
-Để đảm bảo an toàn thông tin khi push code lên Git:
-1. Tạo một file `.env` nằm cùng thư mục với `docker-compose.yml`.
-2. Đưa các thông số nhạy cảm và cổng cấu hình vào file `.env` bao gồm:
-   * Tài khoản/mật khẩu database (`DB_USER`, `DB_PASSWORD`).
-   * Cổng hoạt động của backend và database (`USER_PORT`, `DB_PORT`).
-3. Cập nhật `docker-compose.yml` thay thế các giá trị cứng bằng cú pháp gọi biến nội suy `${...}`.
-4. Tạo thêm file `.env.example` mẫu (không điền mật khẩu thật) để làm hướng dẫn.
-5. Cập nhật cấu hình loại bỏ cổng database (`ports`) ra máy host, chuyển sang dùng cấu hình bảo mật (chỉ expose nội bộ trong mạng Compose).
+Để đảm bảo an toàn thông tin khi push file Compose lên Git:
+1. Tạo một file `.env` nằm trong thư mục `/quickbite-project/`.
+2. Đưa các thông số cấu hình và mật khẩu vào file `.env` bao gồm:
+   * Các biến dùng chung cho database: `DB_HOST`, `DB_PORT`.
+   * Các biến riêng biệt dành cho `user-service` (được tiền tố hóa bằng `USER_` để tránh xung đột với các service khác sau này): `USER_DB_NAME`, `USER_DB_USERNAME`, `USER_DB_PASSWORD`, `USER_SERVER_PORT`, `USER_JWT_SECRET_KEY`, `USER_JWT_EXPIRED_ACCESS`, `USER_JWT_EXPIRED_REFRESH`.
+3. Cập nhật file `/quickbite-project/docker-compose.yml` thay thế các giá trị cứng bằng cú pháp gọi biến nội suy `${...}` và ánh xạ chúng vào các biến môi trường mà container Java yêu cầu (ví dụ: `DB_NAME=${USER_DB_NAME}`).
+4. Tạo thêm file `.env.example` mẫu (không điền mật khẩu thật) đặt trong thư mục dự án.
+5. Cập nhật cấu hình loại bỏ cổng database (`ports`) ra ngoài host ở file `.env` (nếu có), đảm bảo database chỉ kết nối nội bộ.
 
 #### 3. Kiểm thử và kết quả mong muốn
-1. Chạy lệnh config để kiểm tra:
+1. Đứng tại thư mục `/quickbite-project/` chạy lệnh kiểm tra cấu hình:
    ```bash
    docker compose config
    ```
-2. **Kết quả mong đợi:** File config in ra đầy đủ giá trị thực tế sau khi nội suy, đảm bảo không có lỗi thiếu biến.
-3. Chạy `docker compose up -d` và gọi kiểm tra sức khỏe backend thành công.
+2. **Kết quả mong đợi:** Cấu hình YAML được hiển thị đầy đủ giá trị thực tế sau khi nội suy biến, không có lỗi cú pháp hoặc thiếu biến.
+3. Chạy `docker compose up -d` và gọi API kiểm tra sức khỏe backend thành công.
 
 #### 4. Hướng dẫn nộp bài
-* Đẩy file `.env.example` và tệp `docker-compose.yml` lên Git. **Lưu ý:** Không đẩy file `.env` thật (phải thêm `.env` vào file `.gitignore` và verify không xuất hiện trên Git).
-* Chụp ảnh màn hình chạy lệnh `docker compose config` in ra cấu hình đầy đủ. Lưu tại: `/homework/session_04/exercise_05/env_config.png`.
+* Đẩy file `.env.example` và tệp `docker-compose.yml` (phiên bản Bài 5) lên Git tại thư mục `/quickbite-project/`. **Bắt buộc:** Thêm `.env` vào file `.gitignore` để không bị push lên Git.
+* Chụp ảnh màn hình chạy lệnh `docker compose config` hiển thị rõ cấu hình nạp biến thành công. Lưu tại: `/homework/session_04/exercise_05/env_config.png`.
 
 ---
 
-### BÀI TẬP 6 (Mức độ Xuất sắc): Kịch bản Shell Script vận hành tự động và Smoke Test sức khỏe cụm dịch vụ (`compose-control.sh`)
+### BÀI TẬP 6 (Mức độ Xuất sắc): Kịch bản Shell Script vận hành tự động và Smoke Test sức khỏe dịch vụ (`compose-control.sh`)
 
 #### 1. Mục tiêu mong muốn đạt được
-* **Tự động hóa hoàn toàn** quy trình khởi động, kiểm tra sức khỏe tích hợp và tắt dọn dẹp hệ thống đa container.
-* **Ứng dụng tư duy lập trình Shell Script** nâng cao để chẩn đoán hệ thống và xử lý báo lỗi tự động.
+* **Tự động hóa hoàn toàn** quy trình khởi động, kiểm tra sức khỏe liên kết đa container (database chạy ngầm và backend chạy động).
+* **Áp dụng tư duy lập trình Shell Script** để chẩn đoán hệ thống và xử lý dọn dẹp tự động khi có lỗi xảy ra.
 
 #### 2. Mô tả yêu cầu
-Bạn hãy đóng vai trò kỹ sư DevOps viết script `compose-control.sh` để kiểm soát vận hành tự động cụm Docker Compose:
+Bạn hãy đóng vai trò kỹ sư DevOps viết script `compose-control.sh` đặt tại `/quickbite-project/` để kiểm soát vận hành tự động:
 1. Script chấp nhận một tham số đầu vào khi chạy: `./compose-control.sh [start | stop | clean]`.
 2. **Khi chạy với tham số `start`:**
-   * Tự động khởi chạy cụm dịch vụ: `docker compose up -d --build`.
-   * Viết vòng lặp (loop) tạm dừng và chạy kiểm tra trạng thái database: `docker compose exec quickbite-db pg_isready -U postgres` liên tục mỗi 2 giây, tối đa 5 lần thử (timeout 10 giây).
+   * Tự động khởi chạy dịch vụ backend: `docker compose up -d --build`.
+   * Viết vòng lặp (loop) kiểm tra trạng thái của container database `quickbite-db` bằng câu lệnh toàn cục: `docker exec quickbite-db pg_isready -U postgres` liên tục mỗi 2 giây, tối đa 5 lần thử (timeout 10 giây).
    * Nếu database sẵn sàng trước khi timeout, in thông báo thành công màu xanh lá và tiếp tục gọi thử API Actuator Health của backend (`http://localhost:8081/actuator/health`). Nếu cả hai đều sẵn sàng, in thông báo lớn màu xanh lá: `"HỆ THỐNG QUICKBITE HOẠT ĐỘNG ỔN ĐỊNH!"` và thoát với code `0`.
-   * Nếu quá 10 giây database vẫn không sẵn sàng hoặc API backend báo lỗi, in thông báo lỗi màu đỏ kèm theo 20 dòng logs cuối của cụm Compose, sau đó tự động chạy `docker compose down` dọn dẹp và thoát với code `1`.
+   * Nếu quá 10 giây database vẫn không sẵn sàng hoặc API backend báo lỗi, in thông báo lỗi màu đỏ kèm theo 20 dòng logs cuối của cụm backend, sau đó tự động chạy `docker compose down` dọn dẹp backend và thoát với code `1`.
 3. **Khi chạy với tham số `stop`:**
-   * Chạy lệnh tạm dừng hệ thống: `docker compose stop`.
+   * Chạy lệnh tạm dừng backend: `docker compose stop`.
 4. **Khi chạy với tham số `clean`:**
    * Dọn dẹp sạch sẽ tài nguyên: `docker compose down -v` (xóa cả volumes).
 

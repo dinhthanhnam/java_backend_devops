@@ -49,10 +49,10 @@ ports:
 * **So sánh trực quan với Docker CLI:**
   * **Lệnh Docker Run:** `docker run -p 5432:5432 ...`
   * **Khai báo Compose:**
-    ```yaml
-    ports:
-      - "5432:5432"
-    ```
+```yaml
+ports:
+  - "5432:5432"
+```
 * **Cơ chế hoạt động:** Docker Engine lắng nghe cổng `HOST_PORT` trên máy host vật lý và tự động định tuyến (NAT) toàn bộ traffic vào cổng `CONTAINER_PORT` bên trong container. Nhờ đó, có thể kết nối đến database từ bên ngoài thông qua: `postgresql://localhost:5432`.
 
 #### 3.2 Biến môi trường (`environment`)
