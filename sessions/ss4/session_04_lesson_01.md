@@ -155,9 +155,7 @@ docker run -d -p 8081:8081 --name user-service quickbite-user-service:v1
 docker logs -f user-service
 ```
 
----
-
-### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (EXPOSE PORT VS PUBLISH PORT)
+### PHẦN 6. HIỂU LẦM THƯỜNG GẶP (EXPOSE PORT VS PUBLISH PORT)
 
 * **Hiểu lầm:** Khai báo chỉ thị `EXPOSE 8081` trong Dockerfile có nghĩa là Docker sẽ tự động mở cổng `8081` của container ra ngoài máy host vật lý để truy cập được từ trình duyệt.
 * **Sự thật:** **Hoàn toàn không.**
@@ -168,7 +166,7 @@ docker logs -f user-service
 
 ---
 
-### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG (XÁC MINH KIẾN THỨC)
+### PHẦN 7. TÀI LIỆU THAM KHẢO CHÍNH THỐNG (XÁC MINH KIẾN THỨC)
 
 1. **Tài liệu tham khảo chi tiết về các chỉ thị Dockerfile:**
    * [Dockerfile reference - Docker Docs](https://docs.docker.com/reference/dockerfile/)
@@ -177,7 +175,7 @@ docker logs -f user-service
 
 ---
 
-### PHẦN 7. CÂU HỎI ĐÁNH GIÁ NHANH
+### PHẦN 8. CÂU HỎI ĐÁNH GIÁ NHANH
 
 #### Câu 1 (Hiểu bản chất)
 Tại sao trong môi trường production, chúng ta nên ưu tiên sử dụng base image JRE (Java Runtime Environment) Alpine hơn là image JDK (Java Development Kit) đầy đủ để đóng gói ứng dụng Spring Boot?

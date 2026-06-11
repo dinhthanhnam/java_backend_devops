@@ -17,7 +17,7 @@ Session 04    Docker Compose và Dockerfile
 Lesson 01    Dockerfile và cách đóng gói ứng dụng Spring Boot thực tế
 Lesson 02    Docker Compose và khái niệm hệ thống nhiều container
 Lesson 03    Cấu trúc file docker-compose.yml (services, image, build)
-Lesson 04    Biến môi trường và cấu hình port
+Lesson 04    Biến môi trường (environment) và cấu hình port, volume, restart
 Lesson 05    Volume và network trong Docker Compose
 Lesson 06    Quản lý vòng đời hệ thống với Docker Compose
 Session 05    Multi-container System & API Gateway   
