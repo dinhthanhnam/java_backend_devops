@@ -70,16 +70,16 @@
 
 #### Slide 4: Quy trình đóng gói và Khởi chạy thử nghiệm tại máy Local
 * Thực hiện lần lượt 4 bước build và chạy:
-  ```bash
-  # 1. Đóng gói mã nguồn Java thành file JAR bằng Gradle
-  ./gradlew bootJar
-  # 2. Thực hiện build Docker Image từ Dockerfile (dấu chấm ở cuối là build context)
-  docker build -t quickbite-user-service:v1 .
-  # 3. Khởi chạy Container từ Image tự build
-  docker run -d -p 8081:8081 --name user-service quickbite-user-service:v1
-  # 4. Kiểm tra nhật ký log để xác nhận Spring Boot khởi chạy thành công
-  docker logs -f user-service
-  ```
+```bash
+# 1. Đóng gói mã nguồn Java thành file JAR bằng Gradle
+./gradlew bootJar
+# 2. Thực hiện build Docker Image từ Dockerfile (dấu chấm ở cuối là build context)
+docker build -t quickbite-user-service:v1 .
+# 3. Khởi chạy Container từ Image tự build
+docker run -d -p 8081:8081 --name user-service quickbite-user-service:v1
+# 4. Kiểm tra nhật ký log để xác nhận Spring Boot khởi chạy thành công
+docker logs -f user-service
+```
 * **Hiểu lầm thường gặp (Expose vs Publish):**
   * `EXPOSE 8081` trong Dockerfile chỉ mang ý nghĩa tài liệu hóa cổng kết nối mặc định của ứng dụng, không tự động mở cổng ra máy host vật lý.
   * Để kết nối được từ trình duyệt máy host, bắt buộc phải truyền tham số `-p 8081:8081` (Publish Port) khi chạy lệnh `docker run`.
