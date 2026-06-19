@@ -39,18 +39,18 @@
 
 #### Slide 2: Cấu trúc Dockerfile cơ bản cho ứng dụng Spring Boot
 * Một tệp `Dockerfile` là tập hợp các chỉ thị được thực thi tuần tự để xây dựng một Docker Image tĩnh:
-  ```dockerfile
-  # 1. Định nghĩa Base Image (JRE Alpine siêu nhẹ)
-  FROM eclipse-temurin:17-jre-alpine
-  # 2. Thiết lập thư mục làm việc mặc định trong container
-  WORKDIR /app
-  # 3. Sao chép file JAR đã build từ host vào container
-  COPY build/libs/user-service.jar app.jar
-  # 4. Khai báo cổng lắng nghe nội bộ (chỉ mang ý nghĩa tài liệu hóa)
-  EXPOSE 8081
-  # 5. Lệnh khởi chạy tiến trình chính
-  ENTRYPOINT ["java", "-jar", "app.jar"]
-  ```
+```dockerfile
+# 1. Định nghĩa Base Image (JRE Alpine siêu nhẹ)
+FROM eclipse-temurin:17-jre-alpine
+# 2. Thiết lập thư mục làm việc mặc định trong container
+WORKDIR /app
+# 3. Sao chép file JAR đã build từ host vào container
+COPY build/libs/user-service.jar app.jar
+# 4. Khai báo cổng lắng nghe nội bộ (chỉ mang ý nghĩa tài liệu hóa)
+EXPOSE 8081
+# 5. Lệnh khởi chạy tiến trình chính
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
 * **Giải thích các chỉ thị chính:**
   * `FROM`: Điểm khởi đầu, lấy một image nền có sẵn làm môi trường gốc.
   * `WORKDIR`: Tạo và di chuyển vào thư mục làm việc bên trong container.
@@ -107,24 +107,24 @@ docker logs -f user-service
 
 #### Slide 7: Thực hành kiểm tra cài đặt Docker Compose
 * **Kiểm tra phiên bản đang hoạt động:**
-  ```bash
-  docker compose version
-  ```
+```bash
+docker compose version
+```
   *(Từ phiên bản v2, Docker Compose được viết bằng Go và chạy trực tiếp dưới dạng plugin của Docker CLI).*
 * **Bổ sung plugin nếu gặp lỗi thiếu lệnh:**
-  ```bash
-  sudo apt-get update
-  sudo apt-get install -y docker-buildx-plugin docker-compose-plugin
-  ```
+```bash
+sudo apt-get update
+sudo apt-get install -y docker-compose-plugin
+```
 * **Khởi chạy file Compose tối giản để kiểm tra:**
   * Nội dung tệp `docker-compose.yml`:
-    ```yaml
-    version: '3.8'
-    services:
-       java-tester:
-          image: eclipse-temurin:17-jre-alpine
-          command: java -version
-    ```
+```yaml
+version: '3.8'
+services:
+    java-tester:
+      image: eclipse-temurin:17-jre-alpine
+      command: java -version
+```
   * Lệnh khởi chạy và dọn dẹp:
     `docker compose up` (Tải image, khởi tạo container và in version) -> `docker compose down` (Dọn dẹp container).
 
@@ -141,14 +141,17 @@ docker logs -f user-service
     * `context`: Thư mục chứa mã nguồn và tệp `Dockerfile`.
     * `dockerfile`: Tên tệp Dockerfile cấu hình (mặc định là `Dockerfile`).
 * **Ví dụ khai báo build:**
-  ```yaml
-  services:
-    quickbite-user:
-      build:
-        context: ./user-service
-      ports:
-        - "8081:8081"
-  ```
+```yaml
+services:
+  quickbite-user:
+    build:
+      context: ./user-service
+    ports:
+      - "8081:8081"
+# Chú ý: thụt lề 2 khoảng trắng
+# port: "Host_Port:Container_Port"
+
+```
 
 #### Slide 9: Chiến lược tách biệt Database chạy độc lập cho dự án QuickBite
 * Trong kiến trúc microservices thực tế, Database luôn được chạy độc lập thay vì gom chung tệp Compose với Application vì 4 lý do:
@@ -160,58 +163,58 @@ docker logs -f user-service
 #### Slide 10: Thực hành cấu hình Database chạy độc lập và tự khởi tạo dữ liệu
 * PostgreSQL hỗ trợ tự động quét và chạy các script SQL nằm trong thư mục `/docker-entrypoint-initdb.d/` trong container khi khởi chạy lần đầu.
 * **File kịch bản khởi tạo SQL (`init-db.sql`):**
-  ```sql
-  CREATE USER quickbite_user WITH PASSWORD 'quickbite_user';
-  CREATE DATABASE quickbite_user_db OWNER quickbite_user;
-  GRANT ALL PRIVILEGES ON DATABASE quickbite_user_db TO quickbite_user;
-  ```
+```sql
+CREATE USER quickbite_user WITH PASSWORD 'quickbite_user';
+CREATE DATABASE quickbite_user_db OWNER quickbite_user;
+GRANT ALL PRIVILEGES ON DATABASE quickbite_user_db TO quickbite_user;
+```
 * **File cấu hình `docker-compose.yml` cho database chung:**
-  ```yaml
-  version: '3.8'
-  services:
-    quickbite-db:
-      image: postgres:15-alpine
-      container_name: quickbite-db
-      ports:
-        - "5432:5432"
-      environment:
-        POSTGRES_USER: postgres
-        POSTGRES_PASSWORD: secret_password
-      volumes:
-        - db-data:/var/lib/postgresql/data
-        - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-      networks:
-        - quickbite-net
-      restart: always
-  volumes:
-    db-data:
-  networks:
-    quickbite-net:
-      name: quickbite-net
-      driver: bridge
-  ```
+```yaml
+version: '3.8'
+services:
+  quickbite-db:
+    image: postgres:15-alpine
+    container_name: quickbite-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret_password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - quickbite-net
+    restart: always
+volumes:
+  db-data:
+networks:
+  quickbite-net:
+    name: quickbite-net
+    driver: bridge
+```
 * *Lệnh khởi chạy giữ chạy ngầm lâu dài:* `docker compose up -d` (chạy tại thư mục `quickbite-database`).
 
 #### Slide 11: Thực hành tự động build và start dịch vụ backend
 * File cấu hình backend `docker-compose.yml` (đặt tại thư mục `quickbite-project/`):
-  ```yaml
-  version: '3.8'
-  services:
-    quickbite-user:
-      build:
-        context: ./user-service
-      ports:
-        - "8081:8081"
-      networks:
-        - quickbite-net
-  networks:
-    quickbite-net:
-      external: true  # Sử dụng mạng ảo chung do database đã tạo trước đó
-  ```
+```yaml
+version: '3.8'
+services:
+  quickbite-user:
+    build:
+      context: ./user-service
+    ports:
+      - "8081:8081"
+    networks:
+      - quickbite-net
+networks:
+  quickbite-net:
+    external: true  # Sử dụng mạng ảo chung do database đã tạo trước đó
+```
 * **Khởi chạy và tự động rebuild:**
-  ```bash
-  docker compose up --build
-  ```
+```bash
+docker compose up --build
+```
   *Lưu ý:* Khi code Java thay đổi, Docker Compose không tự phát hiện để rebuild. Bạn bắt buộc phải build lại file JAR mới trên máy host và chạy lệnh kèm cờ `--build` để ép hệ thống đóng gói lại image mới.
 
 ---
@@ -228,34 +231,34 @@ docker logs -f user-service
 
 #### Slide 13: Giải pháp tách biệt cấu hình bảo mật bằng file `.env`
 * **1. Tạo tệp cấu hình ẩn `.env` (Đặt cùng cấp với file `docker-compose.yml`):**
-  ```env
-  DB_HOST=quickbite-db
-  DB_PORT=5432
-  USER_DB_NAME=quickbite_user_db
-  USER_DB_USERNAME=quickbite_user
-  USER_DB_PASSWORD=quickbite_user
-  USER_SERVER_PORT=8081
-  ```
+```env
+DB_HOST=quickbite-db
+DB_PORT=5432
+USER_DB_NAME=quickbite_user_db
+USER_DB_USERNAME=quickbite_user
+USER_DB_PASSWORD=quickbite_user
+USER_SERVER_PORT=8081
+```
   *(Thêm tệp `.env` vào file `.gitignore` để tránh bị đẩy lên Git).*
 * **2. Khai báo biến nội suy `${...}` trong `docker-compose.yml`:**
-  ```yaml
-  services:
-    quickbite-user:
-      build: ./user-service
-      ports:
-        - "${USER_SERVER_PORT}:${USER_SERVER_PORT}"
-      environment:
-        - DB_HOST=${DB_HOST}
-        - DB_PORT=${DB_PORT}
-        - DB_NAME=${USER_DB_NAME}
-        - DB_USERNAME=${USER_DB_USERNAME}
-        - DB_PASSWORD=${USER_DB_PASSWORD}
-        - SERVER_PORT=${USER_SERVER_PORT}
-  ```
+```yaml
+services:
+  quickbite-user:
+    build: ./user-service
+    ports:
+      - "${USER_SERVER_PORT}:${USER_SERVER_PORT}"
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${USER_DB_NAME}
+      - DB_USERNAME=${USER_DB_USERNAME}
+      - DB_PASSWORD=${USER_DB_PASSWORD}
+      - SERVER_PORT=${USER_SERVER_PORT}
+```
 * **3. Lệnh kiểm tra và nội suy biến:**
-  ```bash
-  docker compose config
-  ```
+```bash
+docker compose config
+```
   *Cơ chế:* Đọc file `.env`, thay thế các biến `${...}` thành giá trị thực tế và in ra cấu hình hoàn chỉnh để kiểm tra cú pháp trước khi chạy.
 
 ---
@@ -266,15 +269,15 @@ docker logs -f user-service
 * Mặc định, hệ thống file của container là tạm thời (Ephemeral), dữ liệu sẽ mất khi container bị xóa.
 * **Named Volumes (Volume định danh do Docker tự quản lý):**
   * Cấu hình khai báo:
-    ```yaml
-    services:
-      quickbite-db:
-        image: postgres:15-alpine
-        volumes:
-          - db-data:/var/lib/postgresql/data
+```yaml
+services:
+  quickbite-db:
+    image: postgres:15-alpine
     volumes:
-      db-data:
-    ```
+      - db-data:/var/lib/postgresql/data
+volumes:
+  db-data:
+```
   * *Bản chất:* Docker tự động quản lý thư mục ẩn trên host (Linux: `/var/lib/docker/volumes/...`). Bảo mật, hiệu năng đọc ghi cao, độc lập với cấu trúc hệ điều hành host. Dùng cho dữ liệu động như Database.
 * **Bind Mounts (Liên kết trực tiếp thư mục từ máy host):**
   * Cấu hình khai báo: `- ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql`.
@@ -287,25 +290,27 @@ docker logs -f user-service
   * Tên dịch vụ tự động được phân giải thành IP động tương ứng nhờ DNS nội bộ.
 * **Tham chiếu mạng ngoài (`external: true`):**
   * Cấu hình khai báo:
-    ```yaml
-    networks:
-      quickbite-net:
-        external: true
-    ```
+```yaml
+networks:
+  quickbite-net:
+    external: true
+# Cho phép Compose sử dụng mạng
+# đã được tạo sẵn trước đó.
+```
   * *Bản chất:* Docker Compose không tự tạo mạng mới mà đi kết nối các container vào mạng `quickbite-net` đã có sẵn. Mạng này tồn tại độc lập với vòng đời của cụm container.
 
 #### Slide 16: Thực hành kiểm chứng tính toàn vẹn dữ liệu
 * Quy trình kiểm tra dữ liệu qua các chu trình tắt/mở hệ thống:
-  ```bash
-  # 1. Tạo dữ liệu thử nghiệm trong container database đang chạy
-  docker compose exec quickbite-db psql -U postgres -d quickbite_user_db -c "CREATE TABLE test_volume (note VARCHAR(50)); INSERT INTO test_volume VALUES ('Du lieu an toan!');"
-  # 2. Xóa bỏ cụm container của dự án (cả database và backend)
-  docker compose down
-  # 3. Khởi chạy lại cụm container database
-  docker compose up -d
-  # 4. Truy vấn lại bảng dữ liệu để xác minh
-  docker compose exec quickbite-db psql -U postgres -d quickbite_user_db -c "SELECT * FROM test_volume;"
-  ```
+```bash
+# 1. Tạo dữ liệu thử nghiệm trong container database đang chạy
+docker compose exec quickbite-db psql -U postgres -d quickbite_user_db -c "CREATE TABLE test_volume (note VARCHAR(50)); INSERT INTO test_volume VALUES ('Du lieu an toan!');"
+# 2. Xóa bỏ cụm container của dự án (cả database và backend)
+docker compose down
+# 3. Khởi chạy lại cụm container database
+docker compose up -d
+# 4. Truy vấn lại bảng dữ liệu để xác minh
+docker compose exec quickbite-db psql -U postgres -d quickbite_user_db -c "SELECT * FROM test_volume;"
+```
 * **Kết quả mong đợi:** Dữ liệu vẫn tồn tại nguyên vẹn nhờ cơ chế Named Volume.
 * **Mẹo phân biệt:** Mạng mặc định của Docker CLI (`default bridge`) không hỗ trợ DNS nội bộ. Mạng mặc định của Docker Compose thực chất là một mạng `User-defined Bridge Network` được bật sẵn DNS nội bộ giúp tự động phân giải tên container.
 
@@ -325,21 +330,21 @@ docker logs -f user-service
 
 #### Slide 18: Nhóm lệnh chẩn đoán trạng thái hệ thống
 * **Liệt kê trạng thái container:**
-  ```bash
-  docker compose ps
-  ```
+```bash
+docker compose ps
+```
   Hiển thị danh sách container, trạng thái (Up/Exit), và cổng ánh xạ mạng thực tế.
 * **Xem nhật ký log tổng hợp của toàn cụm:**
-  ```bash
-  docker compose logs -f --tail=50
-  ```
+```bash
+docker compose logs -f --tail=50
+```
   *Ưu việt:* Stream log của tất cả container cùng lúc, tự động phân tách màu sắc và chèn tiền tố tên dịch vụ ở đầu dòng giúp dễ dàng theo dõi trình tự lỗi.
 * **Kiểm tra trạng thái sẵn sàng của Database độc lập:**
-  ```bash
-  docker exec -it quickbite-db pg_isready -U postgres
-  ```
+```bash
+docker exec -it quickbite-db pg_isready -U postgres
+```
   Console trả ra dòng chữ `/var/run/postgresql:5432 - accepting connections` báo hiệu DB đã sẵn sàng nhận kết nối từ backend.
 * **Chạy câu lệnh SQL trực tiếp từ host để test kết nối:**
-  ```bash
-  docker compose exec quickbite-db psql -U postgres -c "SELECT 1;"
-  ```
+```bash
+docker compose exec quickbite-db psql -U postgres -c "SELECT 1;"
+```
