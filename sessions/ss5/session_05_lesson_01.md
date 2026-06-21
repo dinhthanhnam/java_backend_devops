@@ -8,7 +8,7 @@
 
 Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
 * **Giải thích** được cấu trúc đa dịch vụ (Multi-services Architecture) của nền tảng QuickBite và vai trò của từng thành phần.
-* **Hiểu bản chất** cấu trúc dữ liệu và thực thể của các dịch vụ cốt lõi: `user-service` và `restaurant-service`.
+* **Hiểu bản chất** cấu trúc dữ liệu và thực thể của 4 dịch vụ cốt lõi: `user-service`, `restaurant-service`, `order-service` và `notification-service`.
 * **Phân tích và thiết kế** được giải pháp bảo toàn dữ liệu lịch sử thông qua cơ chế Snapshot (lưu thông tin tên khách hàng, tên cửa hàng, tên món ăn và giá bán trực tiếp tại thời điểm đặt đơn thay vì chỉ liên kết ID).
 * **Nắm rõ nguyên tắc cô lập dữ liệu** (Database-per-service), hiểu lý do không thể sử dụng các quan hệ liên kết trực tiếp ở mức database (như `@OneToMany` hay `@ManyToMany` xuyên cơ sở dữ liệu) giữa các dịch vụ.
 
@@ -35,9 +35,9 @@ Khi chuyển đổi từ một hệ thống chạy đơn bản (Monolith) sang k
 Mỗi dịch vụ sở hữu cơ sở dữ liệu logic riêng để đảm bảo tính cô lập và tự chủ:
 
 ```text
-  [ user-service ]           [ restaurant-service ]         [ order-service ]
-         │                            │                            │
-  (DB: quickbite_user_db)     (DB: quickbite_restaurant_db)  (DB: quickbite_order_db)
+  [ user-service ]           [ restaurant-service ]         [ order-service ]         [ notification-service ]
+         │                            │                            │                             │
+  (DB: quickbite_user_db)     (DB: quickbite_restaurant_db)  (DB: quickbite_order_db)      (DB: quickbite_notification_db)
 ```
 
 #### 3.2 Cơ chế Snapshot trong lưu trữ giao dịch
@@ -113,6 +113,14 @@ Dưới đây là thiết kế cấu trúc các bảng dữ liệu logic của h
   | `owner_id` | Bigint | Soft Ref -> `users(id)` | ID của chủ cửa hàng (không tạo FK vật lý) |
   | `is_open` | Boolean | Not Null | Trạng thái đóng/mở cửa |
 
+* **Bảng `menu_categories` (Danh mục thực đơn):**
+
+  | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+  | :--- | :--- | :--- | :--- |
+  | `id` | Bigint | PK, Auto Increment | Khóa chính |
+  | `name` | Varchar(100)| Not Null | Tên danh mục (Cơm, Nước uống...) |
+  | `restaurant_id`| Bigint | FK -> `restaurants(id)`| Liên kết tới nhà hàng sở hữu danh mục |
+
 * **Bảng `menu_items` (Danh sách món ăn trong thực đơn):**
   
   | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
@@ -121,7 +129,7 @@ Dưới đây là thiết kế cấu trúc các bảng dữ liệu logic của h
   | `name` | Varchar(100)| Not Null | Tên món ăn |
   | `base_price`| Decimal(10,2)| Not Null | Giá bán mặc định |
   | `is_available` | Boolean | Not Null | Trạng thái còn hàng/hết hàng |
-  | `restaurant_id`| Bigint | FK -> `restaurants(id)`| Liên kết tới nhà hàng sở hữu món ăn |
+  | `category_id`| Bigint | FK -> `menu_categories(id)`| Liên kết tới danh mục món ăn |
 
 ---
 
@@ -137,7 +145,10 @@ Dưới đây là thiết kế cấu trúc các bảng dữ liệu logic của h
   | `restaurant_id`| Bigint | Soft Ref -> `restaurants(id)`| ID nhà hàng (không tạo FK vật lý) |
   | `merchant_name`| Varchar(100)| Not Null | **Snapshot:** Tên cửa hàng lúc đặt đơn |
   | `driver_id` | Bigint | Soft Ref -> `users(id)` | ID tài xế nhận giao (cho phép Null) |
-  | `total_price`| Decimal(12,2)| Not Null | Tổng giá trị đơn hàng |
+  | `delivery_address_id`| Bigint | Soft Ref -> `user_addresses(id)`| Địa chỉ nhận hàng (không tạo FK vật lý) |
+  | `items_price`| Decimal(12,2)| Not Null | **Snapshot:** Tổng tiền món ăn tại thời điểm mua |
+  | `shipping_fee`| Decimal(12,2)| Not Null | **Snapshot:** Phí ship tại thời điểm mua |
+  | `total_price`| Decimal(12,2)| Not Null | Tổng giá trị đơn hàng khách trả |
   | `status` | Varchar(20) | Not Null | Trạng thái (PENDING, ACCEPTED, SHIPPING, DELIVERED) |
 
 * **Bảng `order_items` (Chi tiết món ăn trong đơn hàng):**
@@ -150,6 +161,32 @@ Dưới đây là thiết kế cấu trúc các bảng dữ liệu logic của h
   | `item_name` | Varchar(100)| Not Null | **Snapshot:** Tên món ăn tại thời điểm mua |
   | `quantity` | Integer | Not Null | Số lượng đặt mua |
   | `price` | Decimal(10,2)| Not Null | **Snapshot:** Đơn giá bán tại thời điểm mua |
+
+* **Bảng `order_status_history` (Lưu vết lịch sử trạng thái đơn hàng):**
+
+  | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+  | :--- | :--- | :--- | :--- |
+  | `id` | Bigint | PK, Auto Increment | Khóa chính |
+  | `status` | Varchar(20) | Not Null | Trạng thái chuyển dịch |
+  | `changed_at`| Timestamp | Not Null | Thời điểm chuyển trạng thái |
+  | `note` | Varchar(255) | Null | Ghi chú (lý do hủy, từ chối...) |
+  | `order_id` | Bigint | FK -> `orders(id)` | Liên kết tới đơn hàng tương ứng |
+
+---
+
+#### 4.4 Cơ sở dữ liệu: `quickbite_notification_db` (Dịch vụ `notification-service`)
+
+* **Bảng `notifications` (Danh sách thông báo):**
+
+  | Tên cột | Kiểu dữ liệu | Ràng buộc | Mô tả |
+  | :--- | :--- | :--- | :--- |
+  | `id` | Bigint | PK, Auto Increment | Khóa chính |
+  | `user_id` | Bigint | Soft Ref -> `users(id)` | ID người nhận (không tạo FK vật lý) |
+  | `title` | Varchar(100)| Not Null | Tiêu đề thông báo |
+  | `content` | Varchar(255)| Not Null | Nội dung chi tiết thông báo |
+  | `type` | Varchar(20) | Not Null | Kênh gửi (IN_APP, EMAIL, SMS) |
+  | `delivery_status`| Varchar(20)| Not Null | Trạng thái gửi (PENDING, SENT, FAILED) |
+  | `created_at`| Timestamp | Not Null | Thời điểm tạo thông báo |
 
 ---
 
