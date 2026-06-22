@@ -142,10 +142,10 @@ Tạo tệp `/quickbite-project/docker-compose.yml` định nghĩa các dịch v
 version: '3.8'
 
 services:
-  quickbite-user:
+  user-service:
     build:
       context: ./user-service
-    container_name: quickbite-user
+    container_name: user-service
     ports:
       - "${USER_SERVER_PORT}:${USER_SERVER_PORT}"
     environment:
@@ -158,10 +158,10 @@ services:
     networks:
       - quickbite-net
 
-  quickbite-restaurant:
+  restaurant-service:
     build:
       context: ./restaurant-service
-    container_name: quickbite-restaurant
+    container_name: restaurant-service
     ports:
       - "${RESTAURANT_SERVER_PORT}:${RESTAURANT_SERVER_PORT}"
     environment:
@@ -181,20 +181,20 @@ networks:
 
 #### 4.5 Khởi chạy và kiểm tra hệ thống
 1. Biên dịch các tệp JAR trên máy host (đã học ở Session 2):
-   ```bash
-   cd user-service && ./gradlew bootJar
-   cd ../restaurant-service && ./gradlew bootJar
-   ```
+```bash
+cd user-service && ./gradlew bootJar
+cd ../restaurant-service && ./gradlew bootJar
+```
 2. Khởi chạy toàn bộ hệ thống bằng Docker Compose:
-   ```bash
-   # Đứng tại thư mục gốc /quickbite-project/ chứa file docker-compose.yml
-   docker compose up -d --build
-   ```
+```bash
+# Đứng tại thư mục gốc /quickbite-project/ chứa file docker-compose.yml
+docker compose up -d --build
+```
 3. Xem logs khởi động của các dịch vụ để xác nhận kết nối thành công:
-   ```bash
-   docker compose logs -f quickbite-user
-   docker compose logs -f quickbite-restaurant
-   ```
+```bash
+docker compose logs -f user-service
+docker compose logs -f restaurant-service
+```
 
 ---
 
@@ -222,4 +222,4 @@ Tại sao trong file `docker-compose.yml` ở Phần 4, chúng ta không sử d�
 
 #### Câu 2 (Xử lý tình huống)
 Nếu bạn thay đổi cổng mặc định của ứng dụng `user-service` trong file `application.yml` từ `8081` thành `8085`. Bạn sẽ phải thay đổi cấu hình cổng như thế nào trong tệp `.env` để người dùng bên ngoài máy host vẫn truy cập được dịch vụ qua cổng `8081`?
-* *Gợi ý:* Bạn thay đổi `USER_SERVER_PORT=8081` trong file `.env`? Không, nếu cổng ứng dụng đổi thành `8085`, bạn cần ánh xạ cổng của service `quickbite-user` trong file `docker-compose.yml` từ `"${USER_SERVER_PORT}:${USER_SERVER_PORT}"` thành `"8081:8085"`.
+* *Gợi ý:* Bạn thay đổi `USER_SERVER_PORT=8081` trong file `.env`? Không, nếu cổng ứng dụng đổi thành `8085`, bạn cần ánh xạ cổng của service `user-service` trong file `docker-compose.yml` từ `"${USER_SERVER_PORT}:${USER_SERVER_PORT}"` thành `"8081:8085"`.

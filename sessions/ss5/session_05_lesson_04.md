@@ -75,10 +75,10 @@ Trong các bài tiếp theo, chúng ta sẽ đưa thành phần **Spring Cloud G
 
 * **Cổng truy cập duy nhất của Client:** `8080` (Cổng của Spring Cloud Gateway).
 * **Định tuyến đường dẫn ngầm định:**
-  * Client gọi `http://localhost:8080/api/v1/users/**` ──► Chuyển tới `http://quickbite-user:8081/api/v1/users/**`
-  * Client gọi `http://localhost:8080/api/v1/restaurants/**` ──► Chuyển tới `http://quickbite-restaurant:8082/api/v1/restaurants/**`
-  * Client gọi `http://localhost:8080/api/v1/orders/**` ──► Chuyển tới `http://quickbite-order:8083/api/v1/orders/**`
-  * Client gọi `http://localhost:8080/api/v1/notifications/**` ──► Chuyển tới `http://quickbite-notification:8084/api/v1/notifications/**`
+  * Client gọi `http://localhost:8080/api/v1/users/**` ──► Chuyển tới `http://user-service:8081/api/v1/users/**`
+  * Client gọi `http://localhost:8080/api/v1/restaurants/**` ──► Chuyển tới `http://restaurant-service:8082/api/v1/restaurants/**`
+  * Client gọi `http://localhost:8080/api/v1/orders/**` ──► Chuyển tới `http://order-service:8083/api/v1/orders/**`
+  * Client gọi `http://localhost:8080/api/v1/notifications/**` ──► Chuyển tới `http://notification-service:8084/api/v1/notifications/**`
 
 ---
 

@@ -28,20 +28,20 @@ Khi chạy hệ thống QuickBite ở Lesson 2, cả hai dịch vụ `user-servi
 
 #### 3.1 Cơ chế Service Discovery (Phát hiện dịch vụ) qua DNS nội bộ
 Mạng ảo bridge nội bộ của Docker Compose hỗ trợ tính năng tự động phân giải tên container (đã phân tích kỹ ở **Session 4 Lesson 5**).
-* Khi các container cùng tham gia vào một mạng ảo chung (như mạng ngoài `quickbite-net`), chúng có thể giao tiếp trực tiếp qua **Tên container/dịch vụ** (ví dụ: `http://quickbite-restaurant:8082`) thay vì dùng địa chỉ IP.
+* Khi các container cùng tham gia vào một mạng ảo chung (như mạng ngoài `quickbite-net`), chúng có thể giao tiếp trực tiếp qua **Tên container/dịch vụ** (ví dụ: `http://restaurant-service:8082`) thay vì dùng địa chỉ IP.
 * Trình phân giải DNS tích hợp của Docker sẽ tự động định tuyến các gói tin mạng đến đúng IP hiện tại của container đích.
 
 ```text
   [ user-service container ]
              │
-         Gửi request tới: http://quickbite-restaurant:8082
+         Gửi request tới: http://restaurant-service:8082
              │
              ▼
     [ Embedded DNS Server ]  ── Phân giải tên miền ──► IP ảo hiện tại: 172.20.0.3
              │
              └───────────────────── Gửi gói tin HTTP ─────────────────────┐
                                                                            ▼
-                                                             [ restaurant-svc container ]
+                                                             [ restaurant-service container ]
 ```
 
 #### 3.2 Khái niệm Spring Cloud OpenFeign
@@ -62,8 +62,8 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
-// "quickbite-restaurant" là tên container/service trong file docker-compose.yml
-@FeignClient(name = "quickbite-restaurant", url = "http://quickbite-restaurant:8082")
+// "restaurant-service" là tên container/service trong file docker-compose.yml
+@FeignClient(name = "restaurant-service", url = "http://restaurant-service:8082")
 public interface RestaurantClient {
 
     @GetMapping("/restaurants/{id}/status")
@@ -72,16 +72,16 @@ public interface RestaurantClient {
 ```
 
 #### 4.2 Cập nhật docker-compose.yml đóng cổng mạng ra ngoài
-Vì các container đã giao tiếp nội bộ trong mạng ảo dùng chung, dịch vụ `restaurant-service` không cần mở cổng `8082` ra máy host vật lý nữa. Chúng ta sẽ loại bỏ thuộc tính `ports` của `quickbite-restaurant` và chỉ sử dụng `expose` (hoặc để trống vì các cổng nội bộ của container trong cùng mạng đều thông suốt). Chúng ta kế thừa file `.env` ở bài trước để nội suy cấu hình:
+Vì các container đã giao tiếp nội bộ trong mạng ảo dùng chung, dịch vụ `restaurant-service` không cần mở cổng `8082` ra máy host vật lý nữa. Chúng ta sẽ loại bỏ thuộc tính `ports` của `restaurant-service` và chỉ sử dụng `expose` (hoặc để trống vì các cổng nội bộ của container trong cùng mạng đều thông suốt). Chúng ta kế thừa file `.env` ở bài trước để nội suy cấu hình:
 
 ```yaml
 version: '3.8'
 
 services:
-  quickbite-user:
+  user-service:
     build:
       context: ./user-service
-    container_name: quickbite-user
+    container_name: user-service
     # Mở port 8081 ra ngoài host để Client/Browser có thể gọi vào kiểm thử
     ports:
       - "${USER_SERVER_PORT}:${USER_SERVER_PORT}"
@@ -95,10 +95,10 @@ services:
     networks:
       - quickbite-net
 
-  quickbite-restaurant:
+  restaurant-service:
     build:
       context: ./restaurant-service
-    container_name: quickbite-restaurant
+    container_name: restaurant-service
     # KHÔNG dùng ports mở ra host nữa, chỉ expose nội bộ trong mạng Compose
     expose:
       - "8082"
@@ -119,21 +119,21 @@ networks:
 
 #### 4.3 Thực hiện kiểm chứng phân giải tên miền
 1. Khởi chạy hệ thống Compose:
-   ```bash
-   docker compose up -d
-   ```
-2. Thực thi lệnh ping từ container `quickbite-user` sang container `quickbite-restaurant` bằng chính tên container để kiểm tra DNS hoạt động:
-   ```bash
-   docker compose exec quickbite-user ping -c 3 quickbite-restaurant
-   ```
-3. **Kết quả mong đợi:** Lệnh ping thực hiện thành công, hiển thị rõ DNS nội bộ đã phân giải tên miền `quickbite-restaurant` thành IP ảo của nó trong mạng (ví dụ: `172.18.0.4`).
+```bash
+docker compose up -d
+```
+2. Thực thi lệnh ping từ container `user-service` sang container `restaurant-service` bằng chính tên container để kiểm tra DNS hoạt động:
+```bash
+docker compose exec user-service ping -c 3 restaurant-service
+```
+3. **Kết quả mong đợi:** Lệnh ping thực hiện thành công, hiển thị rõ DNS nội bộ đã phân giải tên miền `restaurant-service` thành IP ảo của nó trong mạng (ví dụ: `172.18.0.4`).
 
 ---
 
 ### PHẦN 5. HIỂU LẦM THƯỜNG GẶP (localhost TRONG CONTAINER)
 
 * **Hiểu lầm thường gặp:** Khi hai container chạy chung trên một máy chủ vật lý, chúng ta có thể cấu hình URL kết nối là `http://localhost:8082` để gọi sang nhau.
-* **Sự thật:** Không được. Từ khóa `localhost` viết bên trong mã nguồn chạy trong container sẽ trỏ thẳng về **chính không gian cô lập của container đó**, không phải máy host vật lý. Để kết nối, ta bắt buộc phải sử dụng tên của container đích (`quickbite-restaurant`) làm host trong URL kết nối nhờ cơ chế DNS nội bộ của Docker Network (đã phân tích ở **Session 4 Lesson 5**).
+* **Sự thật:** Không được. Từ khóa `localhost` viết bên trong mã nguồn chạy trong container sẽ trỏ thẳng về **chính không gian cô lập của container đó**, không phải máy host vật lý. Để kết nối, ta bắt buộc phải sử dụng tên của container đích (`restaurant-service`) làm host trong URL kết nối nhờ cơ chế DNS nội bộ của Docker Network (đã phân tích ở **Session 4 Lesson 5**).
 
 ---
 
@@ -153,5 +153,5 @@ Tại sao khi chạy các container đơn lẻ bằng lệnh `docker run` thông
 * *Gợi ý:* Lệnh `docker run` thông thường đưa các container vào mạng `default bridge` của Docker CLI, nơi DNS nội bộ bị tắt và không hỗ trợ phân giải tên container. Docker Compose tự động đưa các container tham gia vào mạng chung (tương đương User-defined Bridge Network), nơi DNS được kích hoạt sẵn để tự động phân giải tên container.
 
 #### Câu 2 (Xử lý tình huống)
-Nếu bạn thay đổi thuộc tính `container_name: quickbite-restaurant` thành `container_name: quickbite-restaurant-v2` trong file compose, bạn có cần cập nhật cấu hình URL kết nối Feign Client ở các dịch vụ khác gọi tới nó hay không?
+Nếu bạn thay đổi thuộc tính `container_name: restaurant-service` thành `container_name: restaurant-service-v2` trong file compose, bạn có cần cập nhật cấu hình URL kết nối Feign Client ở các dịch vụ khác gọi tới nó hay không?
 * *Gợi ý:* Có. Bởi vì DNS nội bộ phân giải tên miền dựa trên chính tên container/service được định nghĩa. Khi đổi tên container, các cuộc gọi cũ đến tên cũ sẽ gặp lỗi không tìm thấy host (`UnknownHostException`).

@@ -59,7 +59,7 @@ Bạn hãy đóng vai trò là kỹ sư DevOps viết file đóng gói Docker ch
 #### 2. Mô tả yêu cầu
 Tạo hạ tầng điều phối tập trung cho các dịch vụ backend của QuickBite:
 1. Tạo file đặt tên chính xác là `docker-compose.yml` đặt tại thư mục gốc của dự án (`/quickbite-project/docker-compose.yml`).
-2. Khai báo 4 dịch vụ bao gồm: `quickbite-user`, `quickbite-restaurant`, `quickbite-order`, và `quickbite-notification` (không khai báo container database ở đây vì kế thừa cơ sở dữ liệu dùng chung chạy độc lập ở Session 4).
+2. Khai báo 4 dịch vụ bao gồm: `user-service`, `restaurant-service`, `order-service`, và `notification-service` (không khai báo container database ở đây vì kế thừa cơ sở dữ liệu dùng chung chạy độc lập ở Session 4).
 3. Cấu hình cho tất cả các container tham gia vào mạng ngoài `quickbite-net` (mạng ảo dùng chung đã được tạo ở database stack).
 4. Để phục vụ kiểm thử ban đầu, hãy map các cổng của tất cả các dịch vụ backend ra ngoài máy host (ví dụ: `8081:8081`, `8082:8082`, `8083:8083`, `8084:8084`).
 5. Điền trực tiếp các giá trị biến môi trường kết nối database cơ bản cho từng service.
@@ -144,11 +144,11 @@ Xác minh xem khi backend khởi chạy, Hibernate có tự động tạo đúng
 #### 2. Mô tả yêu cầu
 Nâng cấp kiến trúc hệ thống lên STATE 3 bằng cách tích hợp API Gateway làm cửa ngõ duy nhất:
 1. Viết file cấu hình `application.yml` cho dự án `gateway-service` (cổng chạy 8080) định nghĩa 4 routes định tuyến request dựa vào các path pattern:
-   * `/api/v1/users/**` ──► `http://quickbite-user:8081`
-   * `/api/v1/restaurants/**` ──► `http://quickbite-restaurant:8082`
-   * `/api/v1/orders/**` ──► `http://quickbite-order:8083`
-   * `/api/v1/notifications/**` ──► `http://quickbite-notification:8084`
-2. Cập nhật `docker-compose.yml`, khai báo dịch vụ `quickbite-gateway` và map cổng `${GATEWAY_SERVER_PORT}:${GATEWAY_SERVER_PORT}` ra ngoài máy host.
+   * `/api/v1/users/**` ──► `http://user-service:8081`
+   * `/api/v1/restaurants/**` ──► `http://restaurant-service:8082`
+   * `/api/v1/orders/**` ──► `http://order-service:8083`
+   * `/api/v1/notifications/**` ──► `http://notification-service:8084`
+2. Cập nhật `docker-compose.yml`, khai báo dịch vụ `gateway-service` và map cổng `${GATEWAY_SERVER_PORT}:${GATEWAY_SERVER_PORT}` ra ngoài máy host.
 3. **Thay đổi bảo mật quan trọng:** Hãy xóa bỏ cấu hình `ports` (ví dụ: `8081:8081`) của 4 dịch vụ backend cũ trong `docker-compose.yml`, thay thế bằng từ khóa `expose` để chỉ cho phép các cổng này hoạt động nội bộ trong mạng `quickbite-net`.
 
 #### 3. Kiểm thử và kết quả mong muốn

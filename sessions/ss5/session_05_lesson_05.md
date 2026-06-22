@@ -117,13 +117,13 @@ NOTIFICATION_SERVER_PORT=8084
 
 # Gateway Settings
 GATEWAY_SERVER_PORT=8080
-USER_SVC_HOST=quickbite-user
+USER_SVC_HOST=user-service
 USER_SVC_PORT=8081
-RESTAURANT_SVC_HOST=quickbite-restaurant
+RESTAURANT_SVC_HOST=restaurant-service
 RESTAURANT_SVC_PORT=8082
-ORDER_SVC_HOST=quickbite-order
+ORDER_SVC_HOST=order-service
 ORDER_SVC_PORT=8083
-NOTIFICATION_SVC_HOST=quickbite-notification
+NOTIFICATION_SVC_HOST=notification-service
 NOTIFICATION_SVC_PORT=8084
 ```
 
@@ -134,10 +134,10 @@ version: '3.8'
 
 services:
   # 1. User Service
-  quickbite-user:
+  user-service:
     build:
       context: ./user-service
-    container_name: quickbite-user
+    container_name: user-service
     expose:
       - "8081"
     environment:
@@ -151,10 +151,10 @@ services:
       - quickbite-net
 
   # 2. Restaurant Service
-  quickbite-restaurant:
+  restaurant-service:
     build:
       context: ./restaurant-service
-    container_name: quickbite-restaurant
+    container_name: restaurant-service
     expose:
       - "8082"
     environment:
@@ -168,10 +168,10 @@ services:
       - quickbite-net
 
   # 3. Order Service
-  quickbite-order:
+  order-service:
     build:
       context: ./order-service
-    container_name: quickbite-order
+    container_name: order-service
     expose:
       - "8083"
     environment:
@@ -187,10 +187,10 @@ services:
       - quickbite-net
 
   # 4. Notification Service
-  quickbite-notification:
+  notification-service:
     build:
       context: ./notification-service
-    container_name: quickbite-notification
+    container_name: notification-service
     expose:
       - "8084"
     environment:
@@ -204,10 +204,10 @@ services:
       - quickbite-net
 
   # 5. API Gateway (Điểm truy cập duy nhất mở ra host)
-  quickbite-gateway:
+  gateway-service:
     build:
       context: ./gateway-service
-    container_name: quickbite-gateway
+    container_name: gateway-service
     ports:
       - "${GATEWAY_SERVER_PORT}:${GATEWAY_SERVER_PORT}"
     environment:
@@ -253,7 +253,7 @@ Sự khác biệt lớn nhất giữa `expose` và `ports` trong file cấu hìn
 
 #### Câu 2 (Đọc và dự đoán)
 Giả sử bạn gửi một request GET tới địa chỉ `http://localhost:8080/api/v1/users/1`. Dựa trên tệp cấu hình của Gateway ở Phần 4, yêu cầu này sẽ khớp với Route nào và được chuyển tiếp sang URL nội bộ nào trong mạng Docker?
-* *Gợi ý:* Request khớp với `user_route` (do path khớp điều kiện `/api/v1/users/**`). Nó sẽ được chuyển tiếp sang URL nội bộ của container `quickbite-user`: `http://quickbite-user:8081/api/v1/users/1`.
+* *Gợi ý:* Request khớp với `user_route` (do path khớp điều kiện `/api/v1/users/**`). Nó sẽ được chuyển tiếp sang URL nội bộ của container `user-service`: `http://user-service:8081/api/v1/users/1`.
 
 #### Câu 3 (Xử lý tình huống)
 Sau khi chạy lệnh `docker compose up -d`, bạn gửi API request tới cổng 8080 của Gateway và nhận về mã lỗi `503 Service Unavailable`. Việc đầu tiên bạn cần kiểm tra là gì?

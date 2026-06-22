@@ -81,21 +81,21 @@ docker compose logs -f
 Khi bạn gửi request đặt món thành công thông qua Gateway, luồng log in ra màn hình terminal sẽ đan xen nhau theo trình tự nghiệp vụ như sau:
 
 ```text
-quickbite-gateway-1      | [Gateway] Chuyển tiếp request POST /api/v1/orders tới quickbite-order:8083
-quickbite-order-1        | [Order] Nhận yêu cầu tạo đơn từ Customer ID: 1, Restaurant ID: 2.
-quickbite-order-1        | [Order] Lưu đơn hàng ID: 99 thành công vào database (Trạng thái: PENDING).
-quickbite-order-1        | [Order] Đang gửi yêu cầu trừ tiền ví (100000đ) sang user-service...
-quickbite-user-1         | [User] Nhận yêu cầu trừ tiền ví cho User ID: 1. Số dư hiện tại: 150000đ.
-quickbite-user-1         | [User] Trừ tiền thành công. Số dư mới: 50000đ. Lưu DB thành công.
-quickbite-order-1        | [Order] Kết quả thanh toán: THÀNH CÔNG. Cập nhật trạng thái đơn thành ACCEPTED.
-quickbite-order-1        | [Order] Đang thông báo thực đơn đơn hàng sang restaurant-service...
-quickbite-restaurant-1   | [Restaurant] Nhận yêu cầu chuẩn bị đơn hàng ID: 99. Trạng thái nhà hàng: ĐANG MỞ CỬA.
-quickbite-restaurant-1   | [Restaurant] Merchant chấp nhận đơn hàng.
-quickbite-order-1        | [Order] Nhà hàng đã chấp nhận. Tiến hành tìm tài xế giao hàng...
-quickbite-order-1        | [Order] Đã gán tài xế ID: 5. Cập nhật trạng thái đơn thành: SHIPPING.
-quickbite-order-1        | [Order] Gửi sự kiện trạng thái đơn hàng sang notification-service...
-quickbite-notification-1 | [Notification] Nhận yêu cầu thông báo đơn hàng ID: 99. Tạo thông báo IN_APP cho User ID: 1.
-quickbite-notification-1 | [Notification] Gửi thông báo thành công (Trạng thái: SENT).
+gateway-service-1        | [Gateway] Chuyển tiếp request POST /api/v1/orders tới order-service:8083
+order-service-1          | [Order] Nhận yêu cầu tạo đơn từ Customer ID: 1, Restaurant ID: 2.
+order-service-1          | [Order] Lưu đơn hàng ID: 99 thành công vào database (Trạng thái: PENDING).
+order-service-1          | [Order] Đang gửi yêu cầu trừ tiền ví (100000đ) sang user-service...
+user-service-1           | [User] Nhận yêu cầu trừ tiền ví cho User ID: 1. Số dư hiện tại: 150000đ.
+user-service-1           | [User] Trừ tiền thành công. Số dư mới: 50000đ. Lưu DB thành công.
+order-service-1          | [Order] Kết quả thanh toán: THÀNH CÔNG. Cập nhật trạng thái đơn thành ACCEPTED.
+order-service-1          | [Order] Đang thông báo thực đơn đơn hàng sang restaurant-service...
+restaurant-service-1     | [Restaurant] Nhận yêu cầu chuẩn bị đơn hàng ID: 99. Trạng thái nhà hàng: ĐANG MỞ CỬA.
+restaurant-service-1     | [Restaurant] Merchant chấp nhận đơn hàng.
+order-service-1          | [Order] Nhà hàng đã chấp nhận. Tiến hành tìm tài xế giao hàng...
+order-service-1          | [Order] Đã gán tài xế ID: 5. Cập nhật trạng thái đơn thành: SHIPPING.
+order-service-1          | [Order] Gửi sự kiện trạng thái đơn hàng sang notification-service...
+notification-service-1   | [Notification] Nhận yêu cầu thông báo đơn hàng ID: 99. Tạo thông báo IN_APP cho User ID: 1.
+notification-service-1   | [Notification] Gửi thông báo thành công (Trạng thái: SENT).
 ```
 
 ---
@@ -129,7 +129,7 @@ Tại sao trong kiến trúc Microservices của QuickBite chúng ta không sử
 
 #### Câu 2 (Đọc và dự đoán)
 Giả sử log của hệ thống in ra dòng sau:
-`quickbite-order-1 | Lỗi kết nối tới restaurant-service: Connection refused`
+`order-service-1 | Lỗi kết nối tới restaurant-service: Connection refused`
 Hãy dự đoán trạng thái của đơn hàng trong DB `quickbite_order` và số dư ví tiền của khách hàng trong DB `quickbite_user` sau khi quá trình xử lý kết thúc.
 * *Gợi ý:* Trạng thái đơn hàng sẽ được cập nhật thành `CANCELLED` (hoặc `FAILED`) do gặp lỗi kết nối. Số dư ví tiền của khách hàng sẽ được giữ nguyên (hoặc được hoàn lại bằng giao dịch bù) để không làm mất tiền của khách.
 
