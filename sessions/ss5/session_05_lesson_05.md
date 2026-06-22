@@ -241,7 +241,7 @@ networks:
 1. **Hướng dẫn cấu hình Route trong Spring Cloud Gateway:**
    * [Spring Cloud Gateway Routes - Developer Guide](https://spring.io/projects/spring-cloud-gateway#learn)
 2. **Danh sách các Predicate Factories có sẵn:**
-   * [Route Predicate Factories - Spring Docs](https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway/gatewayfilter-factories.html)
+   * [Route Predicate Factories - Spring Docs](https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway-server-webflux/request-predicates-factories.html)
 
 ---
 

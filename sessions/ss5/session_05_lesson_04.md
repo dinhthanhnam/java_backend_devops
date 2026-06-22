@@ -99,7 +99,7 @@ Trong các bài tiếp theo, chúng ta sẽ đưa thành phần **Spring Cloud G
 2. **Tổng quan về Spring Cloud Gateway:**
    * [Spring Cloud Gateway Official Documentation](https://docs.google.com/url?q=https://spring.io/projects/spring-cloud-gateway)
 3. **Phân biệt API Gateway và Reverse Proxy:**
-   * [API Gateway vs. Reverse Proxy - Kong HQ](https://docs.google.com/url?q=https://konghq.com/blog/learning-center/api-gateway-vs-reverse-proxy)
+   * [API Gateway vs. Reverse Proxy - baeldung](https://www.baeldung.com/cs/api-gateway-vs-reverse-proxy)
 
 ---
 
