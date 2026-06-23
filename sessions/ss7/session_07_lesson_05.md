@@ -31,7 +31,7 @@ build_executable_jar:
     - quickbite
   script:
     - chmod +x ./gradlew
-    - ./gradlew bootJar -x test
+    - ./gradlew bootJar
   artifacts:
     paths:
       - build/libs/*.jar
@@ -44,20 +44,20 @@ build_executable_jar:
 
 #### 3.1 Cách tạo lỗi demo
 1. Giảng viên chỉnh sửa file `.gitlab-ci.yml`, loại bỏ lệnh cấp quyền `chmod +x ./gradlew`:
-   ```yaml
-   build_executable_jar:
-     stage: build
-     tags:
-       - quickbite
-     script:
-       - ./gradlew bootJar -x test
-   ```
+```yaml
+build_executable_jar:
+  stage: build
+  tags:
+    - quickbite
+  script:
+    - ./gradlew bootJar
+```
 2. Commit và push thay đổi lên GitLab repository để kích hoạt pipeline.
 
 #### 3.2 Nhận diện lỗi trên GitLab Log Console
 Khi pipeline báo trạng thái thất bại (Failed), giảng viên hướng dẫn học viên mở log của job `build_executable_jar` và quan sát phần console output:
 ```text
-$ ./gradlew bootJar -x test
+$ ./gradlew bootJar
 /bin/sh: eval: line 135: ./gradlew: Permission denied
 Cleaning up project directory and file based variables
 ERROR: Job failed: exit code 1
@@ -83,7 +83,7 @@ ERROR: Job failed: exit code 1
 #### 4.2 Nhận diện lỗi trên GitLab Log Console
 Mở log của job thất bại và định vị khu vực báo lỗi của Java Compiler:
 ```text
-$ ./gradlew bootJar -x test
+$ ./gradlew bootJar
 > Task :compileJava FAILED
 /builds/quickbite/user-service/src/main/java/com/quickbite/user/service/UserService.java:24: error: cannot find symbol
         private UserReposotory userRepository;
@@ -102,30 +102,30 @@ $ ./gradlew bootJar -x test
 ### PHẦN 5. KỊCH BẢN LỖI 3: LỖI KIỂM THỬ THẤT BẠI (TEST FAILED)
 
 #### 5.1 Cách tạo lỗi demo
-1. Giảng viên điều chỉnh file cấu hình `.gitlab-ci.yml` để kích hoạt việc chạy Unit Test bằng cách loại bỏ cờ `-x test`:
-   ```yaml
-   build_executable_jar:
-     stage: build
-     tags:
-       - quickbite
-     script:
-       - chmod +x ./gradlew
-       - ./gradlew bootJar # Không sử dụng -x test
-   ```
+1. Giảng viên điều chỉnh file cấu hình `.gitlab-ci.yml` để kích hoạt việc chạy Unit Test bằng cách thay thế tác vụ `bootJar` (mặc định không chạy test) thành tác vụ `build` (chạy đầy đủ các bước kiểm thử):
+```yaml
+build_executable_jar:
+  stage: build
+  tags:
+    - quickbite
+  script:
+    - chmod +x ./gradlew
+    - ./gradlew build # Thay bootJar bằng build để kích hoạt chạy test
+```
 2. Chỉnh sửa logic của một lớp kiểm thử trong thư mục `src/test/java/...` để cố tình làm kiểm thử thất bại (ví dụ: thay đổi giá trị mong đợi trong assertion `assertEquals(200, status)` thành `assertEquals(500, status)` hoặc ném ra ngoại lệ).
 3. Commit và push thay đổi lên GitLab để kích hoạt pipeline.
 
 #### 5.2 Nhận diện lỗi trên GitLab Log Console
 Mở log của job thất bại và quan sát phần kết quả thực thi kiểm thử:
 ```text
+> Task :test
+
+UserServiceApplicationTests > testCreateUser() FAILED
+    org.opentest4j.AssertionFailedError at UserServiceApplicationTests.java:17
+
+2 tests completed, 1 failed
+
 > Task :test FAILED
-
-com.quickbite.user.service.UserServiceTest > testCreateUser FAILED
-    java.lang.AssertionError: expected:<200> but was:<500>
-        at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:191)
-        ...
-
-1 test completed, 1 failed
 ```
 
 #### 5.3 Giải thích nguyên nhân và cách khắc phục

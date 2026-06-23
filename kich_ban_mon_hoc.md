@@ -1331,7 +1331,7 @@ job_print:
 #### 3. Nội dung trọng tâm
 
 * **Base Image phù hợp:** Lựa chọn các image chứa JDK đầy đủ (như `eclipse-temurin:17-jdk-alpine`) làm môi trường chạy các lệnh Gradle/Maven.
-* **Tối giản hóa quy trình CI:** Loại bỏ cấu hình cache phức tạp và bỏ qua bước chạy test tự động (`-x test`) để đạt hiệu năng thực thi tối đa.
+* **Tối giản hóa quy trình CI:** Sử dụng tác vụ `bootJar` để biên dịch và đóng gói nhanh chóng (tác vụ này mặc định không chạy các bài kiểm thử unit test) để đạt hiệu năng thực thi tối đa.
 * **Cơ chế Artifacts:** Khai báo `artifacts` để đóng gói file JAR sinh ra và đẩy lên GitLab Server lưu giữ tạm thời.
 
 #### 4. Demo và thực hành
@@ -1351,8 +1351,8 @@ build_executable_jar:
   script:
     # Cấp quyền thực thi cho Gradle Wrapper có sẵn trong dự án
     - chmod +x ./gradlew
-    # Chỉ compile và đóng gói, bỏ qua bước check test để pipeline chạy nhanh nhất
-    - ./gradlew bootJar -x test
+    # Biên dịch và đóng gói file JAR (tác vụ bootJar mặc định không chạy kiểm thử)
+    - ./gradlew bootJar
   artifacts:
     paths:
       - build/libs/*.jar
@@ -1390,7 +1390,7 @@ build_executable_jar:
 * **Kỹ năng đọc log console:** Phân tích mã lỗi thoát (`exit code`), xác định câu lệnh gây lỗi và tra cứu chi tiết thông tin từ compiler/test framework.
 * **Kịch bản lỗi 1 (Permission Denied):** Lỗi sập do thiếu lệnh cấp quyền thực thi cho Gradle Wrapper.
 * **Kịch bản lỗi 2 (Compilation Failed):** Lỗi trình biên dịch do sai cú pháp hoặc sai tên class/interface trong mã nguồn Java.
-* **Kịch bản lỗi 3 (Test FAILED):** Lỗi kiểm thử khi chạy build không bỏ qua test (không dùng `-x test`) và gặp assert thất bại.
+* **Kịch bản lỗi 3 (Test FAILED):** Lỗi kiểm thử khi thay đổi lệnh build để kích hoạt các ca kiểm thử và gặp assert thất bại.
 
 #### 4. Demo và thực hành
 
@@ -1404,7 +1404,7 @@ build_executable_jar:
   * *Log sập:* `Task :compileJava FAILED` và chỉ ra dòng code lỗi chính tả.
   * *Cách xử lý:* Sửa đúng cú pháp ở local và push lại.
 * **Kịch bản 3 (Test FAILED):**
-  * *Tạo lỗi:* Loại bỏ cờ `-x test` khỏi lệnh build (`./gradlew bootJar`) và sửa đổi assert của một Unit Test ở local để nó fail.
+  * *Tạo lỗi:* Thay đổi câu lệnh trong file cấu hình `.gitlab-ci.yml` từ `./gradlew bootJar` sang `./gradlew build` để chạy test, kết hợp sửa đổi assert của một Unit Test ở local để nó fail.
   * *Log sập:* `Task :test FAILED` kèm chi tiết `AssertionError` của testcase cụ thể.
   * *Cách xử lý:* Sửa lại logic code hoặc testcase cho đúng và push lại.
 
@@ -1560,7 +1560,7 @@ build_jar_job:
     - quickbite
   script:
     - chmod +x ./gradlew
-    - ./gradlew bootJar -x test
+    - ./gradlew bootJar
   artifacts:
     paths:
       - build/libs/*.jar
@@ -1681,7 +1681,7 @@ build_jar_job:
     - quickbite
   script:
     - chmod +x ./gradlew
-    - ./gradlew bootJar -x test
+    - ./gradlew bootJar
   artifacts:
     paths:
       - build/libs/*.jar

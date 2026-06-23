@@ -438,26 +438,26 @@ File cấu hình đúng cú pháp YAML nên không báo lỗi cú pháp, lỗi c
 
 ## Q1
 
-Lệnh Gradle nào sau đây giúp đóng gói dự án Spring Boot thành file JAR thực thi nhanh nhất trong môi trường CI bằng cách bỏ qua các bài kiểm thử tự động?
+Lệnh Gradle nào sau đây giúp đóng gói dự án Spring Boot thành file JAR thực thi mà mặc định không kích hoạt các bài kiểm thử tự động như lệnh build?
 
 [A]
 ./gradlew compileJava
 [EXP]
-Lệnh này chỉ compile code Java sang class chứ không tạo ra file JAR thực thi.
+Lệnh này chỉ compile code Java sang file .class chứ không đóng gói thành tệp JAR.
 [B]
-./gradlew bootJar -x test
-[EXP]
-Chính xác. bootJar giúp đóng gói file JAR thực thi và -x test loại bỏ bước chạy test giúp rút ngắn tối đa thời gian chạy.
-[C]
 ./gradlew test
 [EXP]
-Lệnh này chỉ chạy unit test chứ không tạo ra file JAR đóng gói sản phẩm.
+Lệnh này chỉ thực hiện chạy các bài kiểm thử chứ không đóng gói ứng dụng.
+[C]
+./gradlew bootJar
+[EXP]
+Chính xác. Tác vụ bootJar của Spring Boot Gradle plugin chỉ thực hiện biên dịch và đóng gói file JAR thực thi mà không phụ thuộc hay kích hoạt tác vụ test.
 [D]
 ./gradlew build
 [EXP]
-Lệnh này chạy đầy đủ bao gồm cả kiểm thử, tốn nhiều thời gian chạy trên Runner.
+Lệnh build là một lifecycle task chạy đầy đủ cả kiểm thử tự động (test) trước khi đóng gói sản phẩm.
 
-@correct: B
+@correct: C
 @point: 20
 
 ## Q2
@@ -492,7 +492,7 @@ build_job:
   stage: build
   script:
     - chmod +x ./gradlew
-    - ./gradlew bootJar -x test
+    - ./gradlew bootJar
 ```
 Lệnh `chmod +x ./gradlew` có vai trò gì trước khi chạy lệnh build?
 
