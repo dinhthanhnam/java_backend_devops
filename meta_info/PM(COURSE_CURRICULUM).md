@@ -30,21 +30,21 @@ Lesson 05    Định tuyến request với Spring Cloud Gateway
 Lesson 06    Luồng request end-to-end (client → gateway → service)
 Session 06    Hệ thống kiến thức Session 03,04        
 
-Session 07    CI/CD cơ bản với GitLab    
+Session 07    Tự động hóa biên dịch với GitLab CI    
 
-Lesson 01    Tổng quan GitLab CI/CD và GitLab Runner
-Lesson 02    Cấu trúc file .gitlab-ci.yml
-Lesson 03    Cách hoạt động của pipeline CI/CD
+Lesson 01    Tổng quan GitLab CI/CD và Kiến trúc GitLab Runner
+Lesson 02    Cấu trúc và Cú pháp file .gitlab-ci.yml
+Lesson 03    Cơ chế hoạt động của Pipeline và Phân tách Stages
 Lesson 04    Build ứng dụng Spring Boot bằng Maven/Gradle trong CI
-\Lesson 05    Phân tích log pipeline và xử lý lỗi build
-Session 08    Cải thiện và tối ưu Pipeline CI/CD  
+Lesson 05    Phân tích log pipeline và xử lý lỗi build
+Session 08    Đóng gói Docker Image & Đẩy lên Registry  
 
-Lesson 01    Build Docker image trong pipeline CI/CD
-Lesson 02    Tối ưu hóa Dockerfile cho Production (Multi-stage build & Cache)
-Lesson 03    Build Docker image trong GitLab CI
-Lesson 04    Xác thực Docker registry trong CI/CD
-Lesson 05    Đẩy image lên Docker registry
-Lesson 06    Phân tách pipeline theo các giai đoạn (build, test, package, push)
+Lesson 01    Quy trình Build Docker image trong pipeline CI/CD
+Lesson 02    Tối ưu hóa Dockerfile cho Production (Multi-stage build)
+Lesson 03    Tự động hóa Build Docker Image trong GitLab CI
+Lesson 04    Cấu hình Xác thực (Authentication) Docker Registry trong CI/CD
+Lesson 05    Đẩy Image lên Registry và Phân tách Pipeline tổng thể
+
 Session 09    Hệ thống kiến thức Session 07,08        
 
 Session 10    Triển khai hệ thống lên VPS    

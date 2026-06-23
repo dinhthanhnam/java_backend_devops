@@ -1109,137 +1109,308 @@ spring:
 
 # SESSION 07
 
-## THIẾT LẬP PIPELINE CI/CD (PHẦN 1: CI & BUILD ARTIFACT)
+## CI/CD CƠ BẢN VỚI GITLAB
 
 ---
 
-### LESSON 01: Giới thiệu GitLab CI/CD và cấu trúc file `.gitlab-ci.yml`
+### LESSON 01: Tổng quan GitLab CI/CD và GitLab Runner
 
 #### 1. Mục tiêu bài học
 
-* **Giải thích** được cơ chế hoạt động của GitLab CI/CD thông qua kiến trúc GitLab Server và GitLab Runner.
-* **Khai báo và cấu trúc** thành công một file cấu hình `.gitlab-ci.yml` cơ bản với đầy đủ các thành phần: `stages`, `image`, và `scripts`.
+* **Giải thích** được định nghĩa, vai trò và vị trí của GitLab CI/CD trong quy trình phát triển và vận hành DevOps.
+* **Phân tích** kiến trúc Client-Server giữa GitLab Server và GitLab Runner trong việc nhận diện và điều phối các công việc (jobs).
+* **Phân biệt** được các loại Runner (Shared Runner, Specific Runner) và các loại Executor phổ biến (Docker, Shell).
 
 #### 2. Bối cảnh hệ thống
 
-* **Trạng thái:** STATE 2 — Multi-Container Application (Hệ thống đã chạy ổn định bằng Docker Compose ở Session 06).
-* **Vấn đề:** Mỗi khi lập trình viên cập nhật mã nguồn cho `order-service` trên Git, họ vẫn phải thực hiện các bước kiểm tra cú pháp, chạy test và build file JAR một cách thủ công trên máy local trước khi build Docker Image. Quy trình này phụ thuộc vào tính tự giác của con người, dẫn đến rủi ro code lỗi hoặc test sập vẫn được đẩy lên kho lưu trữ chung.
+* **Trạng thái:** STATE 2 — Multi-Container Local System (Các dịch vụ QuickBite đã đóng gói và chạy ổn định bằng Docker Compose trên môi trường local).
+* **Vấn đề:** Mỗi khi mã nguồn cập nhật, lập trình viên vẫn phải kiểm thử và đóng gói thủ công trên máy cá nhân trước khi phân phối. Quy trình này dễ xảy ra sai sót. Cần một hệ thống tự động hóa tập trung để giải phóng sức người và đảm bảo tính nhất quán trên các môi trường. Ở bước này, chúng ta tận dụng GitLab Shared Runner trực tuyến để tối ưu hóa thời gian triển khai, đồng thời học viên vẫn được hướng dẫn cách thiết lập Runner tự host để hiểu bản chất kỹ thuật.
 
 #### 3. Nội dung trọng tâm
 
+* **Khái niệm CI/CD:** Continuous Integration (Tích hợp liên tục - liên tục hợp nhất, chạy test tự động khi có code mới) và Continuous Delivery/Deployment (Chuyển giao/Triển khai liên tục).
 * **Kiến trúc GitLab CI/CD:**
-* *GitLab Server:* Nơi lưu trữ mã nguồn và quản lý, điều phối các luồng chạy pipeline.
-* *GitLab Runner:* Một dịch vụ/máy ảo độc lập chịu trách nhiệm trực tiếp thực thi các câu lệnh được định nghĩa trong pipeline.
-
-* **Cấu trúc cú pháp file `.gitlab-ci.yml`:**
-* `stages`: Định nghĩa thứ tự các bước lớn trong quy trình (ví dụ: compile -> test -> build).
-* `job`: Đơn vị thực thi nhỏ nhất trong pipeline, thuộc về một stage cụ thể.
-* `image`: Chỉ định Docker image làm môi trường nền để thực thi các câu lệnh trong job.
+  * *GitLab Server:* Nơi lưu trữ mã nguồn, quản lý giao diện trực quan và điều phối các luồng chạy pipeline.
+  * *GitLab Runner:* Một dịch vụ/máy ảo độc lập (Executor) trực tiếp thực thi các câu lệnh được định nghĩa trong pipeline.
+* **Phân loại Runner:** Shared Runner (dùng chung cho toàn hệ thống do GitLab cung cấp) và Specific Runner (dành riêng cho dự án cụ thể tự host).
+* **Executor:** Cần phân biệt Docker Executor (mỗi job chạy trong 1 container cô lập hoàn toàn, sạch sẽ) và Shell Executor (chạy trực tiếp lệnh trên hệ điều hành máy host của Runner).
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Tạo file cấu hình `.gitlab-ci.yml` đầu tiên cho `user-service` để tự động hóa bước kiểm tra biên dịch (Compile).
-* **Cấu hình hệ thống (`user-service/.gitlab-ci.yml`):**
-
+* **Mục tiêu demo:** Cài đặt và đăng ký một GitLab Runner cục bộ (Local Specific Runner) sử dụng Docker Compose và Docker Executor cho dự án QuickBite.
+* **Cấu hình Docker Compose (`docker-compose.yml`):**
 ```yaml
-# Sử dụng image OpenJDK làm môi trường chạy các lệnh Gradle/Maven
-image: eclipse-temurin:17-jdk-alpine
+version: '3.8'
 
-# Định nghĩa các giai đoạn của quy trình
-stages:
-  - build_and_test
+services:
+  gitlab-runner:
+    image: gitlab/gitlab-runner:latest
+    container_name: local-gitlab-runner
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - gitlab-runner-config:/etc/gitlab-runner
 
-# Khai báo một job cụ thể
-compile_job:
-  stage: build_and_test
-  script:
-    - echo "Bắt đầu kiểm tra và biên dịch mã nguồn user-service..."
-    - ./gradlew compileJava
-  only:
-    - main
+volumes:
+  gitlab-runner-config:
 ```
+* **Command:**
+```bash
+# 1. Khởi chạy GitLab Runner bằng Docker Compose
+docker compose up -d
 
-* **Kết quả mong đợi:** Khi sinh viên push file này lên GitLab, một pipeline sẽ tự động kích hoạt. Khi click vào giao diện trực quan của GitLab, sinh viên sẽ thấy job `compile_job` chạy thành công (Status: Passed) với đầy đủ log dòng lệnh.
+# 2. Đăng ký Runner vào dự án GitLab bằng Authentication Token mới (lấy từ Settings -> CI/CD -> Runners)
+docker compose exec gitlab-runner gitlab-runner register \
+  --non-interactive \
+  --url "https://gitlab.com/" \
+  --token "GLRT-YOUR_NEW_AUTHENTICATION_TOKEN_HERE" \
+  --executor "docker" \
+  --docker-image "alpine:latest" \
+  --description "Local Runner for QuickBite Project" \
+  --tag-list "docker,quickbite" \
+  --run-untagged="true" \
+  --locked="false"
+```
+* **Output mong đợi:** Đăng ký thành công. Trên giao diện quản lý GitLab (Settings -> CI/CD -> Runners), hiển thị một Runner mới ở trạng thái hoạt động (màu xanh lá cây) với tag `docker,quickbite`.
 
-#### 5. Điểm cần nhấn mạnh
+#### 5. Lưu ý và lỗi sai thường gặp
 
-* File `.gitlab-ci.yml` phải được đặt ngay tại **thư mục gốc (Root Directory)** của kho lưu trữ mã nguồn để GitLab có thể nhận diện.
-* Mỗi `job` trong cùng một `stage` sẽ được chạy song song (Parallel) nếu hệ thống có nhiều Runner, trong khi các `stages` sẽ chạy tuần tự theo thứ tự khai báo từ trên xuống.
+* **Quên mount Docker socket:** Khi thiết lập file `docker-compose.yml` cho tự host Runner, sinh viên thường quên mount đường dẫn `/var/run/docker.sock:/var/run/docker.sock`. Điều này khiến Docker Executor hoàn toàn mất quyền khởi tạo container phụ cho các job và làm sập pipeline.
+* **Sử dụng sai Token đăng ký:** Nhiều sinh viên nhầm lẫn sử dụng mã Registration Token cũ (đã bị GitLab khai tử) thay vì tạo Authentication Token mới có tiền tố `GLRT-` trên giao diện GitLab, dẫn đến lỗi xác thực đăng ký thất bại.
 
 #### 6. Hiểu lầm thường gặp
 
-* **Hiểu sai:** Nghĩ rằng GitLab Server là nơi trực tiếp chạy các câu lệnh như `./gradlew compileJava`.
-* **Đính chính:** GitLab Server chỉ đóng vai trò điều hướng và hiển thị giao diện. Việc thực thi câu lệnh hoàn toàn do **GitLab Runner** đảm nhận. Nếu không cài đặt hoặc cấu hình đúng Runner, pipeline sẽ rơi vào trạng thái đứng chờ (`pending`) vô thời hạn.
+* **Hiểu sai:** Cho rằng GitLab Server trực tiếp thực thi các câu lệnh biên dịch và kiểm thử được định nghĩa trong file cấu hình.
+* **Đính chính:** GitLab Server chỉ đóng vai trò điều hướng và hiển thị giao diện. Việc thực thi câu lệnh hoàn toàn do GitLab Runner đảm nhận. Nếu không cấu hình Runner, pipeline sẽ bị kẹt ở trạng thái `pending` vô hạn.
 
 ---
 
-### LESSON 02: Tự động hóa kiểm thử và đóng gói sản phẩm (Test & Package Artifact)
+### LESSON 02: Cấu trúc file .gitlab-ci.yml
 
 #### 1. Mục tiêu bài học
 
-* **Cấu hình** pipeline tự động chạy toàn bộ các bài Unit Test của ứng dụng Spring Boot khi có code mới.
-* **Sử dụng cơ chế `artifacts**` của GitLab CI để lưu trữ và chuyển giao file sản phẩm (file JAR) giữa các stage khác nhau trong vòng đời pipeline.
+* **Nắm vững** cú pháp YAML và quy tắc thụt lề bắt buộc trong file cấu hình `.gitlab-ci.yml`.
+* **Khai báo và cấu trúc** thành công một file cấu hình cơ bản gồm các thành phần cốt lõi: `stages`, `image`, `variables`, và các định nghĩa `job`.
+* **Sử dụng** được các từ khóa kiểm soát luồng chạy của job như `only`, `except`, `rules`, `before_script`, `after_script`.
 
 #### 2. Bối cảnh hệ thống
 
-* **Trạng thái:** STATE 2 — Multi-Container Application.
-* **Vấn đề:** Nếu một lập trình viên vô tình sửa logic tính tiền trong `order-service` làm hỏng các hàm tính toán cũ, nhưng họ quên không chạy lệnh `./gradlew test` ở local trước khi push code, lỗi này sẽ lọt lên nhánh chính và phá vỡ hệ thống. Hệ thống CI cần đóng vai trò là "người gác cổng" tự động chặn đứng các commit làm sập Unit Test.
+* **Trạng thái:** GitLab Runner đã sẵn sàng nhận lệnh (sử dụng Shared Runner hoặc Local Runner đã đăng ký).
+* **Vấn đề:** Cần khai báo các bước kiểm thử, biên dịch cho GitLab Runner hiểu thông qua một "kịch bản" chuẩn hóa. File `.gitlab-ci.yml` là đặc tả kịch bản đó, được lưu trữ trực tiếp cùng mã nguồn để áp dụng cơ chế "Infrastructure as Code".
+* **Lưu ý cấu trúc thư mục:**
+  > *Mỗi service (`user-service`, `restaurant-service`...) hiện tại đã là một Git Repository độc lập. File `.gitlab-ci.yml` dưới đây phải được đặt ngay tại thư mục gốc của chính service đó (ví dụ: `user-service/.gitlab-ci.yml`), không đặt ở thư mục cha.*
 
 #### 3. Nội dung trọng tâm
 
-* **Tự động hóa Test (Continuous Integration):** Tận dụng Docker container chứa JDK để chạy các bộ thử nghiệm tự động (`JUnit`), đảm bảo tỷ lệ pass 100% trước khi cho phép đi tiếp.
-* **Khái niệm Artifacts trong CI/CD:** Cơ chế cho phép GitLab Runner đóng gói các file được sinh ra từ một job (ví dụ: file `.jar` nằm trong thư mục `build/libs/`) và đẩy ngược lên GitLab Server để lưu trữ hoặc truyền sang các job ở stage sau.
+* **Cú pháp YAML:** Cấu trúc key-value, phân cấp thụt lề bằng khoảng trắng (spaces), tuyệt đối không được dùng phím Tab.
+* **Cấu trúc file `.gitlab-ci.yml`:**
+  * `image`: Docker image mặc định làm môi trường chạy cho các job (ví dụ: `eclipse-temurin:17-jdk-alpine`).
+  * `stages`: Định nghĩa danh sách các giai đoạn của quy trình và thứ tự thực thi của chúng (ví dụ: `compile`, `test`, `package`).
+  * `variables`: Định nghĩa các biến môi trường dùng chung trong pipeline.
+  * `job`: Khối lệnh thực thi độc lập. Mỗi job bắt buộc phải thuộc về một stage (`stage: compile`) và chứa kịch bản dòng lệnh (`script`).
+* **Kiểm soát luồng với rules / only / except:** Cho phép giới hạn job chỉ chạy trên các nhánh cụ thể (ví dụ chỉ chạy test trên nhánh `main` hoặc `develop`).
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Nâng cấp file pipeline để bao gồm cả hai bước: Chạy bộ Test và Đóng gói file JAR của `order-service`.
-* **Cấu hình hệ thống (`order-service/.gitlab-ci.yml`):**
-
+* **Mục tiêu demo:** Tạo file `.gitlab-ci.yml` tối giản đầu tiên tại thư mục gốc của dự án `user-service` để in ra các thông tin môi trường và phiên bản Java runtime của Runner.
+* **Cấu hình hệ thống (`user-service/.gitlab-ci.yml`):**
 ```yaml
 image: eclipse-temurin:17-jdk-alpine
 
+variables:
+  PROJECT_NAME: "QuickBite-User-Service"
+
 stages:
-  - test
-  - package
+  - info
 
-# Stage 1: Chạy toàn bộ Unit Test
-run_tests:
-  stage: test
+print_env_job:
+  stage: info
+  before_script:
+    - echo "Chuẩn bị in thông tin môi trường cho dự án ${PROJECT_NAME}..."
   script:
-    - echo "Đang thực thi các bài thử nghiệm tự động..."
-    - ./gradlew test
-  # Thu thập báo cáo test để hiển thị trên giao diện GitLab
+    - java -version
+    - echo "Tên dự án hiện tại là ${PROJECT_NAME}"
+    - echo "Nhánh Git đang chạy pipeline là ${CI_COMMIT_BRANCH}"
+  after_script:
+    - echo "Hoàn thành job in thông tin môi trường."
+```
+* **Output mong đợi:** Khi push code lên nhánh chính, pipeline tự động kích hoạt. Job `print_env_job` hoàn thành ở trạng thái Passed, log hiển thị chi tiết thông tin phiên bản Java 17 của image Eclipse Temurin và giá trị các biến môi trường nội suy.
+
+#### 5. Lưu ý và lỗi sai thường gặp
+
+* **Đặt sai vị trí file cấu hình:** Sinh viên có thói quen viết file `.gitlab-ci.yml` và đặt ở thư mục tổng của dự án QuickBite thay vì đặt ở thư mục gốc của từng repository của service độc lập (như `user-service/.gitlab-ci.yml`). Điều này khiến GitLab Server không thể phát hiện file cấu hình của từng service độc lập.
+* **Thụt lề YAML sai quy chuẩn:** YAML bắt buộc thụt lề bằng khoảng trắng (space). Lỗi cực kỳ phổ biến của sinh viên là sử dụng phím Tab để thụt lề hoặc thụt lề không đồng đều giữa các thuộc tính cùng cấp, dẫn đến lỗi phân tích cú pháp YAML.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Nghĩ rằng các biến môi trường bắt đầu bằng `$CI_` (như `$CI_COMMIT_BRANCH`) phải được khai báo trong phần `variables` thì mới sử dụng được.
+* **Đính chính:** Đây là các **Predefined Variables (Biến môi trường định sẵn)** do GitLab tự động nạp vào mọi container chạy job để cung cấp thông tin về commit, tác giả, branch, merge request... Lập trình viên chỉ việc gọi ra sử dụng trực tiếp.
+
+---
+
+### LESSON 03: Cách hoạt động của pipeline CI/CD
+
+#### 1. Mục tiêu bài học
+
+* **Phân tích** được luồng hoạt động tuần tự (Sequential) của các `stages` và song song (Parallel) của các `jobs` trong một pipeline.
+* **Giải thích** được cơ chế hoạt động độc lập và cô lập (Isolation) của từng job chạy trên Docker Executor.
+* **Vận dụng** thuộc tính `artifacts` để thu thập và chuyển giao sản phẩm đầu ra (như tệp tin báo cáo, file thực thi) qua các stage kế tiếp.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** Lập trình viên đã biết cách viết file `.gitlab-ci.yml` cơ bản.
+* **Vấn đề:** Trong quy trình CI/CD thực tế, một job chạy sau (như đóng gói Docker image) cần file JAR được tạo ra từ job trước (biên dịch code). Tuy nhiên, do tính chất cô lập hoàn toàn của Docker Executor (mỗi job chạy trên một container độc lập rồi tự hủy), file JAR sinh ra ở container trước sẽ biến mất. Cần một cơ chế trung gian để lưu giữ và chuyển giao tài nguyên giữa các stage.
+
+#### 3. Nội dung trọng tâm
+
+* **Stages vs Jobs:** Các job thuộc cùng một stage sẽ chạy song song (nếu có đủ Runner), trong khi các stage sẽ chạy tuần tự. Nếu một job trong stage trước thất bại, toàn bộ các stage sau sẽ bị hủy bỏ (skipped).
+* **Sự cô lập của Job (Job Isolation):** Mỗi job khi bắt đầu sẽ clone mã nguồn mới nhất về một container mới tinh, sạch sẽ. Khi job kết thúc, container bị hủy, mọi file phát sinh sẽ bị xóa sạch.
+* **Cơ chế Artifacts:** Giải pháp cho phép GitLab Runner nén các thư mục/file được chỉ định trong thuộc tính `paths` và đẩy ngược lên GitLab Server để lưu trữ tạm thời. Job chạy ở stage tiếp theo sẽ tự động tải các file này về để tiếp tục xử lý.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Viết pipeline hai giai đoạn: giai đoạn 1 tạo ra một file cấu hình demo, giai đoạn 2 tải file đó về để in ra nội dung nhằm chứng minh cơ chế truyền dẫn của `artifacts`.
+* **Cấu hình hệ thống (`user-service/.gitlab-ci.yml`):**
+```yaml
+image: alpine:latest
+
+stages:
+  - generate
+  - print
+
+create_file_job:
+  stage: generate
+  script:
+    - echo "Tạo tệp cấu hình tạm thời..."
+    - echo "PORT=8081" > config.properties
+    - echo "DB_HOST=quickbite-db" >> config.properties
   artifacts:
-    when: always
     paths:
-      - build/reports/tests/
-    expire_in: 1 week
+      - config.properties
+    expire_in: 10 mins
 
-# Stage 2: Đóng gói ra file thực thi JAR nếu bước Test thành công
-build_jar:
-  stage: package
+read_file_job:
+  stage: print
   script:
-    - echo "Bộ test đã pass. Tiến hành đóng gói ứng dụng..."
-    - ./gradlew bootJar
+    - echo "Đang đọc tệp cấu hình kế thừa từ stage trước..."
+    - cat config.properties
+```
+* **Output mong đợi:** Pipeline chạy thành công. Job `read_file_job` kế thừa thành công file `config.properties` và in ra đúng nội dung cấu hình mặc dù chạy ở stage khác. Trên giao diện GitLab xuất hiện nút download cho phép tải file `config.properties` về máy.
+
+#### 5. Lưu ý và lỗi sai thường gặp
+
+* **Quên khai báo artifacts để chuyển giao file:** Sinh viên thường nghĩ rằng file JAR được compile ở job trước mặc định sẽ tồn tại ở job sau. Bắt buộc phải khai báo từ khóa `artifacts` kèm theo đường dẫn tệp tin để GitLab Runner đóng gói và tải lên server lưu trữ trung gian.
+* **Cấu hình sai đường dẫn artifacts:** Khai báo sai đường dẫn lưu file (ví dụ: `build/libs/user-service.jar` nhưng ghi nhầm thành `build/user-service.jar`), dẫn đến lỗi Runner không tìm thấy tệp để upload và làm job bị failed.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Cho rằng thuộc tính `cache` và `artifacts` có chức năng giống nhau và có thể thay thế cho nhau.
+* **Đính chính:** `artifacts` dùng để chuyển giao các file kết quả (sản phẩm đầu ra như file JAR, file log) giữa các stage trong cùng một pipeline; `cache` dùng để lưu trữ các thư mục thư viện phụ thuộc (như `.gradle/caches` hay `node_modules`) để tăng tốc độ tải cho các lần chạy pipeline tiếp theo, không đảm bảo tính toàn vẹn để chuyển giao sản phẩm.
+
+---
+
+### LESSON 04: Build ứng dụng Spring Boot bằng Maven/Gradle trong CI
+
+#### 1. Mục tiêu bài học
+
+* **Cấu hình** được môi trường biên dịch (JDK, Gradle Wrapper) phù hợp với phiên bản Java của microservice.
+* **Biên soạn** thành công pipeline hoàn chỉnh thực hiện: Cấp quyền Gradle Wrapper -> Biên dịch ra file JAR thương mại (`bootJar`) và lưu vào artifacts một cách tối giản.
+* **Tối ưu hóa** hiệu năng pipeline chạy trên Shared Runner bằng cách loại bỏ các cấu hình cache rườm rà (do Shared Runner mặc định không duy trì cache local tối ưu) và bỏ qua bước test để pipeline chạy nhanh nhất.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** Các microservices QuickBite chạy Java 17 (`user-service`, `order-service`) và Java 21 (`restaurant-service`) cần được tự động hóa quy trình build.
+* **Vấn đề:** Để tối ưu hóa thời gian chạy trên Shared Runner của GitLab và đạt tốc độ thực thi từ 1 đến 1.5 phút cho mỗi pipeline, chúng ta cần tinh giản tối đa các bước trung gian không cần thiết, tập trung thẳng vào mục tiêu build ra file JAR thành phẩm.
+
+#### 3. Nội dung trọng tâm
+
+* **Base Image phù hợp:** Lựa chọn các image chứa JDK đầy đủ (như `eclipse-temurin:17-jdk-alpine`) làm môi trường chạy các lệnh Gradle/Maven mà không cần cài đặt Java thủ công.
+* **Tối giản hóa quy trình CI:** Loại bỏ cấu hình cache phức tạp và bỏ qua bước chạy test tự động (`-x test`) để đạt hiệu năng thực thi tối đa.
+* **Tận dụng Fallback của application.yml:** Sử dụng các cấu hình mặc định (ví dụ: `${DB_HOST:localhost}`) để mã nguồn có thể tự khởi tạo mà không phụ thuộc vào kết nối cơ sở dữ liệu thật lúc build.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Xây dựng pipeline CI tinh giản hoàn chỉnh cho dịch vụ `user-service` thực hiện đóng gói file JAR Spring Boot.
+* **Cấu hình hệ thống (`user-service/.gitlab-ci.yml`):**
+```yaml
+# Sử dụng trực tiếp JDK có sẵn trong image, không cần cấu hình tìm kiếm thủ công
+image: eclipse-temurin:17-jdk-alpine
+
+stages:
+  - build
+
+build_executable_jar:
+  stage: build
+  script:
+    # Cấp quyền thực thi cho Gradle Wrapper có sẵn trong dự án
+    - chmod +x ./gradlew
+    # Chỉ compile và đóng gói, bỏ qua bước check test để pipeline chạy nhanh nhất
+    - ./gradlew bootJar -x test
   artifacts:
     paths:
       - build/libs/*.jar
-    expire_in: 2 days
+    expire_in: 3 days
 ```
+* **Output mong đợi:** Pipeline chạy thành công trong khoảng 1 đến 1.5 phút. Job `build_executable_jar` sinh ra file `user-service.jar` và lưu vào mục Artifacts.
 
-* **Kết quả mong đợi:** Nếu mã nguồn có hàm test bị lỗi, job `run_tests` sẽ báo đỏ (Failed), pipeline dừng lại lập tức và job `build_jar` sẽ bị bỏ qua (`skipped`), ngăn chặn việc tạo ra file sản phẩm lỗi.
+#### 5. Lưu ý và lỗi sai thường gặp
 
-#### 5. Điểm cần nhấn mạnh
-
-* Tham số `expire_in` cực kỳ quan trọng trong thực tế để cấu hình thời gian tự động xóa file artifact cũ trên server, tránh việc tích tụ hàng nghìn file JAR qua các lượt commit làm tràn ổ cứng của hệ thống GitLab.
+* **Quên cấp quyền chạy cho Gradle Wrapper:** Không khai báo lệnh `chmod +x ./gradlew` trước khi thực thi build, dẫn đến lỗi `Permission Denied` trên môi trường Linux của Runner.
+* **Sai lệch phiên bản JDK trong image:** Dùng image `eclipse-temurin:17-jdk-alpine` để build dịch vụ yêu cầu Java 21 (`restaurant-service`) hoặc ngược lại, dẫn đến lỗi biên dịch hoặc lỗi `UnsupportedClassVersionError` khi chạy ứng dụng.
 
 #### 6. Hiểu lầm thường gặp
 
-* **Hiểu sai:** Nghĩ rằng các file được sinh ra ở job trước (ví dụ file `.jar` ở job build) sẽ mặc định xuất hiện và sử dụng được ở các job thuộc stage sau mà không cần khai báo từ khóa `artifacts`.
-* **Đính chính:** Mỗi job trong GitLab CI khởi chạy trên một container hoàn toàn trống rỗng và độc lập. Mọi file sinh ra sẽ biến mất khi job kết thúc trừ khi được định nghĩa tường minh trong khối `artifacts` để GitLab lưu trữ tạm thời và nạp vào job tiếp theo.
+* **Hiểu sai:** Việc bỏ qua bước test (`-x test`) khi build JAR trong pipeline CI là phương án khuyến nghị cho mọi hệ thống thực tế trên Production.
+* **Đính chính:** Đây là phương án tinh giản hóa được áp dụng cho môi trường học tập hoặc các dự án nhỏ chạy Shared Runner nhằm tối ưu hóa thời gian và tài nguyên miễn phí. Trong các dự án doanh nghiệp thực tế, bộ kiểm thử tự động (Unit Test / Integration Test) luôn là bước bắt buộc phải chạy và pass 100% trước khi đóng gói sản phẩm.
 
 ---
 
+### LESSON 05: Phân tích log pipeline và xử lý lỗi build
+
+#### 1. Mục tiêu bài học
+
+* **Đọc hiểu và phân tích** cấu trúc log xuất ra từ giao diện điều khiển (Console Output) của GitLab CI.
+* **Xác định và sửa đổi nhanh** các lỗi build thực tế (lỗi biên dịch cú pháp Java, lỗi phân quyền file thực thi Gradle).
+* **Tư duy chẩn đoán lỗi** dựa trên log hệ thống thay vì phỏng đoán nguyên nhân.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** Pipeline CI tinh giản đã được thiết lập nhưng có thể gặp lỗi đỏ do các lỗi lập trình hoặc phân quyền thông dụng.
+* **Vấn đề:** Do chúng ta đã chuyển sang lệnh build tinh giản `./gradlew bootJar -x test` và sử dụng fallback cấu hình `${DB_HOST:localhost}`, hệ thống sẽ không còn gặp các lỗi sập do DB hay lỗi thiếu RAM/CPU (OOM). Tuy nhiên, sinh viên vẫn thường gặp lỗi phân quyền file thực thi hoặc lỗi cú pháp mã nguồn Java khiến Java Compiler báo đỏ.
+
+#### 3. Nội dung trọng tâm
+
+* **Lỗi quên cấp quyền file (`Permission Denied`):** Lỗi xảy ra do thiếu lệnh `chmod +x ./gradlew` trong script chạy của runner, khiến Runner không thể thực thi Gradle Wrapper.
+* **Lỗi cú pháp biên dịch (Java Compilation Errors):** Cách tìm kiếm và đọc log báo lỗi của Java Compiler để phát hiện ra lỗi viết sai cú pháp, thiếu import thư viện hoặc sai tên class/interface.
+* **Lỗi sai phiên bản Java (Java Version Mismatch):** Phân tích log khi sử dụng image JDK phiên bản không tương thích với phiên bản Java khai báo trong `build.gradle` (ví dụ: dùng image JDK 17 để build code Java 21).
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Sửa lỗi một pipeline đang bị báo đỏ do lỗi phân quyền Gradle Wrapper và lỗi cú pháp Java Compiler.
+* **Cấu hình log báo lỗi ví dụ (Permission Denied):**
+```text
+$ ./gradlew bootJar -x test
+/bin/sh: eval: line 135: ./gradlew: Permission denied
+ERROR: Job failed: exit code 1
+```
+* **Giải pháp khắc phục:** Thêm lệnh `chmod +x ./gradlew` ngay trước lệnh build trong script:
+```yaml
+  script:
+    - chmod +x ./gradlew
+    - ./gradlew bootJar -x test
+```
+
+#### 5. Lưu ý và lỗi sai thường gặp
+
+* **Phỏng đoán nguyên nhân mơ hồ khi sập build:** Sinh viên khi thấy job báo Failed thường lập tức thay đổi code Java ngẫu nhiên mà không đọc log. Thói quen đúng là cuộn xuống cuối log tìm dòng ERROR hoặc FAILED, xác định câu lệnh gây lỗi, sau đó tìm log chi tiết của Java Compiler để xác định chính xác dòng code và file bị lỗi.
+* **Bỏ qua mã lỗi Exit Code:** Bỏ qua các mã exit code trả về từ hệ điều hành (ví dụ: exit code 1 đại diện cho lỗi chung của chương trình hoặc permission, exit code 127 đại diện cho lệnh không tồn tại), gây khó khăn cho việc phân loại lỗi.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Nghĩ rằng mọi lỗi đỏ (Failed) của job CI đều do mã nguồn Java viết sai.
+* **Đính chính:** Nhiều lỗi xảy ra ở tầng cấu hình môi trường hoặc phân quyền hệ thống chạy của Runner (như lỗi Permission Denied hoặc sai phiên bản JDK nền). Cần kiểm tra kỹ dòng thông báo lỗi chi tiết trên console log để phân biệt rõ nguyên nhân.
+
+---
 # SESSION 08
 
 ## THIẾT LẬP PIPELINE CI/CD (PHẦN 2: CONTINUOUS DELIVERY & DEPLOYMENT)
