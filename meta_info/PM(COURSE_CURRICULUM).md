@@ -37,6 +37,7 @@ Lesson 02    Cấu trúc và Cú pháp file .gitlab-ci.yml
 Lesson 03    Cơ chế hoạt động của Pipeline và Phân tách Stages
 Lesson 04    Build ứng dụng Spring Boot bằng Maven/Gradle trong CI
 Lesson 05    Phân tích log pipeline và xử lý lỗi build
+
 Session 08    Đóng gói Docker Image & Đẩy lên Registry  
 
 Lesson 01    Quy trình Build Docker image trong pipeline CI/CD

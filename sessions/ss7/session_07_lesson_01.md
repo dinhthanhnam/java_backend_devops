@@ -1,6 +1,6 @@
-# SESSION 07: CI/CD CƠ BẢN VỚI GITLAB
+# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITLAB CI
 
-## LESSON 01: Tổng quan GitLab CI/CD và GitLab Runner
+## LESSON 01: Tổng quan GitLab CI/CD và Kiến trúc GitLab Runner
 
 ---
 
@@ -14,14 +14,14 @@ Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (NỖI ĐAU CỦA VIỆC KIỂM TRA & BUILD THỦ CÔNG)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (HẠN CHẾ CỦA VIỆC KIỂM TRA & BUILD THỦ CÔNG)
 
 Hãy tưởng tượng nhóm phát triển của bạn đang tiếp quản hệ thống QuickBite chạy đa dịch vụ. Mỗi khi một lập trình viên cập nhật mã nguồn (ví dụ: sửa logic ví tiền trong `user-service`), quy trình thông thường sẽ là:
 1. Chạy unit test ở máy local để kiểm tra xem có làm hỏng tính năng cũ không.
 2. Biên dịch mã nguồn ra file JAR (ví dụ: chạy `./gradlew bootJar`).
 3. Đẩy code lên Git.
 
-* **Nỗi đau bắt đầu:**
+* **Thách thức thực tế:**
   * **Thiếu tính tự động hóa và nhất quán:** Lập trình viên có thể quên chạy bước 1 và 2 mà trực tiếp push code lên Git. Kết quả là mã nguồn lỗi hoặc không biên dịch được vẫn được đưa lên kho lưu trữ chung, làm ảnh hưởng đến cả đội ngũ.
   * **Sự khác biệt về môi trường:** Code chạy tốt trên máy của lập trình viên A (sử dụng JDK 17 cài sẵn) nhưng khi biên dịch ở máy lập trình viên B hoặc server (sử dụng JDK 21) thì sập do xung đột phiên bản compiler.
 

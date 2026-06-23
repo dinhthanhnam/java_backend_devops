@@ -543,7 +543,7 @@ docker run -d -p 8081:8081 --name user-app quickbite-user-service:v1
 #### 1. Mục tiêu bài học
 
 * **Giải thích** được định nghĩa, vai trò và sự cần thiết của hệ thống nhiều container (Multi-container System) trong kiến trúc Microservices.
-* **Hiểu bản chất** tại sao Docker Compose giải quyết nỗi đau của việc quản lý thủ công nhiều container.
+* **Hiểu bản chất** tại sao Docker Compose giải quyết các hạn chế của việc quản lý thủ công nhiều container.
 * **Phân tích** quy trình 3 bước hoạt động nền tảng: Đóng gói (Dockerfile) -> Khai báo (docker-compose.yml) -> Vận hành (docker compose CLI).
 
 #### 2. Bối cảnh hệ thống
@@ -1109,11 +1109,11 @@ spring:
 
 # SESSION 07
 
-## CI/CD CƠ BẢN VỚI GITLAB
+## TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITLAB CI
 
 ---
 
-### LESSON 01: Tổng quan GitLab CI/CD và GitLab Runner
+### LESSON 01: Tổng quan GitLab CI/CD và Kiến trúc GitLab Runner
 
 #### 1. Mục tiêu bài học
 
@@ -1185,13 +1185,14 @@ docker compose exec gitlab-runner gitlab-runner register \
 
 ---
 
-### LESSON 02: Cấu trúc file .gitlab-ci.yml
+### LESSON 02: Cấu trúc và Cú pháp file `.gitlab-ci.yml`
 
 #### 1. Mục tiêu bài học
 
 * **Nắm vững** cú pháp YAML và quy tắc thụt lề bắt buộc trong file cấu hình `.gitlab-ci.yml`.
 * **Khai báo và cấu trúc** thành công một file cấu hình cơ bản gồm các thành phần cốt lõi: `stages`, `image`, `variables`, và các định nghĩa `job`.
 * **Sử dụng** được các từ khóa kiểm soát luồng chạy của job như `only`, `except`, `rules`, `before_script`, `after_script`.
+* **Áp dụng** cơ chế `tags` để điều phối job chạy trên đúng môi trường mong muốn.
 
 #### 2. Bối cảnh hệ thống
 
@@ -1208,11 +1209,11 @@ docker compose exec gitlab-runner gitlab-runner register \
   * `stages`: Định nghĩa danh sách các giai đoạn của quy trình và thứ tự thực thi của chúng (ví dụ: `compile`, `test`, `package`).
   * `variables`: Định nghĩa các biến môi trường dùng chung trong pipeline.
   * `job`: Khối lệnh thực thi độc lập. Mỗi job bắt buộc phải thuộc về một stage (`stage: compile`) và chứa kịch bản dòng lệnh (`script`).
-* **Kiểm soát luồng với rules / only / except:** Cho phép giới hạn job chỉ chạy trên các nhánh cụ thể (ví dụ chỉ chạy test trên nhánh `main` hoặc `develop`).
+* **Sử dụng tags:** Chỉ định tag của Runner cụ thể được phép nhận job (ví dụ: `tags: [quickbite]`). Nếu không khai báo, job có thể bị các Runner dùng chung khác giành quyền thực thi (hiện tượng cướp job), dẫn đến sai khác môi trường.
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Tạo file `.gitlab-ci.yml` tối giản đầu tiên tại thư mục gốc của dự án `user-service` để in ra các thông tin môi trường và phiên bản Java runtime của Runner.
+* **Mục tiêu demo:** Tạo file `.gitlab-ci.yml` tối giản đầu tiên tại thư mục gốc của dự án `user-service` có khai báo tags để in ra thông tin môi trường.
 * **Cấu hình hệ thống (`user-service/.gitlab-ci.yml`):**
 ```yaml
 image: eclipse-temurin:17-jdk-alpine
@@ -1225,6 +1226,8 @@ stages:
 
 print_env_job:
   stage: info
+  tags:
+    - quickbite # Chỉ định Runner local tránh hiện tượng bị cướp job
   before_script:
     - echo "Chuẩn bị in thông tin môi trường cho dự án ${PROJECT_NAME}..."
   script:
@@ -1248,64 +1251,67 @@ print_env_job:
 
 ---
 
-### LESSON 03: Cách hoạt động của pipeline CI/CD
+### LESSON 03: Cơ chế hoạt động của Pipeline và Phân tách Stages
 
 #### 1. Mục tiêu bài học
 
 * **Phân tích** được luồng hoạt động tuần tự (Sequential) của các `stages` và song song (Parallel) của các `jobs` trong một pipeline.
 * **Giải thích** được cơ chế hoạt động độc lập và cô lập (Isolation) của từng job chạy trên Docker Executor.
-* **Vận dụng** thuộc tính `artifacts` để thu thập và chuyển giao sản phẩm đầu ra (như tệp tin báo cáo, file thực thi) qua các stage kế tiếp.
+* **Vận dụng** phân tách cấu trúc stages để quản lý tiến trình tự động hóa.
 
 #### 2. Bối cảnh hệ thống
 
 * **Trạng thái:** Lập trình viên đã biết cách viết file `.gitlab-ci.yml` cơ bản.
-* **Vấn đề:** Trong quy trình CI/CD thực tế, một job chạy sau (như đóng gói Docker image) cần file JAR được tạo ra từ job trước (biên dịch code). Tuy nhiên, do tính chất cô lập hoàn toàn của Docker Executor (mỗi job chạy trên một container độc lập rồi tự hủy), file JAR sinh ra ở container trước sẽ biến mất. Cần một cơ chế trung gian để lưu giữ và chuyển giao tài nguyên giữa các stage.
+* **Vấn đề:** Để nắm rõ nguyên lý hoạt động của CI/CD, chúng ta cần trực quan hóa cách các stages và các jobs chạy như thế nào trong thực tế. Việc thiết lập các công việc giả lập giúp dễ dàng quan sát luồng thực thi song song và tuần tự mà không mất thời gian biên dịch mã nguồn thật.
 
 #### 3. Nội dung trọng tâm
 
-* **Stages vs Jobs:** Các job thuộc cùng một stage sẽ chạy song song (nếu có đủ Runner), trong khi các stage sẽ chạy tuần tự. Nếu một job trong stage trước thất bại, toàn bộ các stage sau sẽ bị hủy bỏ (skipped).
+* **Stages vs Jobs:** Các job thuộc cùng một stage sẽ chạy song song (nếu hệ thống có đủ Runner), trong khi các stage sẽ chạy tuần tự. Nếu một job trong stage trước thất bại, toàn bộ các stage sau sẽ bị hủy bỏ (skipped).
 * **Sự cô lập của Job (Job Isolation):** Mỗi job khi bắt đầu sẽ clone mã nguồn mới nhất về một container mới tinh, sạch sẽ. Khi job kết thúc, container bị hủy, mọi file phát sinh sẽ bị xóa sạch.
-* **Cơ chế Artifacts:** Giải pháp cho phép GitLab Runner nén các thư mục/file được chỉ định trong thuộc tính `paths` và đẩy ngược lên GitLab Server để lưu trữ tạm thời. Job chạy ở stage tiếp theo sẽ tự động tải các file này về để tiếp tục xử lý.
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Viết pipeline hai giai đoạn: giai đoạn 1 tạo ra một file cấu hình demo, giai đoạn 2 tải file đó về để in ra nội dung nhằm chứng minh cơ chế truyền dẫn của `artifacts`.
+* **Mục tiêu demo:** Viết pipeline có 2 stage giả lập (`info` và `print`) với 2 job chạy song song trong stage đầu tiên để kiểm chứng tiến trình chạy.
 * **Cấu hình hệ thống (`user-service/.gitlab-ci.yml`):**
 ```yaml
-image: alpine:latest
-
 stages:
-  - generate
+  - info
   - print
 
-create_file_job:
-  stage: generate
+job_info_1:
+  stage: info
+  tags:
+    - quickbite
   script:
-    - echo "Tạo tệp cấu hình tạm thời..."
-    - echo "PORT=8081" > config.properties
-    - echo "DB_HOST=quickbite-db" >> config.properties
-  artifacts:
-    paths:
-      - config.properties
-    expire_in: 10 mins
+    - echo "Bắt đầu thu thập thông tin hệ thống..."
+    - uname -a
 
-read_file_job:
-  stage: print
+job_info_2:
+  stage: info
+  tags:
+    - quickbite
   script:
-    - echo "Đang đọc tệp cấu hình kế thừa từ stage trước..."
-    - cat config.properties
+    - echo "Bắt đầu kiểm tra môi trường..."
+    - whoami
+
+job_print:
+  stage: print
+  tags:
+    - quickbite
+  script:
+    - echo "In ra kết quả cuối cùng từ pipeline..."
 ```
-* **Output mong đợi:** Pipeline chạy thành công. Job `read_file_job` kế thừa thành công file `config.properties` và in ra đúng nội dung cấu hình mặc dù chạy ở stage khác. Trên giao diện GitLab xuất hiện nút download cho phép tải file `config.properties` về máy.
+* **Output mong đợi:** Khi pipeline chạy, cả hai job `job_info_1` và `job_info_2` xuất hiện đồng thời và chạy song song. Sau khi cả hai job này hoàn thành thành công, job `job_print` ở stage `print` mới được kích hoạt chạy tuần tự tiếp theo.
 
 #### 5. Lưu ý và lỗi sai thường gặp
 
-* **Quên khai báo artifacts để chuyển giao file:** Sinh viên thường nghĩ rằng file JAR được compile ở job trước mặc định sẽ tồn tại ở job sau. Bắt buộc phải khai báo từ khóa `artifacts` kèm theo đường dẫn tệp tin để GitLab Runner đóng gói và tải lên server lưu trữ trung gian.
-* **Cấu hình sai đường dẫn artifacts:** Khai báo sai đường dẫn lưu file (ví dụ: `build/libs/user-service.jar` nhưng ghi nhầm thành `build/user-service.jar`), dẫn đến lỗi Runner không tìm thấy tệp để upload và làm job bị failed.
+* **Cấu hình sai thứ tự stage:** Gán job vào một stage không tồn tại trong danh sách `stages` toàn cục hoặc ghi sai chính tả tên stage làm pipeline báo lỗi cấu hình không hợp lệ (`invalid configuration`).
+* **Đồng bộ hóa trạng thái job:** Lầm tưởng các job song song có thể can thiệp dữ liệu lẫn nhau trong quá trình chạy. Thực tế, chúng chạy trên các container độc lập hoàn toàn.
 
 #### 6. Hiểu lầm thường gặp
 
-* **Hiểu sai:** Cho rằng thuộc tính `cache` và `artifacts` có chức năng giống nhau và có thể thay thế cho nhau.
-* **Đính chính:** `artifacts` dùng để chuyển giao các file kết quả (sản phẩm đầu ra như file JAR, file log) giữa các stage trong cùng một pipeline; `cache` dùng để lưu trữ các thư mục thư viện phụ thuộc (như `.gradle/caches` hay `node_modules`) để tăng tốc độ tải cho các lần chạy pipeline tiếp theo, không đảm bảo tính toàn vẹn để chuyển giao sản phẩm.
+* **Hiểu sai:** Nghĩ rằng các job trong cùng một stage luôn chạy cùng một lúc trên một máy duy nhất.
+* **Đính chính:** Các job song song được phân phối độc lập. Chúng có thể chạy trên các máy Runner khác nhau nếu hệ thống có cấu hình multi-runner, đảm bảo tính phân tán và tối ưu tài nguyên.
 
 ---
 
@@ -1315,25 +1321,24 @@ read_file_job:
 
 * **Cấu hình** được môi trường biên dịch (JDK, Gradle Wrapper) phù hợp với phiên bản Java của microservice.
 * **Biên soạn** thành công pipeline hoàn chỉnh thực hiện: Cấp quyền Gradle Wrapper -> Biên dịch ra file JAR thương mại (`bootJar`) và lưu vào artifacts một cách tối giản.
-* **Tối ưu hóa** hiệu năng pipeline chạy trên Shared Runner bằng cách loại bỏ các cấu hình cache rườm rà (do Shared Runner mặc định không duy trì cache local tối ưu) và bỏ qua bước test để pipeline chạy nhanh nhất.
+* **Tối ưu hóa** hiệu năng pipeline chạy trên Shared Runner bằng cách loại bỏ các cấu hình cache rườm rà và bỏ qua bước test để pipeline chạy nhanh nhất.
 
 #### 2. Bối cảnh hệ thống
 
 * **Trạng thái:** Các microservices QuickBite chạy Java 17 (`user-service`, `order-service`) và Java 21 (`restaurant-service`) cần được tự động hóa quy trình build.
-* **Vấn đề:** Để tối ưu hóa thời gian chạy trên Shared Runner của GitLab và đạt tốc độ thực thi từ 1 đến 1.5 phút cho mỗi pipeline, chúng ta cần tinh giản tối đa các bước trung gian không cần thiết, tập trung thẳng vào mục tiêu build ra file JAR thành phẩm.
+* **Vấn đề:** Để tối ưu hóa thời gian chạy trên Shared Runner của GitLab và đạt tốc độ thực thi nhanh nhất, chúng ta cần tinh giản tối đa các bước trung gian không cần thiết, tập trung thẳng vào mục tiêu build ra file JAR thành phẩm. Đồng thời, do tính chất cô lập của container, file JAR sinh ra sẽ bị mất khi job kết thúc trừ khi ta dùng cơ chế `artifacts` để lưu trữ nó tạm thời trên GitLab Server.
 
 #### 3. Nội dung trọng tâm
 
-* **Base Image phù hợp:** Lựa chọn các image chứa JDK đầy đủ (như `eclipse-temurin:17-jdk-alpine`) làm môi trường chạy các lệnh Gradle/Maven mà không cần cài đặt Java thủ công.
+* **Base Image phù hợp:** Lựa chọn các image chứa JDK đầy đủ (như `eclipse-temurin:17-jdk-alpine`) làm môi trường chạy các lệnh Gradle/Maven.
 * **Tối giản hóa quy trình CI:** Loại bỏ cấu hình cache phức tạp và bỏ qua bước chạy test tự động (`-x test`) để đạt hiệu năng thực thi tối đa.
-* **Tận dụng Fallback của application.yml:** Sử dụng các cấu hình mặc định (ví dụ: `${DB_HOST:localhost}`) để mã nguồn có thể tự khởi tạo mà không phụ thuộc vào kết nối cơ sở dữ liệu thật lúc build.
+* **Cơ chế Artifacts:** Khai báo `artifacts` để đóng gói file JAR sinh ra và đẩy lên GitLab Server lưu giữ tạm thời.
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Xây dựng pipeline CI tinh giản hoàn chỉnh cho dịch vụ `user-service` thực hiện đóng gói file JAR Spring Boot.
+* **Mục tiêu demo:** Xây dựng pipeline CI tinh giản hoàn chỉnh cho dịch vụ `user-service` thực hiện đóng gói và lưu giữ file JAR Spring Boot.
 * **Cấu hình hệ thống (`user-service/.gitlab-ci.yml`):**
 ```yaml
-# Sử dụng trực tiếp JDK có sẵn trong image, không cần cấu hình tìm kiếm thủ công
 image: eclipse-temurin:17-jdk-alpine
 
 stages:
@@ -1341,6 +1346,8 @@ stages:
 
 build_executable_jar:
   stage: build
+  tags:
+    - quickbite
   script:
     # Cấp quyền thực thi cho Gradle Wrapper có sẵn trong dự án
     - chmod +x ./gradlew
@@ -1351,17 +1358,17 @@ build_executable_jar:
       - build/libs/*.jar
     expire_in: 3 days
 ```
-* **Output mong đợi:** Pipeline chạy thành công trong khoảng 1 đến 1.5 phút. Job `build_executable_jar` sinh ra file `user-service.jar` và lưu vào mục Artifacts.
+* **Output mong đợi:** Pipeline chạy thành công. Job `build_executable_jar` sinh ra file `user-service.jar` và lưu vào mục Artifacts trên hệ thống GitLab Server.
 
 #### 5. Lưu ý và lỗi sai thường gặp
 
 * **Quên cấp quyền chạy cho Gradle Wrapper:** Không khai báo lệnh `chmod +x ./gradlew` trước khi thực thi build, dẫn đến lỗi `Permission Denied` trên môi trường Linux của Runner.
-* **Sai lệch phiên bản JDK trong image:** Dùng image `eclipse-temurin:17-jdk-alpine` để build dịch vụ yêu cầu Java 21 (`restaurant-service`) hoặc ngược lại, dẫn đến lỗi biên dịch hoặc lỗi `UnsupportedClassVersionError` khi chạy ứng dụng.
+* **Quên khai báo artifacts để chuyển giao file:** Nghĩ rằng file JAR được compile ở job trước mặc định sẽ tồn tại ở job sau. Bắt buộc phải khai báo từ khóa `artifacts` kèm theo đường dẫn tệp tin để lưu trữ.
 
 #### 6. Hiểu lầm thường gặp
 
-* **Hiểu sai:** Việc bỏ qua bước test (`-x test`) khi build JAR trong pipeline CI là phương án khuyến nghị cho mọi hệ thống thực tế trên Production.
-* **Đính chính:** Đây là phương án tinh giản hóa được áp dụng cho môi trường học tập hoặc các dự án nhỏ chạy Shared Runner nhằm tối ưu hóa thời gian và tài nguyên miễn phí. Trong các dự án doanh nghiệp thực tế, bộ kiểm thử tự động (Unit Test / Integration Test) luôn là bước bắt buộc phải chạy và pass 100% trước khi đóng gói sản phẩm.
+* **Hiểu sai:** Cho rằng thuộc tính `cache` và `artifacts` có chức năng giống nhau và có thể thay thế cho nhau.
+* **Đính chính:** `artifacts` dùng để chuyển giao các file kết quả đầu ra (như file JAR) giữa các stage; `cache` dùng để lưu trữ các thư mục thư viện phụ thuộc (`.gradle/caches`) để tăng tốc độ tải cho các lần chạy sau.
 
 ---
 
@@ -1369,196 +1376,342 @@ build_executable_jar:
 
 #### 1. Mục tiêu bài học
 
-* **Đọc hiểu và phân tích** cấu trúc log xuất ra từ giao diện điều khiển (Console Output) của GitLab CI.
-* **Xác định và sửa đổi nhanh** các lỗi build thực tế (lỗi biên dịch cú pháp Java, lỗi phân quyền file thực thi Gradle).
-* **Tư duy chẩn đoán lỗi** dựa trên log hệ thống thay vì phỏng đoán nguyên nhân.
+* **Định vị và mở** giao diện Log Console của Job trên GitLab Web UI.
+* **Chẩn đoán** nguyên nhân gây sập pipeline thông qua phương pháp đọc log từ dưới lên.
+* **Xử lý** ba kịch bản lỗi thực tế kế thừa từ pipeline build của Lesson 04: lỗi phân quyền (`Permission Denied`), lỗi biên dịch (`Compilation Failed`), và lỗi kiểm thử thất bại (`Test FAILED`).
 
 #### 2. Bối cảnh hệ thống
 
-* **Trạng thái:** Pipeline CI tinh giản đã được thiết lập nhưng có thể gặp lỗi đỏ do các lỗi lập trình hoặc phân quyền thông dụng.
-* **Vấn đề:** Do chúng ta đã chuyển sang lệnh build tinh giản `./gradlew bootJar -x test` và sử dụng fallback cấu hình `${DB_HOST:localhost}`, hệ thống sẽ không còn gặp các lỗi sập do DB hay lỗi thiếu RAM/CPU (OOM). Tuy nhiên, sinh viên vẫn thường gặp lỗi phân quyền file thực thi hoặc lỗi cú pháp mã nguồn Java khiến Java Compiler báo đỏ.
+* **Trạng thái:** Kế thừa cấu hình build dự án `user-service` từ Lesson 04.
+* **Vấn đề:** Khi pipeline báo đỏ (Failed), hệ thống là một hộp đen nếu sinh viên không biết cách truy cập và phân tích log console. Cần các kịch bản lỗi thực tế để giảng viên demo trực tiếp trên GitLab, giúp sinh viên nhận diện lỗi và biết cách sửa đổi mã nguồn/cấu hình.
 
 #### 3. Nội dung trọng tâm
 
-* **Lỗi quên cấp quyền file (`Permission Denied`):** Lỗi xảy ra do thiếu lệnh `chmod +x ./gradlew` trong script chạy của runner, khiến Runner không thể thực thi Gradle Wrapper.
-* **Lỗi cú pháp biên dịch (Java Compilation Errors):** Cách tìm kiếm và đọc log báo lỗi của Java Compiler để phát hiện ra lỗi viết sai cú pháp, thiếu import thư viện hoặc sai tên class/interface.
-* **Lỗi sai phiên bản Java (Java Version Mismatch):** Phân tích log khi sử dụng image JDK phiên bản không tương thích với phiên bản Java khai báo trong `build.gradle` (ví dụ: dùng image JDK 17 để build code Java 21).
+* **Kỹ năng đọc log console:** Phân tích mã lỗi thoát (`exit code`), xác định câu lệnh gây lỗi và tra cứu chi tiết thông tin từ compiler/test framework.
+* **Kịch bản lỗi 1 (Permission Denied):** Lỗi sập do thiếu lệnh cấp quyền thực thi cho Gradle Wrapper.
+* **Kịch bản lỗi 2 (Compilation Failed):** Lỗi trình biên dịch do sai cú pháp hoặc sai tên class/interface trong mã nguồn Java.
+* **Kịch bản lỗi 3 (Test FAILED):** Lỗi kiểm thử khi chạy build không bỏ qua test (không dùng `-x test`) và gặp assert thất bại.
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Sửa lỗi một pipeline đang bị báo đỏ do lỗi phân quyền Gradle Wrapper và lỗi cú pháp Java Compiler.
-* **Cấu hình log báo lỗi ví dụ (Permission Denied):**
-```text
-$ ./gradlew bootJar -x test
-/bin/sh: eval: line 135: ./gradlew: Permission denied
-ERROR: Job failed: exit code 1
-```
-* **Giải pháp khắc phục:** Thêm lệnh `chmod +x ./gradlew` ngay trước lệnh build trong script:
-```yaml
-  script:
-    - chmod +x ./gradlew
-    - ./gradlew bootJar -x test
-```
+* **Mục tiêu demo:** Giảng viên thao tác trực tiếp trên GitLab, chạy pipeline lỗi để sinh viên thực hành đọc log chẩn đoán tại chỗ.
+* **Kịch bản 1 (Permission Denied):**
+  * *Tạo lỗi:* Xóa dòng `- chmod +x ./gradlew` trong `.gitlab-ci.yml`.
+  * *Log sập:* `/bin/sh: eval: line 135: ./gradlew: Permission denied` và `exit code 1`.
+  * *Cách xử lý:* Thêm lại lệnh `chmod +x ./gradlew` trước lệnh build.
+* **Kịch bản 2 (Compilation Failed):**
+  * *Tạo lỗi:* Viết sai cú pháp Java trong `UserService.java` (ví dụ sửa thành `UserReposotory`).
+  * *Log sập:* `Task :compileJava FAILED` và chỉ ra dòng code lỗi chính tả.
+  * *Cách xử lý:* Sửa đúng cú pháp ở local và push lại.
+* **Kịch bản 3 (Test FAILED):**
+  * *Tạo lỗi:* Loại bỏ cờ `-x test` khỏi lệnh build (`./gradlew bootJar`) và sửa đổi assert của một Unit Test ở local để nó fail.
+  * *Log sập:* `Task :test FAILED` kèm chi tiết `AssertionError` của testcase cụ thể.
+  * *Cách xử lý:* Sửa lại logic code hoặc testcase cho đúng và push lại.
 
 #### 5. Lưu ý và lỗi sai thường gặp
 
-* **Phỏng đoán nguyên nhân mơ hồ khi sập build:** Sinh viên khi thấy job báo Failed thường lập tức thay đổi code Java ngẫu nhiên mà không đọc log. Thói quen đúng là cuộn xuống cuối log tìm dòng ERROR hoặc FAILED, xác định câu lệnh gây lỗi, sau đó tìm log chi tiết của Java Compiler để xác định chính xác dòng code và file bị lỗi.
-* **Bỏ qua mã lỗi Exit Code:** Bỏ qua các mã exit code trả về từ hệ điều hành (ví dụ: exit code 1 đại diện cho lỗi chung của chương trình hoặc permission, exit code 127 đại diện cho lệnh không tồn tại), gây khó khăn cho việc phân loại lỗi.
+* **Sửa code mò mẫm không đọc log:** Học viên thường sửa code ngẫu nhiên khi thấy pipeline báo đỏ thay vì đọc log console để định vị vị trí và nguyên nhân lỗi chính xác.
+* **Bỏ qua mã lỗi Exit Code:** Không phân biệt các mã exit code của hệ điều hành (exit code 1 do lỗi biên dịch/phân quyền, exit code 127 do gõ sai lệnh).
 
 #### 6. Hiểu lầm thường gặp
 
-* **Hiểu sai:** Nghĩ rằng mọi lỗi đỏ (Failed) của job CI đều do mã nguồn Java viết sai.
-* **Đính chính:** Nhiều lỗi xảy ra ở tầng cấu hình môi trường hoặc phân quyền hệ thống chạy của Runner (như lỗi Permission Denied hoặc sai phiên bản JDK nền). Cần kiểm tra kỹ dòng thông báo lỗi chi tiết trên console log để phân biệt rõ nguyên nhân.
+* **Hiểu sai:** Lầm tưởng mọi lỗi đỏ của pipeline luôn do lỗi cú pháp Java trong mã nguồn.
+* **Đính chính:** Lỗi đỏ có thể phát sinh từ cấu hình YAML sai thụt lề, phân quyền của Runner (Permission Denied) hoặc sai phiên bản JDK nền của Docker image.
 
 ---
+
 # SESSION 08
 
-## THIẾT LẬP PIPELINE CI/CD (PHẦN 2: CONTINUOUS DELIVERY & DEPLOYMENT)
+## ĐÓNG GÓI DOCKER IMAGE & ĐẨY LÊN REGISTRY
 
 ---
 
-### LESSON 01: Quy trình Build và Đẩy Docker Image lên Docker Registry (GitLab Container Registry)
+### LESSON 01: Quy trình Build Docker image trong pipeline CI/CD
 
 #### 1. Mục tiêu bài học
 
-* **Áp dụng kỹ thuật Docker-in-Docker (DinD)** để xây dựng (build) một Docker Image ngay bên trong môi trường chạy của GitLab CI.
-* **Thực hiện cấu hình bảo mật** bảo mật tài khoản (Environment Variables) để tự động đẩy (push) sản phẩm lên GitLab Container Registry.
+* **Giải thích** được thách thức khi build Docker image bên trong môi trường chạy của Runner (cô lập).
+* **Áp dụng** giải pháp Docker-in-Docker (DinD) để chuẩn bị môi trường chạy các câu lệnh Docker.
+* **Cấu hình** thành công Docker service phụ trợ trong file CI/CD.
 
 #### 2. Bối cảnh hệ thống
 
-* **Trạng thái:** Chuyển dịch từ STATE 2 (Ứng dụng đa container thủ công) sang STATE 3 (Ứng dụng tự động hóa hoàn toàn với CI/CD Pipeline).
-* **Vấn đề:** Sau khi thu được file JAR từ Session 07, chúng ta không thể đem file JAR trần này đi deploy trực tiếp nếu muốn tuân thủ kiến trúc Containerization. Hệ thống CI cần tự động lấy file JAR đó, đưa vào Dockerfile để đóng gói thành một Docker Image hoàn chỉnh (`quickbite-order-service:v1`) rồi cất vào một nhà kho tập trung để sẵn sàng cho việc phân phối.
+* **Trạng thái:** File JAR Spring Boot đã được tạo ra từ Session 07 và sẵn sàng để đóng gói thành container.
+* **Vấn đề:** Để tuân thủ kiến trúc Microservices Containerization, mỗi service cần có Docker image riêng. Tuy nhiên, Runner bản chất đang chạy trong một Docker container cô lập. Để chạy lệnh `docker build` tạo ra image mới, ta cần một cơ chế cho phép container Runner giao tiếp với một Docker Daemon.
 
 #### 3. Nội dung trọng tâm
 
-* **Cơ chế Docker-in-Docker (DinD):** Cho phép một GitLab Runner đang chạy dưới dạng Docker container có quyền khởi tạo và điều khiển một Docker Daemon phụ bên trong nó để thực thi các lệnh `docker build`, `docker login`.
-* **Quản lý phiên bản Image (Tagging Strategy):** Định danh image theo commit hash (`$CI_COMMIT_SHORT_SHA`) hoặc tên nhánh (`$CI_COMMIT_REF_SLUG`) để đảm bảo tính vết và không bị ghi đè lẫn nhau.
+* **Khái niệm Docker-in-Docker (DinD):** Giải pháp chạy một Docker daemon phụ bên trong container Runner, cung cấp môi trường độc lập hoàn toàn để Runner gọi lệnh `docker build`, `docker login`, `docker push`.
+* **Cấu hình `services`:** Sử dụng từ khóa `services: [docker:dind]` trong file `.gitlab-ci.yml` để kích hoạt container phụ trợ chạy daemon Docker song song với job chính.
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Thêm stage `build_image` vào pipeline để tự động build Docker Image cho `restaurant-service` và đẩy lên kho lưu trữ đi kèm của GitLab.
-* **Cấu hình hệ thống (`restaurant-service/.gitlab-ci.yml`):**
-
+* **Mục tiêu demo:** Cấu hình file `.gitlab-ci.yml` dùng image `docker` và dịch vụ `dind` để kiểm tra môi trường Docker hoạt động trong CI.
+* **Cấu hình hệ thống (`user-service/.gitlab-ci.yml`):**
 ```yaml
-stages:
-  - package
-  - docker_build
+image: docker:latest
 
-# Kế thừa file JAR từ stage trước (giả định đã cấu hình ở Session 07)
-build_jar:
-  stage: package
+services:
+  - docker:dind
+
+stages:
+  - test_docker
+
+check_docker_job:
+  stage: test_docker
+  tags:
+    - quickbite
   script:
-    - ./gradlew bootJar
+    - docker info
+```
+* **Output mong đợi:** Job chạy thành công và in ra thông số cấu hình Docker Engine đang hoạt động bên trong Runner.
+
+#### 5. Lưu ý và lỗi sai thường gặp
+
+* **Thiếu khai báo services:** Quên khai báo `services: [docker:dind]` khiến job chính báo lỗi không thể kết nối tới Docker daemon (`Cannot connect to the Docker daemon`).
+* **Phiên bản Docker không đồng nhất:** Dùng phiên bản image `docker` và service `docker:dind` lệch nhau quá nhiều gây ra xung đột giao thức giao tiếp.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Cho rằng chỉ cần Runner chạy trên máy có cài Docker là mọi job mặc định có thể gọi lệnh `docker` mà không cần cấu hình thêm gì.
+* **Đính chính:** Runner chạy bằng Docker Executor cô lập hoàn toàn môi trường của nó với máy host. Bắt buộc phải khai báo dịch vụ `docker:dind` để tự tạo ra Docker Engine nội bộ cho job đó chạy.
+
+---
+
+### LESSON 02: Tối ưu hóa Dockerfile cho Production (Multi-stage build)
+
+#### 1. Mục tiêu bài học
+
+* **Phân tích** được nhược điểm về kích thước và bảo mật của các Dockerfile truyền thống.
+* **Ứng dụng** kỹ thuật Multi-stage build để chia quy trình đóng gói thành nhiều giai đoạn.
+* **Viết** được Dockerfile tối ưu kế thừa trực tiếp file JAR từ artifacts.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** File JAR đã được biên dịch sẵn ở Session 07.
+* **Vấn đề:** Nếu viết Dockerfile chứa đầy đủ cả công cụ compile mã nguồn (JDK) và mã nguồn thô, dung lượng image cuối cùng sẽ rất lớn (hơn 500MB). Cần tối ưu để image production chỉ chứa file JAR thực thi và môi trường chạy tối thiểu (JRE Alpine).
+
+#### 3. Nội dung trọng tâm
+
+* **Multi-stage build:** Sử dụng nhiều câu lệnh `FROM` trong cùng một Dockerfile để copy sản phẩm từ stage này sang stage khác, loại bỏ các công cụ build thừa thãi.
+* **JRE Alpine Image:** Sử dụng base image JRE Alpine gọn nhẹ (chỉ khoảng 50MB-100MB) để tối ưu kích thước truyền tải và giảm bề mặt tấn công bảo mật.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Viết Dockerfile tối ưu 2 giai đoạn kế thừa file JAR từ artifacts để đóng gói ứng dụng Spring Boot.
+* **Cấu hình hệ thống (`user-service/Dockerfile`):**
+```dockerfile
+# Sử dụng JRE gọn nhẹ cho môi trường chạy Production
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+# Sao chép trực tiếp file JAR đã được build từ artifacts của CI
+COPY build/libs/*.jar app.jar
+EXPOSE 8081
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+* **Output mong đợi:** Dockerfile hoạt động trơn tru. Khi build image, dung lượng image thu gọn tối đa và không chứa mã nguồn thô.
+
+#### 5. Lưu ý và lỗi sai thường gặp
+
+* **Copy sai đường dẫn file JAR:** Đường dẫn copy trong `COPY` không khớp với vị trí lưu trữ file JAR của artifacts dẫn đến lỗi build image thất bại.
+* **Nhầm lẫn phiên bản JRE:** Chọn JRE 17 cho ứng dụng yêu cầu JRE 21 gây ra lỗi `UnsupportedClassVersionError` khi chạy container.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Lầm tưởng Dockerfile tối ưu cho CI/CD vẫn phải copy toàn bộ mã nguồn thô Java vào rồi chạy lệnh `./gradlew build` bên trong Dockerfile.
+* **Đính chính:** Vì quá trình biên dịch (compile/build JAR) đã được hoàn tất trước đó ở stage build của CI, Dockerfile lúc này chỉ làm nhiệm vụ đóng gói file JAR đã có sẵn. Việc này giúp tiết kiệm thời gian build image rất nhiều.
+
+---
+
+### LESSON 03: Tự động hóa Build Docker Image trong GitLab CI
+
+#### 1. Mục tiêu bài học
+
+* **Khai báo** thành công stage build image trong file cấu hình `.gitlab-ci.yml`.
+* **Sử dụng** cơ chế phụ thuộc `needs` hoặc `dependencies` để lấy file JAR artifacts sang job build image.
+* **Áp dụng** tag phiên bản tự động bằng biến môi trường.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** Dockerfile và file `.gitlab-ci.yml` đã được viết riêng lẻ.
+* **Vấn đề:** Cần kết hợp hai thành phần này lại để quy trình đóng gói diễn ra hoàn toàn tự động ngay khi lập trình viên thực hiện commit code lên GitLab.
+
+#### 3. Nội dung trọng tâm
+* **Stage build Docker Image:** Khai báo stage tiếp theo trong chuỗi pipeline chạy sau stage compile/build JAR.
+* **Tagging Image:** Sử dụng biến môi trường định sẵn của commit hash như `$CI_COMMIT_SHORT_SHA` để tự động gán nhãn phiên bản cho image, tăng tính vết (Traceability).
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Viết pipeline hoàn chỉnh gồm 2 stage: build JAR Spring Boot và build Docker Image kế thừa file JAR.
+* **Cấu hình hệ thống (`user-service/.gitlab-ci.yml`):**
+```yaml
+image: eclipse-temurin:17-jdk-alpine
+
+stages:
+  - build_jar
+  - build_image
+
+variables:
+  IMAGE_NAME: "user-service"
+
+build_jar_job:
+  stage: build_jar
+  tags:
+    - quickbite
+  script:
+    - chmod +x ./gradlew
+    - ./gradlew bootJar -x test
   artifacts:
     paths:
       - build/libs/*.jar
+    expire_in: 1 hour
 
-# Giai đoạn Build và Push Docker Image
-build_and_push_image:
-  stage: docker_build
-  image: docker:24.0.5
+build_docker_image_job:
+  stage: build_image
+  image: docker:latest
   services:
-    - docker:24.0.5-dind
-  variables:
-    # Sử dụng các biến môi trường có sẵn do GitLab tự cung cấp
-    IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker:dind
+  tags:
+    - quickbite
+  dependencies:
+    - build_jar_job # Tải artifacts từ job trước về workspace
   script:
-    - echo "Đang đăng nhập vào kho lưu trữ GitLab Container Registry..."
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - echo "Bắt đầu build Docker Image cho restaurant-service..."
-    - docker build -t $IMAGE_TAG -f Dockerfile .
-    - echo "Đẩy Image lên Registry..."
-    - docker push $IMAGE_TAG
-
+    - docker build -t ${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA} .
 ```
+* **Output mong đợi:** Pipeline chạy thành công qua cả 2 giai đoạn. Job thứ hai tự động tải file JAR về workspace và chạy lệnh `docker build` tạo ra image thành công.
 
-* **Kết quả mong đợi:** Pipeline chạy thành công. Khi truy cập vào mục *Deploy -> Container Registry* trên giao diện dự án GitLab, sinh viên sẽ nhìn thấy một Image mới xuất hiện kèm theo mã hash cụ thể của commit vừa push.
+#### 5. Lưu ý và lỗi sai thường gặp
 
-#### 5. Điểm cần nhấn mạnh
-
-* Các biến như `$CI_REGISTRY_USER`, `$CI_REGISTRY_PASSWORD`, `$CI_REGISTRY` là các **Biến môi trường định sẵn (Predefined Variables)** của GitLab. Hệ thống tự động sinh ra chúng theo từng lượt chạy để đảm bảo an toàn, lập trình viên tuyệt đối không được tự hardcode tài khoản cá nhân của mình vào file `.gitlab-ci.yml`.
+* **Quên cấu hình dependencies/needs:** Khiến job build image khởi chạy mà không có file JAR artifacts trong thư mục làm việc, dẫn đến lệnh `COPY` trong Dockerfile báo lỗi không tìm thấy file.
+* **Không chỉ định Runner phù hợp cho job dind:** Cần đảm bảo job build image chạy trên Runner có cấu hình Docker-in-Docker.
 
 #### 6. Hiểu lầm thường gặp
 
-* **Hiểu sai:** Nghĩ rằng lệnh `docker build` chạy trong job này sẽ tự động tìm thấy file JAR mà không cần liên kết gì.
-* **Dẫn giải kỹ thuật:** Lệnh `docker build` chỉ hoạt động được nếu file `Dockerfile` của service được viết đúng quy trình sao chép file thực thi từ thư mục artifact (ví dụ: `COPY build/libs/*.jar app.jar`). Bản chất của job này là kế thừa trọn vẹn thư mục làm việc từ các job chạy trước nhờ cơ chế workspace của GitLab.
+* **Hiểu sai:** Cho rằng mọi file sinh ra ở job thứ nhất mặc định luôn xuất hiện ở job thứ hai mà không cần khai báo thuộc tính `dependencies`.
+* **Đính chính:** Môi trường chạy của từng job là hoàn toàn cô lập. Mọi dữ liệu chuyển giao bắt buộc phải đi qua cơ chế `artifacts` và được job sau khai báo kế thừa thông qua `dependencies` hoặc `needs`.
 
 ---
 
-### LESSON 02: Tự động hóa Triển khai lên Máy chủ từ xa (Continuous Deployment qua SSH)
+### LESSON 04: Cấu hình Xác thực (Authentication) Docker Registry trong CI/CD
 
 #### 1. Mục tiêu bài học
 
-* **Cấu hình bảo mật khóa SSH (SSH Private Key)** thông qua tính năng biến ẩn (Masked Variables) của GitLab để thiết lập kết nối an toàn tới server.
-* **Viết script tự động điều khiển từ xa** để ra lệnh cho máy chủ đích kéo (pull) Image mới về và cập nhật dịch vụ bằng Docker Compose mà không làm gián đoạn hệ thống.
+* **Giải thích** được cơ chế hoạt động và vai trò của Docker Registry (GitLab Container Registry).
+* **Ứng dụng** an toàn các biến ẩn bảo mật (Masked Variables) để bảo vệ tài khoản đăng nhập.
+* **Thực hiện** lệnh đăng nhập an toàn vào registry trong pipeline.
 
 #### 2. Bối cảnh hệ thống
 
-* **Trạng thái:** STATE 3 — Automated CI/CD Application.
-* **Vấn đề:** Ở Session 01, chúng ta đã phân tích sự bất tiện của việc phải gõ lệnh bằng tay để kết nối vào máy chủ cập nhật ứng dụng. Bây giờ, khi Docker Image mới của toàn bộ 4 dịch vụ QuickBite đã nằm an toàn trên Registry, chúng ta cần hoàn tất mảnh ghép cuối cùng của DevOps: Hệ thống CI/CD phải tự đóng vai trò là một quản trị viên, tự động SSH vào server, báo cho server biết có hàng mới, và thực hiện nâng cấp phiên bản tự động.
+* **Trạng thái:** Image được build thành công trên máy Runner nhưng chưa thể gửi đi đâu.
+* **Vấn đề:** Để lưu trữ tập trung, image cần được đẩy lên Registry. Tuy nhiên, lệnh `docker login` yêu cầu thông tin xác thực. Nếu ta hardcode tài khoản mật khẩu trực tiếp vào file cấu hình thì sẽ vi phạm nghiêm trọng quy chuẩn an toàn thông tin doanh nghiệp.
 
 #### 3. Nội dung trọng tâm
 
-* **Bảo mật thông tin hạ tầng với GitLab Variables:** Cách đưa các thông tin nhạy cảm như IP của server (`DEPLOY_SERVER_IP`) và khóa bí mật (`SSH_PRIVATE_KEY`) vào vùng quản trị bảo mật của GitLab (CI/CD Settings), ẩn hoàn toàn khỏi mã nguồn mở công cộng.
-* **Cơ chế cập nhật không gián đoạn (Pull & Restart):** Luồng lệnh từ xa gửi tới Server bao gồm: Đăng nhập Registry -> Kéo Image mới (`docker pull`) -> Khởi chạy lại container bằng cách tận dụng tính năng tái khởi tạo của Docker Compose (`docker compose up -d --no-deps <service_name>`).
+* **GitLab Container Registry:** Kho lưu trữ Docker Image tích hợp sẵn đi kèm với từng dự án GitLab.
+* **Predefined Security Variables:** GitLab cung cấp sẵn các biến môi trường tạm thời cho mỗi lượt chạy pipeline (`$CI_REGISTRY_USER`, `$CI_REGISTRY_PASSWORD`, `$CI_REGISTRY`) giúp job đăng nhập trực tiếp mà không cần cấu hình tài khoản cá nhân.
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Hoàn thiện kịch bản cấu hình cho phép tự động deploy dịch vụ `notification-service` lên một server ảo từ xa ngay sau khi Image được build xong.
-* **Cấu hình hệ thống (`notification-service/.gitlab-ci.yml`):**
-
+* **Mục tiêu demo:** Thêm bước đăng nhập vào Registry tích hợp trong job build image.
+* **Cấu hình hệ thống (`user-service/.gitlab-ci.yml`):**
 ```yaml
-stages:
-  - docker_build
-  - deploy
-
-# ... Giả định stage docker_build đã push image thành công với tag $CI_COMMIT_SHORT_SHA ...
-
-deploy_to_server:
-  stage: deploy
-  image: alpine:latest
-  before_script:
-    # Cài đặt công cụ openssh-client bên trong container chạy job để dùng được lệnh ssh
-    - apk add --no-cache openssh-client
-    # Khởi động ssh-agent nội bộ
-    - eval $(ssh-agent -s)
-    # Nạp khóa Private Key (được cấu hình trong mục Settings -> CI/CD -> Variables của GitLab)
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-    # Tạo thư mục cấu hình ssh và bỏ qua bước xác thực vân tay máy chủ khi kết nối lần đầu
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+build_docker_image_job:
+  stage: build_image
+  image: docker:latest
+  services:
+    - docker:dind
+  tags:
+    - quickbite
+  dependencies:
+    - build_jar_job
   script:
-    - echo "Đang kết nối tới máy chủ Production $DEPLOY_SERVER_IP..."
-    - ssh user@$DEPLOY_SERVER_IP "
-        cd /opt/quickbite-infra &&
-        docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY &&
-        export NOTIFICATION_IMAGE_TAG=$CI_COMMIT_SHORT_SHA &&
-        docker compose pull notification-service &&
-        docker compose up -d --no-deps notification-service
-      "
-  only:
-    - main
+    # Sử dụng các biến ẩn định sẵn để đăng nhập an toàn
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA .
 ```
+* **Output mong đợi:** Log của pipeline hiển thị quá trình đăng nhập thành công (`Login Succeeded`) mà không làm hiển thị thông tin tài khoản mật khẩu thật của lập trình viên.
 
-* **Kết quả mong đợi:** Khi dòng code cuối cùng được duyệt vào nhánh `main`, toàn bộ đường ống CI/CD tự động kích hoạt: Test -> Build JAR -> Build Image -> Đẩy lên Registry -> SSH vào Server hạ lệnh nâng cấp dịch vụ. Người vận hành chỉ cần kiểm tra trạng thái container trên Server bằng lệnh `docker ps` để xác nhận container `notification-service` vừa được khởi tạo lại cách đó vài giây với phiên bản mã nguồn mới nhất.
+#### 5. Lưu ý và lỗi sai thường gặp
 
-#### 5. Điểm cần nhấn mạnh cho giảng viên (Pedagogical Tips)
-
-* **Giải thích tham số `--no-deps`:** Nhấn mạnh cho sinh viên hiểu rõ tầm quan trọng của cờ `--no-deps` trong câu lệnh `docker compose up -d`. Tham số này báo cho Docker Compose biết chỉ tái khởi động duy nhất service được chỉ định (`notification-service`), giữ nguyên trạng thái hoạt động bình thường của các thành phần phụ thuộc khác như database `quickbite-db` hay `user-service`. Điều này giúp giảm thiểu tối đa tầm ảnh hưởng và thời gian downtime của toàn bộ hệ thống QuickBite.
-* **Tư duy bảo mật tuyệt đối:** Nhắc nhở sinh viên luôn bật thuộc tính **"Masked"** cho biến `SSH_PRIVATE_KEY` trong giao diện cài đặt của GitLab. Thuộc tính này đảm bảo rằng ngay cả khi có ai đó cố tình chèn câu lệnh `echo $SSH_PRIVATE_KEY` vào script của pipeline để ăn trộm khóa, GitLab sẽ tự động nhận diện và mã hóa chuỗi đầu ra thành các ký tự `[MASKED]` trên log hiển thị.
+* **Ghi đè hoặc xóa nhầm biến hệ thống:** Vô tình khai báo biến trùng tên trong mục cài đặt làm mất giá trị biến mặc định của GitLab.
+* **Container Registry bị tắt ở dự án:** Lỗi đăng nhập thất bại do tính năng lưu trữ image chưa được bật trong phần cấu hình dự án của GitLab.
 
 #### 6. Hiểu lầm thường gặp
 
-* **Hiểu sai:** Cho rằng việc sử dụng CI/CD Deployment kiểu này sẽ giải quyết được bài toán Zero-Downtime (Hệ thống không bị gián đoạn dù chỉ 1 mili-giây khi deploy).
-* **Đính chính:** Phương pháp này giúp tự động hóa thao tác deploy cực kỳ tốt, nhưng tại thời điểm container cũ bị tắt đi để container mới bật lên, hệ thống vẫn sẽ gặp một khoảng trễ nhỏ (Downtime dịch vụ từ 1 đến 3 giây). Để đạt đến cảnh giới Zero-Downtime tuyệt đối, sinh viên cần được dẫn dắt sang các giải pháp điều phối phức tạp hơn như cơ chế Rolling Update của Docker Swarm hoặc Kubernetes ở các chương trình nâng cao.
+* **Hiểu sai:** Lầm tưởng phải tự tạo ra tài khoản deploy token và đưa vào file cấu hình thì mới có quyền đăng nhập registry.
+* **Đính chính:** GitLab CI tự động cấp phát một token đăng nhập tạm thời thông qua biến `$CI_REGISTRY_PASSWORD` chỉ có hiệu lực trong suốt thời gian chạy của chính job đó, đảm bảo an toàn tuyệt đối.
 
 ---
 
-*Giảng viên lưu ý: Kết thúc Session 08, sinh viên đã hoàn thành trọn vẹn chu trình "DevOps thực chiến" cho hệ thống microservices QuickBite, đi từ việc code chay local (State 0) -> Đóng gói đơn lẻ (State 1) -> Thiết lập mạng phối hợp đa container (State 2) -> Và tự động hóa hoàn toàn chuỗi phát hành lên production qua Pipeline (State 3). Hãy dành thời gian ở buổi tổng kết để sinh viên thực hiện báo cáo nghiệm thu toàn diện hệ thống.*
+### LESSON 05: Đẩy Image lên Registry và Phân tách Pipeline tổng thể
 
----
+#### 1. Mục tiêu bài học
 
+* **Biên soạn** câu lệnh thực hiện đẩy (push) image lên registry trực tuyến thành công.
+* **Phân tích** sơ đồ tổng thể quy trình vận hành tự động hóa (luồng end-to-end) của một microservice.
+* **Đánh giá** kết quả đóng gói trên giao diện Web UI của GitLab.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** Image đã được build và đăng nhập registry thành công.
+* **Vấn đề:** Image hiện tại vẫn đang nằm cục bộ trong container dind tạm thời của Runner và sẽ bị xóa khi kết thúc job. Cần đẩy image này lên kho lưu trữ trực tuyến để bất kỳ máy chủ nào khác (như VPS Production) cũng có thể kéo về sử dụng.
+
+#### 3. Nội dung trọng tâm
+
+* **Lệnh `docker push`:** Lệnh đồng bộ hóa Docker Image từ môi trường cục bộ lên Registry trực tuyến.
+* **Luồng chạy tổng thể:** Push code -> Chạy job build JAR -> Đóng gói image -> Đăng nhập -> Push Image -> Quản lý phiên bản trên GitLab Web.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Hoàn thiện pipeline CI đóng gói và push image hoàn chỉnh cho `user-service`.
+* **Cấu hình hệ thống (`user-service/.gitlab-ci.yml`):**
+```yaml
+image: eclipse-temurin:17-jdk-alpine
+
+stages:
+  - build_jar
+  - build_image
+
+variables:
+  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+
+build_jar_job:
+  stage: build_jar
+  tags:
+    - quickbite
+  script:
+    - chmod +x ./gradlew
+    - ./gradlew bootJar -x test
+  artifacts:
+    paths:
+      - build/libs/*.jar
+    expire_in: 1 hour
+
+build_docker_image_job:
+  stage: build_image
+  image: docker:latest
+  services:
+    - docker:dind
+  tags:
+    - quickbite
+  dependencies:
+    - build_jar_job
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $IMAGE_TAG .
+    - docker push $IMAGE_TAG
+```
+* **Output mong đợi:** Pipeline chạy thành công qua cả 2 stage. Trên giao diện Web của dự án GitLab (mục Deploy -> Container Registry), xuất hiện một Docker Image mới đi kèm tag tương ứng với mã hash commit.
+
+#### 5. Lưu ý và lỗi sai thường gặp
+
+* **Quên gắn thẻ tag của Registry:** Khai báo sai tên image (không bắt đầu bằng địa chỉ Registry như `$CI_REGISTRY_IMAGE`) khiến lệnh push báo lỗi không được phân quyền lưu trữ.
+* **Dung lượng image quá lớn:** Không tối ưu Dockerfile khiến quá trình push diễn ra cực kỳ lâu và dễ bị ngắt kết nối giữa chừng do timeout.
+
+#### 6. Hiểu lầm thường gặp
+
+* **Hiểu sai:** Nghĩ rằng chỉ cần chạy lệnh `docker build` là đủ, image tự động bay lên trời mà không cần chạy lệnh `docker push`.
+* **Đính chính:** Image được build xong chỉ nằm ở bộ nhớ đệm cục bộ của container dind. Lệnh `docker push` là bắt buộc để tải image lên kho lưu trữ internet.
 # SESSION 10
 
 ## TRIỂN KHAI HỆ THỐNG LÊN VPS (VIRTUAL PRIVATE SERVER)

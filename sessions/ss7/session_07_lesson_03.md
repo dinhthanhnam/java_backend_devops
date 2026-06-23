@@ -1,6 +1,6 @@
-# SESSION 07: CI/CD CƠ BẢN VỚI GITLAB
+# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITLAB CI
 
-## LESSON 03: Cách hoạt động của pipeline CI/CD
+## LESSON 03: Cơ chế hoạt động của Pipeline và Phân tách Stages
 
 ---
 
@@ -9,117 +9,103 @@
 Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
 * **Phân tích** được luồng hoạt động tuần tự (Sequential) của các `stages` và song song (Parallel) của các `jobs` trong một pipeline.
 * **Giải thích** được cơ chế hoạt động độc lập và cô lập (Isolation) của từng job chạy trên Docker Executor.
-* **Vận dụng** thuộc tính `artifacts` để thu thập và chuyển giao sản phẩm đầu ra (như tệp tin báo cáo, file thực thi) qua các stage kế tiếp.
+* **Vận dụng** phân tách cấu trúc stages để quản lý tiến trình tự động hóa.
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (NỖI ĐAU CỦA VIỆC MẤT FILE GIỮA CÁC GIAI ĐOẠN)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (ĐIỀU PHỐI VÀ QUẢN LÝ TIẾN TRÌNH PIPELINE)
 
-Trong quy trình phát triển thực tế, các giai đoạn (stages) của pipeline có mối quan hệ phụ thuộc chặt chẽ:
-* Giai đoạn 1: Biên dịch và tạo file JAR thành phẩm (`user-service.jar`).
-* Giai đoạn 2: Đóng gói file JAR đó vào Dockerfile để build thành Docker Image.
+Để thiết lập quy trình CI/CD hiệu quả cho hệ thống Microservices QuickBite, việc hiểu rõ cách các công việc (jobs) được kích hoạt và điều phối là vô cùng quan trọng.
+* Các công việc kiểm tra cú pháp và build code có chạy đồng thời được không?
+* Làm sao đảm bảo bước in báo cáo chỉ chạy sau khi việc kiểm tra đã hoàn thành?
 
-* **Nỗi đau xảy ra:**
-  Do cơ chế hoạt động cô lập hoàn toàn của Docker Executor, mỗi job sẽ khởi chạy một Docker container mới tinh và sạch sẽ, sau đó tự hủy container đó khi job kết thúc. Kết quả là file JAR được sinh ra ở Giai đoạn 1 sẽ **biến mất vĩnh viễn** khi Giai đoạn 1 kết thúc. Khi Giai đoạn 2 khởi chạy, container mới hoàn toàn không tìm thấy file JAR nào để thực hiện build Docker Image.
-
-Để giải quyết vấn đề chuyển giao dữ liệu/sản phẩm giữa các môi trường cô lập, GitLab CI/CD cung cấp cơ chế chuyển giao tài nguyên trung gian thông qua thuộc tính **`artifacts`**.
+Thay vì lý thuyết suông, việc trực quan hóa luồng chạy thông qua một kịch bản giả lập có 2 stage khác nhau sẽ giúp bạn thấy tận mắt cách hệ thống kiểm soát thứ tự thực thi và cô lập tài nguyên.
 
 ---
 
-### PHẦN 3. KIẾN THỨC CỐT LÕI (LUỒNG CHẠY PIPELINE & CƠ CHẾ ARTIFACTS)
+### PHẦN 3. KIẾN THỨC CỐT LÕI (LUỒNG PIPELINE & CÔ LẬP JOB)
 
 #### 3.1 Luồng hoạt động của Stages và Jobs
 Một Pipeline là tập hợp của nhiều Giai đoạn (Stages), mỗi Stage lại chứa một hoặc nhiều Công việc (Jobs) cụ thể:
 * **Quy trình chạy Stage tuần tự:** Các stage chạy tuần tự từ trên xuống dưới theo khai báo tại khối `stages`. Nếu một job trong stage trước bị lỗi (Failed), toàn bộ pipeline sẽ dừng lại ngay lập tức, các stage chạy sau sẽ bị hủy bỏ (skipped).
-* **Quy trình chạy Job song song:** Nếu dự án của bạn có nhiều Runner hoạt động đồng thời, các job thuộc cùng một stage sẽ được phân phối chạy song song để tiết kiệm thời gian.
+* **Quy trình chạy Job song song:** Các job thuộc cùng một stage sẽ được phân phối và chạy song song (nếu hệ thống có đủ máy Runner trống), giúp rút ngắn tối đa thời gian chờ đợi.
 
 #### 3.2 Cơ chế cô lập Job (Job Isolation)
 Đây là đặc tính an toàn cốt lõi khi sử dụng Docker Executor:
-1. Runner nhận job -> Dựng container mới từ image cấu hình.
-2. Clone mã nguồn mới nhất từ Git vào container.
+1. Runner nhận job -> Khởi tạo một container mới hoàn toàn sạch sẽ từ image cấu hình.
+2. Tải mã nguồn mới nhất từ Git về container đó.
 3. Thực thi kịch bản lệnh trong `script`.
-4. Hủy bỏ container (mọi file tạm phát sinh trong lúc chạy sẽ bị xóa sạch khỏi đĩa cứng).
-
-#### 3.3 Cơ chế hoạt động của Artifacts
-`**artifacts**` là cơ chế cho phép GitLab Runner thu thập các file/thư mục được sinh ra từ một job, đóng gói lại và đẩy ngược lên lưu trữ tạm thời trên máy chủ GitLab Server:
-
-```text
-[ Stage 1: Job build_jar ] ──► (Tạo file app.jar) ──(Upload Artifact)──► [ GitLab Server ]
-                                                                                │
-                                                                         (Tải xuống Artifact)
-                                                                                │
-[ Stage 2: Job build_image] ◄───────────────────────────────────────────────────┘
-```
-
-* Khi job chạy sau ở stage tiếp theo khởi chạy, Runner sẽ tự động tải các file artifact từ GitLab Server về thư mục làm việc để job chạy sau có thể kế thừa và tiếp tục xử lý.
-* Sử dụng thuộc tính `expire_in` để giới hạn thời gian lưu trữ artifact trên server (ví dụ: `2 days` hoặc `1 week`), sau thời gian này GitLab sẽ tự động xóa file để giải phóng dung lượng ổ cứng.
+4. Hủy bỏ container ngay khi hoàn thành (mọi file tạm phát sinh trong lúc chạy sẽ bị xóa sạch khỏi đĩa cứng).
 
 ---
 
-### PHẦN 4. DEMO VÀ THỰC HÀNH (THIẾT LẬP ARTIFACTS GIỮA CÁC STAGES)
+### PHẦN 4. DEMO VÀ THỰC HÀNH (THIẾT LẬP PIPELINE 2 GIAI ĐOẠN GIẢ LẬP)
 
-Để chứng minh cơ chế truyền dẫn và lưu trữ của `artifacts` trên môi trường container cô lập, chúng ta xây dựng một pipeline 2 giai đoạn tối giản.
+Chúng ta sẽ thiết lập một kịch bản cấu hình có 2 stages: `info` (chứa các job chạy song song) và `print` (chạy tuần tự phía sau).
 
 #### 4.1 Biên soạn tệp cấu hình `.gitlab-ci.yml`
 Tạo file `.gitlab-ci.yml` tại thư mục gốc của dự án `user-service` với cấu hình sau:
 
 ```yaml
-image: alpine:latest
-
 stages:
-  - generate
+  - info
   - print
 
-create_file_job:
-  stage: generate
+job_info_1:
+  stage: info
+  tags:
+    - quickbite
   script:
-    - echo "Tạo tệp cấu hình tạm thời..."
-    - echo "PORT=8081" > config.properties
-    - echo "DB_HOST=quickbite-db" >> config.properties
-  artifacts:
-    paths:
-      - config.properties
-    expire_in: 10 mins
+    - echo "Bắt đầu thu thập thông tin hệ thống..."
+    - uname -a
 
-read_file_job:
-  stage: print
+job_info_2:
+  stage: info
+  tags:
+    - quickbite
   script:
-    - echo "Đang đọc tệp cấu hình kế thừa từ stage trước..."
-    - cat config.properties
+    - echo "Bắt đầu kiểm tra môi trường..."
+    - whoami
+
+job_print:
+  stage: print
+  tags:
+    - quickbite
+  script:
+    - echo "In ra kết quả cuối cùng từ pipeline..."
 ```
 
 #### 4.2 Kết quả mong đợi
-* Job `create_file_job` hoàn thành, tạo file `config.properties` và upload lên server thành công.
-* Job `read_file_job` khởi chạy ở stage tiếp theo, tự động tải file `config.properties` về và in ra đúng nội dung cấu hình mặc dù chạy trên một container hoàn toàn độc lập với container của job trước.
-* Trên giao diện Web UI của GitLab tại trang quản lý pipeline, bạn sẽ thấy xuất hiện nút bấm cho phép tải trực tiếp file `config.properties` về máy local để kiểm tra.
+* Khi push code lên GitLab, pipeline sẽ hiển thị trực quan 2 cột tương ứng với 2 stages.
+* Cột `info` chứa 2 jobs `job_info_1` và `job_info_2` chạy đồng thời (song song).
+* Cột `print` chứa job `job_print` ở trạng thái chờ đợi. Chỉ khi cả 2 jobs ở stage `info` chuyển sang màu xanh (Passed), job `job_print` mới được kích hoạt chạy tiếp theo.
 
 ---
 
 ### PHẦN 5. LƯU Ý, LỖI SAI VÀ HIỂU LẦM THƯỜNG GẶP
 
-* **Quên khai báo artifacts để chuyển giao file:** Sinh viên rất hay mắc lỗi không khai báo `artifacts` vì nghĩ rằng file được tạo ra ở stage trước sẽ mặc định tồn tại ở các stage sau. Hãy luôn nhớ rằng mỗi job là một container hoàn toàn mới và bị hủy ngay khi xong, bắt buộc phải dùng `artifacts` để đẩy file lên server trung gian.
-* **Khai báo sai đường dẫn của artifacts:** Cấu hình sai thuộc tính `paths` (ví dụ: file nằm trong `build/libs/*.jar` nhưng ghi nhầm thành `build/*.jar`) sẽ khiến Runner báo lỗi không tìm thấy tệp tin để tải lên và làm sập job.
-* **Hiểu lầm giữa Artifacts và Cache:** Nhiều sinh viên cho rằng hai cơ chế này giống nhau. Thực tế, `artifacts` dùng để chuyển giao sản phẩm đầu ra (file JAR) giữa các stage trong một pipeline; còn `cache` dùng để lưu trữ thư mục thư viện phụ thuộc (`.gradle/caches`) để tăng tốc độ tải ở các lần chạy sau, không dùng để chuyển giao sản phẩm.
+* **Cấu hình sai thứ tự stage:** Gán job vào một stage không tồn tại trong danh sách `stages` toàn cục hoặc ghi sai chính tả tên stage làm pipeline báo lỗi cấu hình không hợp lệ (`invalid configuration`).
+* **Đồng bộ hóa trạng thái job:** Lầm tưởng các job song song có thể can thiệp dữ liệu lẫn nhau trong quá trình chạy. Thực tế, chúng chạy trên các container độc lập hoàn toàn, không thể chia sẻ tài nguyên nếu không sử dụng các cơ chế truyền dẫn chuyên biệt.
 
 ---
 
 ### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG (XÁC MINH KIẾN THỨC)
 
-1. **Quản lý Job Artifacts trong GitLab:**
-   * [Job artifacts | GitLab Documentation](https://docs.gitlab.com/ee/ci/jobs/job_artifacts.html)
+1. **Luồng hoạt động của GitLab Pipelines:**
+   * [GitLab Pipelines | GitLab Documentation](https://docs.gitlab.com/ee/ci/pipelines/)
 
 ---
 
 ### PHẦN 7. CÂU HỎI ĐÁNH GIÁ NHANH
 
 #### Câu 1 (Hiểu bản chất)
-Tại sao file thực thi JAR sinh ra ở stage build lại biến mất ở stage deploy nếu chúng ta không khai báo thuộc tính `artifacts`?
-* *Gợi ý:* Vì tính chất cô lập của Docker Executor. Mỗi job khi chạy sẽ được khởi tạo trong một container hoàn toàn độc lập và tự hủy container đó kèm toàn bộ hệ thống file tạm thời ngay khi job kết thúc. Không khai báo artifacts đồng nghĩa với việc không lưu trữ kết quả đầu ra lên máy chủ trung tâm.
-
-#### Câu 2 (Phân tích so sánh)
 Điều gì xảy ra với các stage tiếp theo của pipeline nếu một job ở stage đầu tiên bị lỗi (Failed)?
 * *Gợi ý:* Toàn bộ các stage và job chạy phía sau sẽ bị hủy bỏ (skipped) ngay lập tức để bảo vệ hệ thống khỏi việc sử dụng hoặc triển khai các sản phẩm bị lỗi.
 
+#### Câu 2 (Phân tích so sánh)
+Các job trong cùng một stage có thể chạy song song trên các máy Runner khác nhau không?
+* *Gợi ý:* Có, nếu hệ thống có nhiều Runner hoạt động đồng thời, GitLab Server sẽ tự động phân phối các job song song tới các máy Runner trống để tối ưu hiệu năng.
+
 #### Câu 3 (Cấu hình hệ thống)
-Tham số `expire_in: 10 mins` trong cấu hình artifacts có vai trò gì và tại sao nó lại cần thiết trên môi trường Production?
-* *Gợi ý:* Xác định thời gian hết hạn lưu trữ của file artifact trên máy chủ GitLab Server (ở đây là 10 phút). Việc này rất cần thiết để giải phóng bộ nhớ đĩa cho server, ngăn chặn việc tích tụ các file sản phẩm cũ qua hàng nghìn lượt commit gây tràn ổ cứng.
+Làm thế nào để pipeline CI/CD nhận diện được thứ tự thực thi của các job?
+* *Gợi ý:* Dựa vào danh sách khai báo toàn cục của khóa `stages` và thuộc tính `stage` được chỉ định bên trong từng job.

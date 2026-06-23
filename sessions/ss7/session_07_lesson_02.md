@@ -1,6 +1,6 @@
-# SESSION 07: CI/CD CƠ BẢN VỚI GITLAB
+# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITLAB CI
 
-## LESSON 02: Cấu trúc file .gitlab-ci.yml
+## LESSON 02: Cấu trúc và Cú pháp file .gitlab-ci.yml
 
 ---
 
@@ -9,11 +9,12 @@
 Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
 * **Nắm vững** cú pháp YAML và quy tắc thụt lề bắt buộc trong file cấu hình `.gitlab-ci.yml`.
 * **Khai báo và cấu trúc** thành công một file cấu hình cơ bản gồm các thành phần cốt lõi: `stages`, `image`, `variables`, và các định nghĩa `job`.
-* **Sử dụng** được các từ khóa kiểm soát luồng chạy của job như `only`, `except`, `rules`, `before_script`, `after_script`.
+* **Sử dụng** được các từ khóa kiểm soát luồng chạy của job như `only`, `rules`, `before_script`, `after_script`.
+* **Áp dụng** cơ chế `tags` để điều phối job chạy trên đúng môi trường mong muốn.
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (NỖI ĐAU CỦA VIỆC THIẾT LẬP KỊCH BẢN CHẠY)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (THÁCH THỨC TRONG THIẾT LẬP KỊCH BẢN TỰ ĐỘNG HÓA)
 
 Khi đã cài đặt và đăng ký GitLab Runner thành công, Runner vẫn chưa thể tự động biết được nó cần thực thi những hành động nào cho mã nguồn của bạn.
 * Cần chạy lệnh gì để biên dịch dự án Spring Boot?
@@ -50,7 +51,11 @@ Một Job là đơn vị thực thi dòng lệnh nhỏ nhất trong pipeline. C�
 #### 3.4 Các từ khóa kiểm soát luồng chạy của Job
 * **`before_script`:** Chạy một loạt các câu lệnh phụ trước khi các câu lệnh trong `script` chính bắt đầu.
 * **`after_script`:** Chạy các câu lệnh dọn dẹp hoặc in log sau khi các câu lệnh trong `script` chính đã hoàn thành (dù job chạy thành công hay thất bại).
-* **`only` / `except` / `rules`:** Điều kiện để quyết định xem job có được kích hoạt hay không (ví dụ: `only: [main]` chỉ chạy job khi code được push lên nhánh `main`).
+* **`rules` / `only`:** Điều kiện để quyết định xem job có được kích hoạt hay không (ví dụ: `only: [main]` chỉ chạy job khi code được push lên nhánh `main`).
+
+#### 3.5 Sử dụng tags để điều phối Job
+* **`tags`:** Dùng để chỉ định cụ thể những GitLab Runner nào được phép nhận thực thi job này.
+* Khi đăng ký Local Runner với tag `quickbite`, nếu job không khai báo `tags: [quickbite]`, GitLab Server có thể phân phối job này cho bất kỳ Runner dùng chung (Shared Runner) nào khác của hệ thống đang hoạt động. Điều này dẫn đến hiện tượng "cướp job" và gây sập pipeline do môi trường Shared Runner không tương thích. Bằng cách gán tag rõ ràng, chúng ta đảm bảo job chỉ chạy trên Runner local đã định cấu hình.
 
 ---
 
@@ -60,7 +65,6 @@ Một Job là đơn vị thực thi dòng lệnh nhỏ nhất trong pipeline. C�
 Tạo file `.gitlab-ci.yml` tại thư mục gốc của dự án `user-service` với nội dung sau:
 
 ```yaml
-# Sử dụng base image JRE Alpine siêu nhẹ
 image: eclipse-temurin:17-jdk-alpine
 
 variables:
@@ -71,6 +75,8 @@ stages:
 
 print_env_job:
   stage: info
+  tags:
+    - quickbite # Chỉ định Runner local tránh hiện tượng bị cướp job
   before_script:
     - echo "Chuẩn bị in thông tin môi trường cho dự án ${PROJECT_NAME}..."
   script:
@@ -91,7 +97,7 @@ Khi thực hiện commit và push code lên nhánh chính của Git, GitLab Serv
 
 ### PHẦN 5. LƯU Ý, LỖI SAI VÀ HIỂU LẦM THƯỜNG GẶP
 
-* **Đặt sai vị trí tệp tin cấu hình:** Sinh viên thường viết cấu hình `.gitlab-ci.yml` ở thư mục gốc của từng service độc lập (ví dụ: `user-service/.gitlab-ci.yml`), tuyệt đối không đặt ở thư mục tổng (thư mục cha) của dự án. Đặt sai vị trí sẽ khiến GitLab Server không nhận dạng được cấu hình.
+* **Đặt sai vị trí tệp tin cấu hình:** Sinh viên thường viết cấu hình `.gitlab-ci.yml` ở thư mục tổng (thư mục cha) của dự án thay vì đặt ở thư mục gốc của từng service độc lập (như `user-service/.gitlab-ci.yml`). Điều này khiến GitLab Server không nhận dạng được cấu hình.
 * **Sử dụng phím Tab để thụt lề cấu hình:** Cú pháp YAML cấm sử dụng phím Tab. Sinh viên thường quen tay nhấn Tab khiến hệ thống báo lỗi cú pháp (`syntax error`) và từ chối chạy pipeline. Bắt buộc phải sử dụng khoảng trắng để thụt lề.
 * **Hiểu lầm về biến môi trường định sẵn:** Nghĩ rằng các biến môi trường bắt đầu bằng `$CI_` (như `$CI_COMMIT_BRANCH`) phải được khai báo trong phần `variables` thì mới sử dụng được. Thực tế, đây là các biến do GitLab tự động nạp sẵn vào container của job, sinh viên có thể gọi sử dụng trực tiếp.
 

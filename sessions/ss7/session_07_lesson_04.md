@@ -1,4 +1,4 @@
-# SESSION 07: CI/CD CƠ BẢN VỚI GITLAB
+# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITLAB CI
 
 ## LESSON 04: Build ứng dụng Spring Boot bằng Maven/Gradle trong CI
 
@@ -9,16 +9,16 @@
 Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
 * **Cấu hình** được môi trường biên dịch (JDK, Gradle Wrapper) phù hợp với phiên bản Java của từng microservice.
 * **Biên soạn** thành công pipeline hoàn chỉnh thực hiện: Cấp quyền Gradle Wrapper -> Biên dịch ra file JAR thương mại (`bootJar`) và lưu vào artifacts một cách tối giản.
-* **Tối ưu hóa** hiệu năng pipeline chạy trên Shared Runner bằng cách loại bỏ các cấu hình cache rườm rà (do Shared Runner mặc định không duy trì cache local tối ưu) và bỏ qua bước test để pipeline chạy nhanh nhất.
+* **Tối ưu hóa** hiệu năng pipeline chạy trên Shared Runner bằng cách loại bỏ các cấu hình cache rườm rà và bỏ qua bước test để pipeline chạy nhanh nhất.
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (NỖI ĐAU CỦA VIỆC PIPELINE CHẠY CHẬM)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (THÁCH THỨC VỀ HIỆU NĂNG VÀ TÀI NGUYÊN PIPELINE)
 
 Trong quy trình phát triển thực hành tại lớp học hoặc các dự án nhỏ, chúng ta tận dụng tài nguyên **Shared Runner trực tuyến miễn phí** của GitLab. Tuy nhiên, Shared Runner có những giới hạn:
 * Tài nguyên CPU/RAM được cấp phát hạn chế.
 * Không duy trì bộ nhớ đệm (cache) cục bộ ổn định như máy chủ Runner tự cấu hình (self-hosted). Mỗi khi chạy, Runner có thể là một máy ảo hoàn toàn khác nhau.
-* Nếu chúng ta cấu hình chạy toàn bộ các bài test tự động khi build, Spring Boot sẽ phải khởi chạy toàn bộ cấu trúc ứng dụng (Spring Context) lên RAM của Runner. Việc này tốn rất nhiều thời gian (thậm chí báo lỗi timeout hoặc thiếu RAM).
+* Nếu chạy test tự động khi build, Spring Boot sẽ phải khởi chạy toàn bộ cấu trúc ứng dụng (Spring Context) lên RAM của Runner, làm tốn thời gian và dễ gây lỗi timeout hoặc thiếu RAM.
 
 Để tối ưu hóa thời gian chạy pipeline xuống dưới **1.5 phút**, giúp sinh viên có phản hồi kết quả nhanh nhất sau khi push code, chúng ta cần thiết kế một **pipeline CI tinh giản tối đa**: bỏ qua bước kiểm thử tự động, tắt cấu hình cache rườm rà và đi thẳng vào mục tiêu build ra file JAR thành phẩm.
 
@@ -53,7 +53,6 @@ Nếu không nạp biến môi trường hệ thống, ứng dụng sẽ tự đ
 Tạo file `.gitlab-ci.yml` tại thư mục gốc của dự án `user-service` với cấu hình tinh giản sau:
 
 ```yaml
-# Sử dụng trực tiếp JDK có sẵn trong image, không cần cấu hình tìm kiếm thủ công
 image: eclipse-temurin:17-jdk-alpine
 
 stages:
@@ -61,6 +60,8 @@ stages:
 
 build_executable_jar:
   stage: build
+  tags:
+    - quickbite
   script:
     # Cấp quyền thực thi cho Gradle Wrapper có sẵn trong dự án
     - chmod +x ./gradlew
