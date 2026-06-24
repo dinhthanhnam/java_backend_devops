@@ -1,7 +1,11 @@
 Chào các bạn sinh viên, rất vui được đồng hành với các bạn trong môn học Devops này.
-Có thể một số bạn đã nghe đến cụm từ Devops, nhưng thầy tin là rất nhiều trong số chúng ta chưa hiểu rõ về Devops đâu, vì thế môn học này là để chúng ta đi bóc tách và giải mã Devops.
+Có thể một số bạn đã nghe đến cụm từ Devops.
+Thế nhưng thầy tin rằng rất nhiều trong số chúng ta chưa hiểu rõ về Devops đâu.
+Vì thế môn học này là để chúng ta đi bóc tách và giải mã Devops.
 
-Tại thời điểm này của môn học, thì các bạn chỉ cần hiểu Devops là việc triển khai ứng dung web (ví dụ như spring boot) lên trên server và public nó ra internet.
+Thì tại thời điểm này của môn học
+
+Các bạn chỉ cần hiểu Devops là việc triển khai ứng dung web (ví dụ như spring boot) lên trên server rồi public nó ra internet.
 
 Được rồi, chúng ta sẽ đến với bài đầu tiên, tổng quan Devops và Quy trình CI/CD.
 
@@ -15,12 +19,24 @@ Bài học này có 6 nội dung:
 
 Nội dung đầu tiên: Tổng quan Devops và hạn chế của triển khai thủ công.
 
-Qua các môn học Java trước, webservice, rồi microservice, chắc hẳn các bạn đã biết cách chạy ứng dụng web là như thế nào, bấm nút run ở đâu.
+Qua các môn học Java trước, webservice, rồi microservice, chắc hẳn các bạn đã biết cách chạy ứng dụng web là như thế nào, chính là việc bấm nút Run trên IDE của chúng ta.
 
-Tuy nhiên, nhiêu đó chỉ giúp các bạn là một coder, còn để trở thành một kĩ sư trong thời đại này, việc biết chạy code thôi là chưa đủ.
+Tuy nhiên, nhiêu đó chỉ giúp các bạn là một coder, còn trong bối cảnh hiện nay, để cạnh tranh trong thị trường việc làm, chúng ta cần có tư duy của một kĩ sư.
 
-Thế thì nó xuất hiện một lối tư duy mới, tư duy Production Ready ngay từ đầu.
+Và cái tư duy kĩ sư đó mà thầy muốn nhắc đến là tư duy Production Ready.
 
-Code xong là có thể đóng gói được, tự động kiểm thử, tự động deploy, sau khi deploy lên thì có thể giám sát liên tục trạng thái của ứng dụng được, và bất kì vấn đề nào xảy ra trong vòng đời của ứng dụng, chúng ta đều kiểm soát được. 
+Tức là: 
 
-Để làm được việc đó, chắc chắn chúng ta cần rất nhiều công cụ hỗ trợ, và trong môn học này, đi tìm hiểu và học các công cụ đó là mục tiêu và là điều tất yếu.
+Code xong là có thể đóng gói được, tự động kiểm thử, tự động deploy.
+
+Sau khi deploy lên thì có thể giám sát liên tục trạng thái của ứng dụng được.
+
+Và bất kì vấn đề nào xảy ra trong vòng đời của ứng dụng, chúng ta đều kiểm soát được. 
+
+Để làm được việc đó, chắc chắn chúng ta cần rất nhiều công cụ hỗ trợ.
+
+Và môn học này, là việc chúng ta đi tìm hiểu, ứng dụng các công cụ đó.
+
+Chúng ta sẽ đi tìm hiểu thử các kịch bản triển khai mà đã từng là ác mộng trong quá khứ khi chưa có CI CD.
+
+Ở đây chúng ta có một dự án giả định tên là Quickbite, là một nền tảng giao đồ ăn, và được phát triển theo kiến trúc microservice.
