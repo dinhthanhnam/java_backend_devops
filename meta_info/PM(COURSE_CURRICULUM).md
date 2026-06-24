@@ -42,9 +42,9 @@ Session 08    Đóng gói Docker Image & Đẩy lên Registry
 
 Lesson 01    Quy trình Build Docker image trong pipeline CI/CD
 Lesson 02    Tối ưu hóa Dockerfile cho Production (Multi-stage build)
-Lesson 03    Tự động hóa Build Docker Image trong GitLab CI
-Lesson 04    Cấu hình Xác thực (Authentication) Docker Registry trong CI/CD
-Lesson 05    Đẩy Image lên Registry và Phân tách Pipeline tổng thể
+Lesson 03    Phiên bản hóa và đẩy Docker image lên Registry từ Local
+Lesson 04    Sử dụng Docker image từ Registry trong Pipeline CI/CD
+Lesson 05    Kịch bản Thực hành tổng hợp với user-service
 
 Session 09    Hệ thống kiến thức Session 07,08        
 
