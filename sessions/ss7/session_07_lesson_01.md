@@ -119,6 +119,8 @@ docker compose exec gitlab-runner gitlab-runner register \
 
 ### PHẦN 5. LƯU Ý, LỖI SAI VÀ HIỂU LẦM THƯỜNG GẶP
 
+* **Nhất quán sử dụng Local Runner cho các session tiếp theo:** Sau khi cài đặt và đăng ký thành công Local Runner ở bài học này, học viên sẽ sử dụng hoàn toàn môi trường tự host này cho tất cả các bài thực hành và cấu hình pipeline ở các session sau (Session 8, 10, v.v.). Việc này đảm bảo tính nhất quán về mặt kiến trúc hệ thống và tránh xung đột cấu hình.
+  *Đánh đổi thực tế:* Hạn chế lớn nhất khi lựa chọn sử dụng hoàn toàn Local Runner thay vì Shared Runner trực tuyến là học viên sẽ khó tự đánh giá và trải nghiệm trực tiếp sự chậm trễ (tốc độ mạng chậm, hàng đợi hàng job) cũng như giới hạn thời gian chạy (runtime limits) khắt khe của Shared Runner trong môi trường thực tế.
 * **Lỗi quên mount Docker Socket:** Sinh viên khi tự host Runner thường quên hoặc cố tình bỏ qua dòng volumes `/var/run/docker.sock`. Điều này làm Runner bị mất quyền giao tiếp với Docker Engine của máy host, dẫn đến lỗi sập toàn bộ các job sử dụng Docker Executor.
 * **Sử dụng sai token đăng ký cũ:** GitLab phiên bản mới yêu cầu sử dụng Authentication Token (có tiền tố `GLRT-`) để đăng ký Runner. Nhiều sinh viên vẫn sử dụng Registration Token cũ của dự án, dẫn đến lỗi xác thực và không thể kích hoạt được Runner.
 * **Hiểu lầm về vai trò của GitLab Server:** Nhiều sinh viên lầm tưởng GitLab Server trực tiếp biên dịch và kiểm thử mã nguồn. Thực tế, GitLab Server chỉ điều phối và hiển thị kết quả; việc thực thi hoàn toàn do GitLab Runner đảm nhận. Nếu không cấu hình Runner, pipeline sẽ bị kẹt ở trạng thái `pending` vô hạn.
