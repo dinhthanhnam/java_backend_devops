@@ -103,10 +103,7 @@ docker compose exec gitlab-runner gitlab-runner register \
   --token "GLRT-YOUR_NEW_AUTHENTICATION_TOKEN_HERE" \
   --executor "docker" \
   --docker-image "alpine:latest" \
-  --description "Local Runner for QuickBite Project" \
-  --tag-list "docker,quickbite" \
-  --run-untagged="true" \
-  --locked="false"
+  --description "Local Runner for QuickBite Project"
 ```
 
 * **Giải thích tham số:**
