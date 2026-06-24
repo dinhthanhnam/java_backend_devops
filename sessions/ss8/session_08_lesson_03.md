@@ -30,13 +30,13 @@ Trong các bài học trước (State 1 & 2), chúng ta tự động hóa việc
 #### 3.1 GitLab Container Registry
 GitLab Container Registry là kho lưu trữ Docker image riêng tư (private) đi kèm với từng dự án GitLab.
 * Địa chỉ máy chủ lưu trữ mặc định: `registry.gitlab.com`.
-* Đường dẫn lưu image của dự án có dạng: `registry.gitlab.com/<username>/<project_name>/<service_name>`.
-* Quản lý trực quan: Xem danh sách image đã đẩy lên tại giao diện Web của GitLab -> **Deploy** -> **Container Registry**.
+* Đường dẫn lưu image của dự án có dạng: `registry.gitlab.com/<namespace>/user-service` (với `<namespace>` là username hoặc group của học viên trên GitLab).
+* Quản lý trực quan: Xem danh sách image đã đẩy lên tại giao diện Web của GitLab -> **Deploy** -> **Container Registry**. Sau khi đăng nhập thành công bằng lệnh `docker login registry.gitlab.com`, học viên có thể truy cập trực tiếp đường dẫn `https://gitlab.com/<namespace>/user-service/container_registry` trên trình duyệt để xem trong kho chứa những gì.
 
 #### 3.2 Quy tắc đặt nhãn (Tagging) và Phiên bản hóa (Versioning)
 Để đẩy được image lên Registry, tên của image nguồn ở máy local bắt buộc phải khớp chính xác với đường dẫn Registry được GitLab phân quyền:
 ```bash
-docker tag <local_image_name> registry.gitlab.com/<username>/<project_name>/<service_name>:<version_tag>
+docker tag <local_image_name> registry.gitlab.com/<namespace>/<project_name>:<version_tag>
 ```
 * **Version tag:** Phân bản image rõ ràng theo phiên bản phát hành (ví dụ: `1.0.0`, `1.1.0-RC1`) để phục vụ quản lý phiên bản và rollback khi có lỗi, tránh dùng nhãn tĩnh `latest`.
 
@@ -71,11 +71,11 @@ docker login registry.gitlab.com -u <gitlab_username>
 # 3. Build Docker image tại local sử dụng Dockerfile đơn tầng (đã chuẩn bị ở Lesson 01)
 docker build -t user-service:1.0.0 .
 
-# 4. Gắn tag Registry cho image (thay thế <username> bằng username GitLab của học viên)
-docker tag user-service:1.0.0 registry.gitlab.com/<username>/java_backend_devops/user-service:1.0.0
+# 4. Gắn tag Registry cho image (thay thế <namespace> bằng username hoặc group của bạn trên GitLab)
+docker tag user-service:1.0.0 registry.gitlab.com/<namespace>/user-service:1.0.0
 
 # 5. Đẩy image lên GitLab Container Registry trực tuyến
-docker push registry.gitlab.com/<username>/java_backend_devops/user-service:1.0.0
+docker push registry.gitlab.com/<namespace>/user-service:1.0.0
 ```
 
 > [!IMPORTANT]

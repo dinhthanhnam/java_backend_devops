@@ -58,13 +58,13 @@ Học viên thực hiện đầy đủ các bước sau trực tiếp trên dự
    *Khi hệ thống yêu cầu nhập Password, dán mã Access Token vừa sao chép vào và nhấn Enter.*
 
 #### Bước 3: Gắn tag Registry và đẩy Image lên GitLab
-1. Thực hiện gắn tag image khớp chính xác với đường dẫn Registry của dự án cá nhân (thay thế `<username>` bằng username GitLab thật của học viên):
+1. Thực hiện gắn tag image khớp chính xác với đường dẫn Registry của dự án (thay thế `<namespace>` bằng username hoặc group của bạn trên GitLab):
    ```bash
-   docker tag user-service:1.0.0 registry.gitlab.com/<username>/java_backend_devops/user-service:1.0.0
+   docker tag user-service:1.0.0 registry.gitlab.com/<namespace>/user-service:1.0.0
    ```
 2. Thực hiện đẩy image lên kho lưu trữ trực tuyến:
    ```bash
-   docker push registry.gitlab.com/<username>/java_backend_devops/user-service:1.0.0
+   docker push registry.gitlab.com/<namespace>/user-service:1.0.0
    ```
 3. Truy cập vào mục **Deploy** -> **Container Registry** trên GitLab Web UI của dự án để xác nhận image đã hiển thị tag `1.0.0`.
 
