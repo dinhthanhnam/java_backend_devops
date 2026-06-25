@@ -15,10 +15,14 @@ Sau khi hoàn thành bài học này, học viên có khả năng:
 
 ### PHẦN 2. BỐI CẢNH THỰC HÀNH
 
-Bài thực hành này giả lập quy trình làm việc thực tế tại doanh nghiệp:
-* Lập trình viên hoàn thành tính năng, đóng gói và tối ưu hóa image trực tiếp tại máy phát triển cá nhân để tận dụng cache local cực nhanh.
-* Image sau khi build được đẩy lên GitLab Container Registry để làm kho lưu trữ tập trung.
-* Đường ống CI/CD của GitLab được cấu hình tối giản, chỉ làm nhiệm vụ kéo image về, chạy thử nghiệm verify để đảm bảo tính đúng đắn trước khi chuyển sang các bước triển khai tiếp theo.
+Bài thực hành tổng hợp này giúp học viên củng cố các kỹ năng tương tác với GitLab Container Registry đã học ở các bài học trước:
+* Đóng gói và gắn tag Docker image thủ công tại máy phát triển cá nhân để nắm vững cú pháp lệnh.
+* Đẩy image lên Registry cá nhân bằng Access Token.
+* Cấu hình pipeline CI/CD để tự động kéo image đó về và khởi chạy verify trên môi trường Runner.
+
+> [!WARNING]
+> **Lưu ý quan trọng cho học viên:**
+> Kịch bản build/push từ local và pull/verify trên CI/CD chỉ phục vụ mục đích học tập để chia nhỏ độ phức tạp của hệ thống. Trong môi trường doanh nghiệp thực tế, để đảm bảo tính an toàn thông tin và tính nhất quán của mã nguồn, toàn bộ quy trình từ build, push đến deploy bắt buộc phải chạy hoàn toàn tự động trên máy chủ CI/CD, không có sự can thiệp thủ công từ máy local của lập trình viên.
 
 ---
 
@@ -28,77 +32,77 @@ Học viên thực hiện đầy đủ các bước sau trực tiếp trên dự
 
 #### Bước 1: Viết và kiểm tra Dockerfile tối ưu tại Local
 1. Tạo tệp tin `Dockerfile` tại thư mục gốc của dự án `user-service` (`user-service/Dockerfile`) sử dụng cấu trúc Multi-stage build đã học ở Lesson 02:
-   ```dockerfile
-   # Stage 1: Build stage
-   FROM eclipse-temurin:17-jdk-alpine AS builder
-   WORKDIR /app
-   # Sao chép toàn bộ mã nguồn vào container
-   COPY . .
-   RUN chmod +x ./gradlew && ./gradlew bootJar --no-daemon
+```dockerfile
+# Stage 1: Build stage
+FROM eclipse-temurin:17-jdk-alpine AS builder
+WORKDIR /app
+# Sao chép toàn bộ mã nguồn vào container
+COPY . .
+RUN chmod +x ./gradlew && ./gradlew bootJar --no-daemon
 
-   # Stage 2: Runtime stage
-   FROM eclipse-temurin:17-jre-alpine
-   WORKDIR /app
-   COPY --from=builder /app/build/libs/*.jar app.jar
-   EXPOSE 8081
-   ENTRYPOINT ["java", "-jar", "app.jar"]
-   ```
+# Stage 2: Runtime stage
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+COPY --from=builder /app/build/libs/*.jar app.jar
+EXPOSE 8081
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
 2. Chạy thử câu lệnh build image tại local terminal để đảm bảo Dockerfile hoạt động không có lỗi:
-   ```bash
-   docker build -t user-service:1.0.0 .
-   ```
+```bash
+docker build -t user-service:1.0.0 .
+```
 
 #### Bước 2: Khởi tạo Access Token và đăng nhập Registry
 1. Truy cập giao diện Web của GitLab cá nhân -> **Preferences** -> **Access Tokens**.
 2. Tạo một Personal Access Token mới đặt tên là `registry-token`, chọn thời hạn thích hợp và tích chọn 2 scopes: `write_registry` và `read_registry`. Sao chép mã token được sinh ra.
 3. Sử dụng terminal tại máy local, chạy lệnh đăng nhập vào Registry của GitLab:
-   ```bash
-   docker login registry.gitlab.com -u <gitlab_username>
-   ```
+```bash
+docker login registry.gitlab.com -u <gitlab_username>
+```
    *Khi hệ thống yêu cầu nhập Password, dán mã Access Token vừa sao chép vào và nhấn Enter.*
 
 #### Bước 3: Gắn tag Registry và đẩy Image lên GitLab
 1. Thực hiện gắn tag image khớp chính xác với đường dẫn Registry của dự án (thay thế `<namespace>` bằng username hoặc group của bạn trên GitLab):
-   ```bash
-   docker tag user-service:1.0.0 registry.gitlab.com/<namespace>/user-service:1.0.0
-   ```
+```bash
+docker tag user-service:1.0.0 registry.gitlab.com/<namespace>/user-service:1.0.0
+```
 2. Thực hiện đẩy image lên kho lưu trữ trực tuyến:
-   ```bash
-   docker push registry.gitlab.com/<namespace>/user-service:1.0.0
-   ```
+```bash
+docker push registry.gitlab.com/<namespace>/user-service:1.0.0
+```
 3. Truy cập vào mục **Deploy** -> **Container Registry** trên GitLab Web UI của dự án để xác nhận image đã hiển thị tag `1.0.0`.
 
 #### Bước 4: Cấu hình và chạy thử Pipeline CI/CD
 1. Cập nhật nội dung file `.gitlab-ci.yml` tại thư mục gốc của dự án `user-service` để kéo image về và chạy verify tự động:
-   ```yaml
-   image: docker:latest
+```yaml
+image: docker:latest
 
-   stages:
-     - test_image
+stages:
+   - test_image
 
-   test_docker_image_job:
-     stage: test_image
-     tags:
-       - quickbite
-     script:
-       # Đăng nhập tự động sử dụng thông tin định sẵn của Runner
-       - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-       
-       # Kéo image 1.0.0 đã được học viên push từ local về
-       - docker pull $CI_REGISTRY_IMAGE:1.0.0
-       
-       # Chạy container để kiểm tra verify ứng dụng
-       - docker run -d --name verify_app -p 8081:8081 $CI_REGISTRY_IMAGE:1.0.0
-       
-       # Chờ ứng dụng Spring Boot khởi động
-       - sleep 5
-       
-       # Kiểm tra danh sách container hoạt động
-       - docker ps
-       
-       # Dọn dẹp môi trường Runner sau khi kiểm tra xong
-       - docker rm -f verify_app
-   ```
+test_docker_image_job:
+   stage: test_image
+   tags:
+      - quickbite
+   script:
+      # Đăng nhập tự động sử dụng thông tin định sẵn của Runner
+      - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+      
+      # Kéo image 1.0.0 đã được học viên push từ local về
+      - docker pull $CI_REGISTRY_IMAGE:1.0.0
+      
+      # Chạy container để kiểm tra verify ứng dụng
+      - docker run -d --name verify_app -p 8081:8081 $CI_REGISTRY_IMAGE:1.0.0
+      
+      # Chờ ứng dụng Spring Boot khởi động
+      - sleep 5
+      
+      # Kiểm tra danh sách container hoạt động
+      - docker ps
+      
+      # Dọn dẹp môi trường Runner sau khi kiểm tra xong
+      - docker rm -f verify_app
+```
 2. Thực hiện push file cấu hình lên GitLab để kích hoạt pipeline tự động.
 3. Theo dõi log console của job trên GitLab Web UI, kiểm tra xem job có hoàn thành thành công và xác nhận tổng thời gian chạy (runtime) cực kỳ nhanh (thường dưới 30 giây).
 

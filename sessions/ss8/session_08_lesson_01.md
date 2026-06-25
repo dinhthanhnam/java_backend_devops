@@ -131,11 +131,11 @@ Khi push cấu hình lên GitLab, pipeline sẽ khởi chạy tuần tự qua 2 
 
 ### PHẦN 5. LƯU Ý, LỖI SAI VÀ HIỂU LẦM THƯỜNG GẶP (DÀNH CHO HỌC VIÊN)
 
-* **Thiếu cấu hình chia sẻ Docker Socket:** Học viên khi tự host Runner thường quên hoặc cấu hình sai quyền truy cập socket vật lý `/var/run/docker.sock` trong tệp cấu hình `config.toml` của Runner. Lỗi này khiến job CI/CD báo lỗi:
+* **Thiếu cấu hình chia sẻ Docker Socket:** Học viên khi tự host Runner thường quên cấu hình socket vật lý `/var/run/docker.sock` trong volumes của dịch vụ Runner (Docker Compose hoặc lệnh đăng ký). Lỗi này khiến job CI/CD báo lỗi:
   ```text
   Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
   ```
-  *Khắc phục:* Đảm bảo volumes của Runner chứa khai báo `"/var/run/docker.sock:/var/run/docker.sock"`.
+  *Khắc phục:* Đảm bảo cấu hình volumes của Runner chứa khai báo `"/var/run/docker.sock:/var/run/docker.sock"`.
 * **Hiểu lầm về việc bắt buộc phải dùng `services`:** Sinh viên đọc tài liệu trực tuyến của GitLab thấy luôn yêu cầu khai báo `services: - docker:dind` nên tự ý thêm vào. Với thiết kế sử dụng Local Runner của giáo trình, việc khai báo dind là dư thừa và làm chậm thời gian chạy do phải khởi tạo thêm container phụ.
 
 ---

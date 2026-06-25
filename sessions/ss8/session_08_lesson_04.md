@@ -13,12 +13,17 @@ Sau khi hoàn thành bài học này, học viên có khả năng:
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (TỐI ƯU HÓA RUNTIME PIPELINE TRONG DỰ ÁN THỰC TẾ)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (KỊCH BẢN KÉO IMAGE TỪ REGISTRY TRONG CI/CD)
 
-Sau khi đẩy thành công Docker image lên GitLab Container Registry từ local ở Lesson 03 (State 3), câu hỏi đặt ra là: Làm thế nào để pipeline CI/CD tích hợp và sử dụng image này?
-* Trong thực tế, các doanh nghiệp hoặc đội ngũ phát triển nhỏ thường tối ưu hóa chi phí vận hành bằng cách **loại bỏ bước build Docker image phức tạp trong CI/CD**.
-* Thay vì để máy Runner chạy tốn 5 phút tải code và compile, pipeline CI/CD sẽ chuyển sang luồng tối giản: Tự động kéo trực tiếp image đã được lập trình viên build và đẩy lên trước đó để thực hiện các job kiểm thử tự động, verify tính ổn định, hoặc kích hoạt deploy.
-* Nhờ cơ chế này, thời gian chạy (runtime) của GitLab Runner sẽ giảm từ 5 phút xuống chỉ còn **khoảng 10 giây**, giúp tiết kiệm tài nguyên hệ thống và đẩy nhanh tiến độ bàn giao sản phẩm (State 4: Pull & Run trong CI/CD).
+Sau khi thực hành đẩy thành công Docker image lên GitLab Container Registry từ local ở Lesson 03 (State 3), câu hỏi đặt ra là: Làm thế nào để pipeline CI/CD tích hợp và sử dụng image này?
+
+**Vai trò của kịch bản thực hành (State 4: Pull & Run trong CI/CD):**
+* Giúp học viên làm quen với lệnh kéo image (`docker pull`) và khởi chạy container verify tự động từ bên trong script của Runner.
+* Hiểu cách xác thực tự động với GitLab Container Registry sử dụng các biến bảo mật mặc định do GitLab cung cấp sẵn mà không cần cấu hình tài khoản cá nhân.
+
+> [!IMPORTANT]
+> **Lưu ý về quy trình thực tế:**
+> Việc tách biệt biên dịch ở local và kéo chạy ở CI/CD là phương án giả lập phục vụ mục đích sư phạm để học viên tiếp cận dần với khái niệm tích hợp Registry. Trong luồng vận hành thực tế của doanh nghiệp, để đảm bảo tính an toàn thông tin và tính nhất quán của mã nguồn, GitLab CI/CD sẽ chịu trách nhiệm tự động hóa toàn bộ: Biên dịch mã nguồn -> Đóng gói và Push image -> Kéo về chạy thử nghiệm và triển khai (Deploy).
 
 ---
 

@@ -13,15 +13,17 @@ Sau khi hoàn thành bài học này, học viên có khả năng:
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (GIẢI QUYẾT BOTTLENECK RUNTIME TRONG CI)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (BÀI THỰC HÀNH SƯ PHẠM VỚI DOCKER REGISTRY)
 
-Trong các bài học trước (State 1 & 2), chúng ta tự động hóa việc build Docker image trực tiếp trên GitLab Runner. Tuy nhiên, việc này phát sinh một **pain point** lớn trong thực tế vận hành:
-* Mỗi lượt commit code, GitLab Runner phải khởi chạy từ đầu, tải dependencies Gradle và build image. Tiến trình này tốn khoảng **5 phút** runtime.
-* Nếu dự án có nhiều microservices và deploy liên tục, thời gian chờ đợi sẽ rất lớn và chi phí tài nguyên (số phút chạy Runner) sẽ bị cạn kiệt nhanh chóng.
+Trong các bài học trước (State 1 & 2), chúng ta tự động hóa việc build Docker image trực tiếp trên GitLab Runner. Tuy nhiên, để làm quen với các khái niệm cốt lõi của **GitLab Container Registry**, học viên cần nắm vững các thao tác thủ công từ môi trường phát triển local.
 
-**Giải pháp tối ưu chi phí và thời gian (State 3: Build & Push từ Local):**
-* Chuyển quy trình build và versioning về máy local cá nhân của lập trình viên. Máy local tận dụng toàn bộ bộ nhớ cache dependencies Gradle (`~/.gradle`) và cache layer của Docker Desktop nên tốc độ build chỉ mất vài giây.
-* Đóng gói xong, lập trình viên đặt nhãn phiên bản và đẩy (push) image trực tiếp lên kho lưu trữ tập trung (**GitLab Container Registry**). Pipeline CI/CD sau đó chỉ cần kéo image này về chạy mà không phải build lại.
+**Mục đích của kịch bản thực hành (State 3: Build & Push từ Local):**
+* **Mô phỏng từng bước (Step-by-step Learning):** Tách biệt tiến trình đóng gói và đẩy image để trực quan hóa cách thức xác thực, gắn nhãn (tag) phiên bản và truyền tải dữ liệu bằng Docker CLI.
+* **Tối ưu hóa thời gian thực hành:** Tận dụng bộ nhớ cache dependencies Gradle (`~/.gradle`) và Docker layer có sẵn tại máy local giúp đẩy nhanh tiến độ làm bài thực hành.
+
+> [!WARNING]
+> **Không áp dụng trong môi trường Production thực tế:**
+> Quy trình build và push image thủ công từ máy local của lập trình viên là một **anti-pattern** (phản hoa văn) và vi phạm nghiêm trọng nguyên tắc bảo mật. Máy local không được kiểm soát an toàn như Runner, đồng thời quy trình này gây mất tính nhất quán của mã nguồn (image được push lên có thể chứa code chưa được commit trên Git). Trong thực tế, toàn bộ tiến trình này bắt buộc phải chạy tự động hóa hoàn toàn trên pipeline CI/CD.
 
 ---
 
