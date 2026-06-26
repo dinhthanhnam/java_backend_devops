@@ -36,9 +36,19 @@ Học viên thực hiện đầy đủ các bước sau trực tiếp trên dự
 # Stage 1: Build stage
 FROM eclipse-temurin:17-jdk-alpine AS builder
 WORKDIR /app
-# Sao chép toàn bộ mã nguồn vào container
-COPY . .
-RUN chmod +x ./gradlew && ./gradlew bootJar --no-daemon
+
+COPY gradlew .
+COPY gradle gradle
+COPY build.gradle .
+
+# Cấp quyền thực thi và tiến hành biên dịch JAR (sử dụng --no-daemon để tránh treo máy trong container)
+RUN chmod +x ./gradlew 
+
+RUN ./gradlew dependencies --no-daemon
+
+COPY src src
+
+RUN ./gradlew bootJar --no-daemon
 
 # Stage 2: Runtime stage
 FROM eclipse-temurin:17-jre-alpine
