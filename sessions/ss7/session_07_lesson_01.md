@@ -90,7 +90,7 @@ docker compose up -d
 ```
 
 * **Giải thích thuộc tính volumes:**
-  * `/var/run/docker.sock:/var/run/docker.sock`: Mount Docker socket của máy host vào container Runner. Việc này cho phép Runner (chạy bên trong container) có quyền điều khiển Docker Engine của host để khởi tạo các container phụ phục vụ cho quá trình build (Docker-in-Docker).
+  * `/var/run/docker.sock:/var/run/docker.sock`: Mount Docker socket của máy host vào container Runner mẹ (Runner Manager). Cấu hình này giúp bản thân dịch vụ Runner có quyền điều khiển Docker Engine của host để khởi tạo (spawn) các container con thực thi job.
   * `gitlab-runner-config:/etc/gitlab-runner`: Named volume dùng để lưu trữ cấu hình bền vững của Runner sau khi đăng ký, tránh mất cấu hình khi container bị khởi động lại hoặc recreate.
 
 #### 4.2 Đăng ký Runner vào GitLab bằng Authentication Token mới
@@ -111,7 +111,13 @@ docker compose exec gitlab-runner gitlab-runner register \
   * `docker compose exec gitlab-runner`: Thực thi lệnh trực tiếp trong container `gitlab-runner` đang chạy.
   * `--token`: Mã xác thực của Runner mới.
   * `--executor "docker"`: Định nghĩa môi trường chạy là Docker container.
+  * `--docker-volumes "/var/run/docker.sock:/var/run/docker.sock"`: Tự động mount Docker socket từ máy host vào bên trong các **container con (job containers)** khi Runner khởi tạo chúng.
   * `--docker-image "alpine:latest"`: Docker image mặc định sử dụng nếu job trong file cấu hình không khai báo image cụ thể.
+
+> [!IMPORTANT]
+> **Phân biệt hai cấu hình Docker Socket:**
+> * **Trong `docker-compose.yml` (khai báo `volumes`):** Giúp *Runner mẹ* kết nối với Docker Daemon của host để sinh ra container con.
+> * **Trong lệnh `register` (tham số `--docker-volumes`):** Giúp *container con* vừa sinh ra có quyền chạy tiếp các lệnh Docker (như `docker pull`, `docker build`).
 
 * **Kết quả mong đợi:** Lệnh báo đăng ký thành công. Trên giao diện GitLab xuất hiện một Runner mới màu xanh lá cây sẵn sàng nhận job.
 
