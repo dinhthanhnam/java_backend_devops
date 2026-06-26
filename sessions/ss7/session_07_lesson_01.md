@@ -112,7 +112,6 @@ docker compose exec gitlab-runner gitlab-runner register \
   * `--token`: Mã xác thực của Runner mới.
   * `--executor "docker"`: Định nghĩa môi trường chạy là Docker container.
   * `--docker-image "alpine:latest"`: Docker image mặc định sử dụng nếu job trong file cấu hình không khai báo image cụ thể.
-  * `--tag-list "docker,quickbite"`: Gắn thẻ tag cho Runner để phân phối job phù hợp.
 
 * **Kết quả mong đợi:** Lệnh báo đăng ký thành công. Trên giao diện GitLab xuất hiện một Runner mới màu xanh lá cây sẵn sàng nhận job.
 
