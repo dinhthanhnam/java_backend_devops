@@ -1,154 +1,168 @@
-## lesson 1
+# Kịch bản Thuyết trình - Session 01: Tổng quan DevOps & CI/CD
 
-Xin chào tất cả các học viên, rất vui được đồng hành với các bạn trong một hành trình mới, mang tên Devops, Devops là một trong số những từ khoá hot nhất hiện nay trong thị trường IT,
+---
 
-Mà nếu các bạn là người hay lướt các diễn đàn công việc như ITViec hay topcv, thì chắc chắn cũng đã nhận thấy điều này.
+## Lesson 1: Tổng quan DevOps và Hạn chế của triển khai thủ công
 
-Vậy thì, devops có phải chỉ là việc triển khai cho ứng dụng web chạy được và hiển thị ra được internet hay không, chắc chắn là không rồi.
+**(Mở đầu - Khơi gợi sự hứng thú)**
+Xin chào tất cả các bạn học viên! Rất vui được đồng hành cùng các bạn trong một hành trình hoàn toàn mới mang tên là: **DevOps**. 
+Thực ra thì, nếu các bạn thường xuyên theo dõi các nền tảng tuyển dụng như ITviec hay TopCV, thì chắc chắn các bạn cũng đã nhận ra DevOps đang là một trong những từ khóa "hot" nhất và được săn đón nhiều nhất hiện nay rồi.
 
-Devops thì còn nhiều hơn thế rất nhiều, và thầy mong rằng, môn học này sẽ kích thích và truyền cảm hứng cho các bạn, về một định hướng phát triển bản thân trong ngày IT này, mới lạ hơn, thay vì theo đuổi lập trình web truyền thống.
+Vậy thì, DevOps có đơn thuần chỉ là đẩy code lên server và làm cho trang web chạy được trên Internet không? Chắc chắn là không rồi. DevOps rộng lớn và thú vị hơn thế rất nhiều. Và thầy hy vọng là môn học này sẽ truyền cảm hứng cho các bạn, mở ra một định hướng phát triển sự nghiệp mới mẻ và khác biệt hơn so với con đường lập trình web truyền thống.
 
-Oke, Đến với chuỗi bài học đầu tiên của chúng ta: Tổng quan Devops vaf quy trình CI CD
-Bài học này có 6 nội dung:
+**(Nội dung chính)**
+Thế thì hôm nay, chúng ta sẽ bắt đầu với chuỗi bài học đầu tiên: **Tổng quan DevOps và Quy trình CI/CD**. Bài học hôm nay của chúng ta sẽ gồm 6 nội dung chính:
+1. Tổng quan DevOps và hạn chế của triển khai thủ công
+2. Khái niệm CI/CD
+3. 3 môi trường cơ bản: Dev, Staging và Production
+4. Nhắc lại kiến trúc Microservices
+5. Linux và vai trò của Linux trong DevOps
+6. Một vài lệnh quản lý quyền và mạng trong Linux
 
-1. Tổng quan Devops, hạn chế của triển khai thủ công
-2. Khái niệm CI CD
-3. 3 Môi trường Dev Staging và Production
-4. Nhắc lại kiến trúc Microservice
-5. Linux và vao trò của Linux trong Devops
-6. Một vài lệnh quản lý quyền và mạng trong Linux.
+**[Slide: Hạn chế của triển khai thủ công]**
+Qua các môn học trước về Java, Web Service hay Microservices, chắc hẳn các bạn đã quen với việc chạy ứng dụng bằng cách bấm nút "Run" trên IDE rồi đúng không? Tuy nhiên, nhiêu đó chỉ giúp các bạn dừng lại ở mức là một "Developer" thôi. 
 
-Nội dung đầu tiên: Tổng quan Devops và hạn chế của triển khai thủ công.
+Còn trong bối cảnh cạnh tranh hiện tại, để có lợi thế vượt trội khi đi xin việc, các bạn cần trang bị cho mình một **Tư duy Kỹ sư (Engineer Mindset)** – tức là tư duy của một người am hiểu toàn bộ hệ thống. Đó chính là cái gọi là tư duy **Production Ready**:
+- Nghĩa là code xong phải tự động đóng gói được, tự động kiểm thử và tự động triển khai được.
+- Và khi ứng dụng chạy, chúng ta phải liên tục giám sát được trạng thái của nó.
+- Tóm lại là phải kiểm soát được bất kỳ vấn đề nào xảy ra trong suốt vòng đời của ứng dụng.
 
-Qua các môn học Java trước, webservice, rồi microservice, chắc hẳn các bạn đã biết cách chạy ứng dụng web là như thế nào, chính là việc bấm nút Run trên IDE của chúng ta.
+Thế thì để làm được việc đó, trong môn học này chúng ta chắc chắn sẽ cần sự hỗ trợ của rất nhiều công cụ. Nhưng trước tiên, hãy cùng nhìn lại một chút về quá khứ để hiểu tại sao chúng ta lại cần đến CI/CD nhé. Trong quá khứ, việc triển khai thủ công từng là một "ác mộng". Các lỗi thường gặp có thể kể đến như là:
+- **Đầu tiên là vòng lặp sửa code thủ công:** Cứ sửa code là lại phải tự build lại, dùng lệnh `scp` đẩy file lên server, đăng nhập vào server rồi lại restart ứng dụng bằng tay, rất mất thời gian.
+- **Tiếp theo là sai sót cấu hình:** Chúng ta rất dễ nhầm lẫn, ví dụ cấu hình nhầm database test sang database thật, gây mất dữ liệu nghiêm trọng.
+- **Hay đơn giản hơn là lệch pha môi trường:** Code thì được viết và biên dịch bằng Java 21, nhưng server lại chỉ cài Java 17.
+- **Và việc quản lý phiên bản cũng rất khó khăn:** Rất khó để kiểm soát các file `.jar` đang chạy thuộc về phiên bản nào.
+- **Và cuối cùng là "mù" log:** Trong một hệ thống Microservices phức tạp với hàng chục service gọi chéo nhau, nếu chỉ đọc log thủ công từng service thì sẽ không thể nào dò ra được lỗi.
 
-Tuy nhiên, nhiêu đó chỉ giúp các bạn là một developer, còn trong bối cảnh cạnh tranh của thị trường IT hiện tại, để có lợi thế tìm việc, chúng ta cần phải có tư duy không chỉ dừng lại ở mức code được, mà phải là người am hiểu hệ thống, là một kỹ sư
+**[Slide: Xung đột giữa Dev và Ops]**
+Một vấn đề lớn khác trong quá khứ đó là mâu thuẫn giữa đội ngũ Development (Dev) và Operations (Ops).
+- **Đội Dev** thì luôn muốn đẩy tính năng mới nhanh nhất có thể và fix bug ngay lập tức.
+- Nhưng **Đội Ops** thì lại ưu tiên sự ổn định, sợ rủi ro sập hệ thống khi có thay đổi.
+Cái mâu thuẫn này nó là một rào cản rất lớn, cho đến khi triết lý DevOps ra đời.
 
-Và cái tư duy kĩ sư đó mà thầy muốn nhắc đến là tư duy Production Ready.
+**[Slide: DevOps là gì?]**
+Vậy tóm lại DevOps là gì? DevOps thực chất là sự kết hợp của **Development** và **Operations**. Các bạn hãy nhớ, đây không chỉ là một chức danh công việc, mà nó là một **văn hóa, quy trình và một tập hợp các công cụ** nhằm tự động hóa vòng đời phát triển phần mềm.
 
-Tức là: 
+Thế thì làm sao để biết khi nào một người giỏi DevOps? Chúng ta sẽ dựa vào 3 trụ cột chính:
+1. Sự am hiểu hệ thống thực tế (Hạ tầng, Mạng, Phần cứng).
+2. Sự am hiểu công nghệ lõi đang sử dụng (Ví dụ như Java Runtime).
+3. Và cuối cùng là khả năng xây dựng CI/CD Pipeline – Đây cũng chính là sản phẩm cốt lõi của DevOps.
 
-Code xong là có thể đóng gói được, tự động kiểm thử, tự động triển khai.
+---
 
-Sau khi triển khai lên thì có thể giám sát liên tục trạng thái của ứng dụng được.
+## Lesson 2: Khái niệm CI/CD (Quy trình Build, Test, Deploy)
 
-Và bất kì vấn đề nào xảy ra trong vòng đời của ứng dụng, chúng ta đều kiểm soát được. 
+**[Câu chuyện thực tế]**
+Bây giờ chúng ta thử tưởng tượng một tình huống thực tế như thế này: Có một bạn thực tập sinh rất chăm chỉ, liên tục viết code và đẩy hàng tá commit lên hệ thống mỗi ngày. Anh Tech Lead thì làm gì có đủ thời gian để kéo code về, review và test thủ công từng cái commit một được. 
 
-Và để làm được việc đó, trong môn học này chúng ta chắc chắn phải đi tìm hiểu rất nhiều công cụ hỗ trợ.
+Giải pháp ở đây chính là cái **CI/CD Pipeline**. Nhờ có Pipeline, đại khái là mỗi khi bạn intern đẩy commit lên, code sẽ tự động được build và chạy test thử. Chỉ khi nào tất cả các bài test đều xanh (tức là Pass), thì anh Tech Lead mới cần vào xem xét và quyết định.
 
-Thế nhưng trước đó, chúng ta sẽ cùng đi tìm hiểu các kịch bản mà đã từng là ác mộng trong quá khứ khi chưa có CI CD.
+**[Slide: CI/CD là gì?]**
+- Đầu tiên, **CI (Continuous Integration - Tích hợp liên tục):** Nghĩa là tự động compile và chạy Unit Test ngay khi developer gõ lệnh `git push`. Cái CI này nó gắn liền với một triết lý là **"Fail fast"** - hiểu đơn giản là lỗi phát hiện càng sớm, thì chi phí sửa chữa lại càng thấp.
+- Tiếp theo là **CD thì lại có hai khái niệm:**
+  - 1 là **Continuous Delivery (Phân phối liên tục):** Code sau khi vượt qua CI sẽ được đóng gói sẵn sàng để deploy lên môi trường Production, nhưng lúc này vẫn cần một cái "click" phê duyệt từ con người.
+  - Ngược lại, **Continuous Deployment (Triển khai liên tục):** Tức là tự động hóa 100% luôn. Code tự động được đẩy thẳng lên Production mà không cần ai phê duyệt cả. Đây có thể coi là bước trưởng thành nhất, khi đội ngũ đã hoàn toàn tin tưởng vào các bài test tự động của mình rồi.
 
-Thế thì có các lỗi gì có thể xảy ra khi triển khai thủ công?
+*(Nhấn mạnh)*: Các bạn lưu ý là, cái lệnh `git push` chính là "công tắc" kích hoạt toàn bộ máy chủ CI/CD hoạt động nhé!
 
-Đầu tiên phải nói đến là vòng lặp sửa code vô tận, cứ mỗi lần chúng ta sửa code là một lần build lại rồi sử dụng scp để đưa file jar lên server, sau đó đăng nhập vào server, restart ứng dụng thủ công.
+**[Slide: 4 Giai đoạn của Pipeline cơ bản]**
+Một sơ đồ pipeline cơ bản sẽ gồm 4 giai đoạn, và nếu bất kỳ giai đoạn nào thất bại (fail), thì toàn bộ pipeline sẽ dừng lại ngay lập tức:
+1. **Đầu tiên là Compile:** Biên dịch mã nguồn (cái này thì áp dụng cho các ngôn ngữ như Java hay NodeJS...).
+2. **Tiếp theo là Test:** Chạy các bài test tự động. Đây là phần bắt buộc và là cốt lõi của triết lý "fail fast" mà có thể trước nay các bạn chưa chú trọng nhiều.
+3. **Thứ ba là Build/Package (Đóng gói):** Đóng gói thành file `.jar` và sau đó đóng gói tiếp thành một Docker Image.
+4. **Và cuối cùng là Deploy:** Triển khai tự động bản đóng gói đó lên server thôi.
 
-Tiếp theo là rủi ro sử dụng nhầm config, dẫn đến việc hệ thống thật lại sử dụng nhầm đường dẫn của database test, gây mất dữ liệu.
+*(Lưu ý)*: Ở đây có một hiểu lầm rất phổ biến, nhiều người cứ nghĩ việc viết một cái script tự động copy file `.jar` lên server cũng là CI/CD. Hoàn toàn sai nhé! Đó cao lắm thì chỉ là một phần nhỏ của CD thôi, còn phần quan trọng nhất phải là cái **CI** (tức là kiểm thử và tích hợp cơ).
 
-Hay đơn giản hơn là, lệch pha môi trường chạy, code thì được viết và biên dịch bằng java 21, nhưng server lại cài nhầm java 17.
+---
 
-Một vấn đề đau đầu khác là làm sao để quản lý các phiên bản file jar của ứng dụng.
+## Lesson 3: Môi trường Dev, Staging, và Production
 
-Và cuối cùng là, trong hệ thống microservice phức tạp với nhiều dịch vụ gọi chéo nhau, nếu như chỉ quản lý log của từng bằng Jounalctl, thì sớm muộn gì chúng ta cũng rơi vào tình trạng mù log, bởi vì không biết phải xem log thế nào.
+**[Slide: Các loại môi trường]**
+Thực tế thì trong bất kỳ dự án nào, luôn luôn tồn tại ít nhất là 3 môi trường biệt lập thế này, mỗi môi trường sẽ có mức độ bảo mật và cấu hình khác nhau:
+1. **Đầu tiên là Dev (Development):** Tức là môi trường máy local của lập trình viên. Dữ liệu thì tự giả lập, độ ổn định cũng không quan trọng. Mục tiêu duy nhất chỉ là để code nhanh và debug dễ dàng.
+2. **Tiếp đến là Staging:** Đây là môi trường "Bản sao hoàn hảo" của Production (giống đến 99%). Dữ liệu cũng được làm cho giống thật nhưng không được chứa thông tin nhạy cảm. Mục đích của nó là để chạy Integration Test, kiểm thử giao diện và nghiệm thu (UAT) trước khi tung ra sản phẩm.
+3. **Và cuối cùng là Production:** Đây là môi trường chạy thật, nơi người dùng cuối trực tiếp sử dụng. Dữ liệu là thật, độ bảo mật phải tuyệt đối và yêu cầu là hệ thống phải luôn hoạt động (Uptime 99.99%).
 
-Một câu chuyện khác về quá khứ, trước kia, các doanh nghiệp thường chia đội dev và đội operation (vận hành) là 2 đội riêng.
+**[Slide: Build Once, Run Anywhere]**
+Thế thì để quản lý tốt 3 môi trường này, chúng ta cần phải áp dụng một nguyên tắc gọi là: **"Build Once, Run Anywhere"** (Build 1 lần, Chạy mọi nơi). Tức là sao? Nghĩa là chúng ta chỉ tạo ra đúng 1 file `.jar` duy nhất ở giai đoạn CI thôi, và mang chính cái file đó đi chạy ở Dev, Staging hay Production.
 
-Dẫn đến việc, 2 đội này không bao giờ có thể hoà thuận với nhau được, do là đội dev thì muốn ưu tiên triển khai code nhanh, fix bug ngay lập tức, còn đội ops thì ưu tiên sự ổn định, tránh rủi ro sập toàn bộ hệ thống.
+Vậy thì làm sao để ứng dụng biết nó đang cần kết nối với Database nào? Câu trả lời chính là: **Biến môi trường (Environment Variables)**.
+Trước đây, hẳn là các bạn đã quen với việc "hardcode" đường dẫn database thẳng vào file `application.yml` rồi đúng không. Điều này cực kỳ rủi ro về mặt bảo mật và làm cho file `.jar` bị đóng cứng, không thể linh hoạt. 
 
-Mâu thuẫn này đã kéo dài mãi mãi cho đến khi khái niệm và các công cụ devops ra đời.
+Spring Boot thì lại hỗ trợ nội suy biến môi trường rất tốt bằng cú pháp `${TEN_BIEN:gia_tri_mac_dinh}`. Khi khởi chạy, chúng ta chỉ cần nạp biến môi trường vào thông qua shell (ví dụ như lệnh `export DATABASE_URL=...`), rồi sau đó chạy lệnh `java -jar application.jar` là xong.
 
-Thế thì Devops là gì?
+---
 
-Devops là kết hợp của Development và Operations - Đây không phải là một vị trí công việc.
-Nó là sự giao thoa giữa văn hoá, quy trình, và công cụ để tự động hoá vòng đời phát hành phần mềm.
+## Lesson 4: Kiến trúc triển khai hệ thống Microservices
 
-Thế khi nào là chúng ta đã nắm được devops, khi nào là chúng ta đã biết, hay đã giỏi Devops? Có thể được tóm gọn qua 3 trụ cột chính sau:
-Sự am hiểu về hệ thống thực tế, về hạ tầng, về phần cứng.
-Sự am hiểu về công nghệ sử dụng (Java Runtime)
-Cuối cùng là biết xây dựng CI CD Pipeline, và CI CD Pipeline cũng là sản phẩm cốt lõi của Devops.
+**[Slide: Vấn đề bảo mật Microservices]**
+Chúng ta đều biết Microservices là một hệ thống rất lớn, gồm nhiều dịch vụ nhỏ giao tiếp với nhau. Thế thì các bạn hãy thử tưởng tượng, nếu chúng ta để lộ trực tiếp địa chỉ IP và Port nội bộ của từng service ra ngoài Internet (ví dụ như để lộ port `10.0.1.15:8081` cho User Service, hay `10.0.1.16:8082` cho Order Service) thì hậu quả sẽ ra sao? Việc này sẽ cực kỳ nguy hiểm các bạn ạ:
+- **Thứ nhất là rủi ro bảo mật:** Hacker có thể dễ dàng dò quét các port này và tấn công trực tiếp vào từng service. Hành động này không khác gì chúng ta xây một ngôi nhà mà lại mở toang mọi cánh cửa sổ mời trộm vào vậy.
+- **Thứ hai là quản lý SSL rất phức tạp:** Nếu đưa trực tiếp ra ngoài, mỗi service sẽ lại phải tự gắn một chứng chỉ HTTPS riêng. Các bạn cứ tưởng tượng hệ thống có 50 service mà phải cài và gia hạn SSL cho cả 50 cái thì rất mệt mỏi và dễ xảy ra sai sót.
+- **Và thứ ba là sự cứng nhắc của hệ thống:** Giả sử khi server bị chết, chúng ta phải đổi IP, hoặc khi có sự kiện cần tăng số lượng server lên để chịu tải, thì các client (như web, mobile app) sẽ phải cập nhật lại đường dẫn API. Việc này là bất khả thi trên thực tế và sẽ gây ra gián đoạn hệ thống trên diện rộng.
 
+**[Slide: Kiến trúc Quickbite]**
+Để giải quyết triệt để cái bài toán đau đầu trên, chúng ta sẽ áp dụng một kiến trúc mạng phân lớp tiêu chuẩn. Và thầy sẽ mượn luôn dự án **Quickbite** – dự án thực hành xuyên suốt của môn học này – để làm ví dụ nhé. 
 
-## Lesson 2
-Chúng ta sẽ đến với bài số 2, đó là Khái niệm CI CD (Quy trình buid, test, deploy)
+Vậy hệ thống Quickbite được tổ chức như thế nào?
+1. **Đầu tiên là lớp Reverse Proxy (Nginx):** Hệ thống Quickbite chỉ mở ra đúng một "cửa ngõ" duy nhất kết nối với Internet thôi. Thằng Nginx này sẽ đóng vai trò là một người bảo vệ cổng (Gatekeeper), đứng ra tiếp nhận mọi request từ bên ngoài vào.
+2. **Bên dưới là lớp API Gateway:** Thằng này thì nằm hoàn toàn bên trong mạng nội bộ. Gateway có nhiệm vụ nhận yêu cầu từ Nginx và bắt đầu phân luồng, định tuyến động (Dynamic Routing) đến các service nhỏ bên trong.
+3. **Phía sau nữa là các Services độc lập:** Đây là nơi chứa logic nghiệp vụ, như User Service, Order Service,...
+4. **Và cuối cùng là Database:** Quickbite tuân thủ chặt chẽ cái nguyên tắc gọi là **Database-per-service**: Tức là mỗi service sở hữu một database riêng biệt. Về mặt vật lý, chúng ta có thể cài chung trên một cụm server PostgreSQL cho tiết kiệm, nhưng về mặt logic thì chúng cách ly hoàn toàn. Tuyệt đối service này không được phép truy cập hay ghi chéo vào database của service khác. Tại sao lại thế? Là để giả sử khi service Order bị sập database, thì service User vẫn hoạt động bình thường, đảm bảo tính sẵn sàng cao (High Availability) cho toàn bộ hệ thống.
 
-Ở đây thầy sẽ lấy một ví dụ hết sức thực tế, về một bạn intern, rất tích cực code và đẩy commit mới lên, tuy nhiên như thế thì anh Techlead sẽ không thể nào review hết được, vì làm gì có thời gian ạ.
+**[Slide: Phân biệt Nginx và API Gateway]**
+Đến đây chắc các bạn sẽ hỏi thầy là: "Thầy ơi, tại sao lại cần thêm Nginx, trong khi em thấy API Gateway làm được hết mọi việc rồi cơ mà?" 
+Đúng là Gateway rất mạnh, nhưng thực tế triển khai thì mỗi công cụ lại có một thế mạnh đặc thù riêng:
+- **Nginx** được sinh ra để làm lớp khiên chắn. Nó rất mạnh trong việc xử lý request bất đồng bộ và chịu tải cực kỳ khủng khiếp. Nó sẽ đứng ra gánh vác việc giải mã chứng chỉ SSL (thuật ngữ gọi là SSL Termination) để giảm tải cho các dịch vụ phía sau. Ngoài ra, Nginx cũng kiêm luôn việc trả về các file tĩnh (như hình ảnh, HTML, CSS, JS) cho người dùng một cách cực kỳ trơn tru và nhanh chóng.
+- Còn **API Gateway** thì nó lại tập trung vào logic của API hơn. Nó sẽ đứng ra kiểm tra xem người dùng này có quyền truy cập không thông qua xác thực tập trung (Authentication như check JWT Token), rồi thì giới hạn tốc độ (Rate Limiting) để chống việc có ai đó spam request làm sập server, và định tuyến request tới đúng service đang cần.
 
-Nhưng may mắn là có một thứ rất hay đó là CI CD pipeline, đại khái là
-Khi intern đẩy commit lên, code sẽ được build thử, được chạy test thử, sau khi nó xanh (passed) thì anh Techlead mới vào review code để quyết định xem làm gì tiếp với nó.
+**[Kết luận Bài 4]**
+Vậy nói tóm lại, nhờ áp dụng kiến trúc phân lớp này, toàn bộ hệ thống khổng lồ của chúng ta chỉ mở đúng hai cổng ra Internet là cổng 443 (cho HTTPS) và cổng 80 (cho HTTP). Tất cả các dịch vụ nội bộ còn lại thì đều được giấu an toàn tuyệt đối ở phía sau bức tường lửa và Nginx.
 
-Oke chúng ta đã nói nhiều về CI CD rồi, thế còn khái niệm nó là gì?
-CI là viết tắt của Continuous Integration (Tích hợp liên tục), nghĩa là tự động compile và chạy unit test ngay khi dev gõ git push.
-Cái CI này nó gắn với một triết lý, gọi là Fail fast, nói chung là, lỗi càng sớm, càng giảm được rủ ro mất tiền sau này.
+---
 
-Còn CD, thì lại có 2 khái niệm:
-1 là Continuous Delivery, nghĩa là sau khi CI xong, thì code tự động đóng gói và sẵn sàng để Deploy, nhưng vẫn cần phê duyệt của con người.
-Ngược lại Continous Deployment, nghĩa là tự động hoá 100% không cần cả phê duyệt nữa luôn, thế thì bản chất là Coutinous Deployment là quy trình đầy đủ hơn của Delivery thôi, khi mà chúng ta hoàn toàn có thể tin tưởng cái Pipeline mà mình đã xây.
+## Lesson 5: Linux và vai trò của Linux trong DevOps
 
-Lưu ý là: lệnh git push, chính là nút kích hoạt cho máy chủ CI hoạt động.
+**[Slide: Tại sao lại là Linux?]**
+Thế thì chúng ta chuyển sang một chủ đề mới nhé. Từ nãy đến giờ chúng ta nói rất nhiều về server, về hệ thống, về CI/CD. Vậy hệ điều hành nào đang chạy trên các server đó? Câu trả lời trong 99% trường hợp thực tế là **Linux**.
 
-Sơ đồ pipeline cơ bản có thể tóm gọn thành 4 giai đoạn (stage) sau, và bất kì giai đoạn nào fail, nghĩa là cả pipeline fail.
+Nhiều bạn sẽ thắc mắc, tại sao không phải là Windows mà chúng ta vẫn hay dùng ở nhà? Có 3 lý do chính:
+- **Thứ nhất:** Linux là mã nguồn mở và hoàn toàn miễn phí. Việc này giúp các công ty tiết kiệm được một khoản chi phí bản quyền khổng lồ khi vận hành hàng nghìn server.
+- **Thứ hai:** Nó cực kỳ nhẹ. Các bản Linux dành cho server thường không hề có giao diện người dùng (GUI), mà chỉ toàn màn hình đen dòng lệnh (CLI). Nhờ vậy nó dồn được toàn bộ sức mạnh phần cứng để chạy ứng dụng của chúng ta chứ không tốn RAM cho việc vẽ đồ họa.
+- **Thứ ba:** Là độ ổn định vô đối. Một server Linux có thể chạy vài năm trời liên tục mà không cần khởi động lại.
 
-Giai đoạn đầu tiện là Compile, cái này thì áp dụng cho Java và các ngôn ngữ compile khác như node.
+**[Slide: Vai trò của Linux trong DevOps]**
+Và các bạn có biết không, Linux chính là "xương sống" của mảng DevOps. 
+- Mọi công cụ DevOps nổi tiếng nhất hiện nay như Docker, Kubernetes, Ansible... đều được sinh ra và tối ưu tốt nhất trên môi trường Linux.
+- Các máy chủ chạy quy trình CI/CD cũng hầu hết đều là Linux.
+Nói chung là, nếu các bạn muốn trở thành một Kỹ sư DevOps, hay đơn giản là một Backend Developer xịn, thì việc làm chủ hệ điều hành Linux trên giao diện dòng lệnh là một yêu cầu mang tính chất bắt buộc.
 
-Giai đoạn tiếp theo là chạy test, chạy test là bắt buộc, chẳng qua là trước nay chúng ta ít khi quan tâm đến cái test này thôi, chứ nó là một phần quan trọng của triết lý fail fast.
+---
 
-Giai đoạn ba là đóng gói, ở đây là đóng gói Jar, hoặc đóng gói Docker, chính xác hơn là cả 2, đóng gói Jar trước, sau đó đóng gói Docker.
+## Lesson 6: Một vài lệnh quản lý quyền và mạng trong Linux
 
-Giai đoạn cuối cùng là Deploy nữa thôi, tự động triển khai lên Production.
+**[Slide: Quản lý quyền (Permissions) và Mạng (Network)]**
+Thế thì khi làm việc với Linux trên giao diện dòng lệnh, có hai nhóm lệnh cơ bản mà các bạn sẽ phải dùng đi dùng lại rất nhiều lần: đó là nhóm lệnh quản lý quyền và nhóm lệnh kiểm tra mạng.
 
-Ở đây, có một hiểu lầm rất phổ biến, đó là việc viết một script để thực hiện việc copy file Jar từ local lên Server cũng là CI CD.
-Sai hoàn toàn, đấy chỉ là CD, còn CI mới là cái quan trọng.
+- **Về quản lý quyền:** Linux quản lý file rất chặt chẽ. Một file sẽ luôn có 3 loại quyền: Đọc (Read), Ghi (Write), và Thực thi (Execute). Nó cũng chia người dùng thành 3 nhóm: Chủ sở hữu (User), Nhóm của chủ sở hữu (Group), và Những người còn lại (Others). Chúng ta sẽ thường xuyên phải dùng lệnh `chown` để thay đổi chủ sở hữu của thư mục, và dùng lệnh `chmod` để cấp quyền chạy cho một file script nào đó.
+- **Về kiểm tra mạng:** Giả sử khi một service này không gọi được cho service khác, chúng ta sẽ phải dùng `ping` để xem server kia có kết nối mạng không, dùng `curl` để gọi thử API ngay trên màn hình đen, hoặc dùng lệnh `telnet` (hay `nc`) để kiểm tra xem cái port của database bên kia đã mở chưa.
 
+**[Slide: Live Demo - Thực hành Linux cơ bản]**
+Thôi, lý thuyết nói thế là đủ rồi. Mọi thứ trên màn hình đen (CLI) mà cứ nghe chay thì nó rất trừu tượng. Thế nên thầy sẽ demo trực tiếp cho các bạn xem nó hoạt động thế nào nhé. Một nửa thời lượng còn lại của bài học này, chúng ta sẽ cất slide đi và tập trung vào thực hành.
 
-## Lesson 3 Môi trường dev, staging, và production
+**(Nhấn mạnh: Chuyển màn hình từ Slide sang Terminal)**
 
-Trong bất kì dự án thực tế nào, luôn luôn có ít nhất 3 môi trường như thế này, mỗi môi trường áp dụng các cấu hình khác nhau và cấp độ bảo mật khác nhau.
+**[Live Demo 1: Quản lý quyền với file]**
+- *Đầu tiên, thầy sẽ tạo một file script tên là `deploy.sh` bằng lệnh `touch`.*
+- *Thầy sẽ dùng `nano` mở file lên và viết một câu lệnh `echo "Deploying..."` đơn giản.*
+- *Bây giờ thầy sẽ thử chạy file đó ngay lập tức bằng `./deploy.sh` nhé. Các bạn xem này... -> Báo lỗi "Permission denied". (Giải thích: Cố tình demo lỗi để học viên thấy rõ).*
+- *Tại sao lại có lỗi này? Vì file chúng ta vừa tạo chưa có quyền thực thi. Thầy sẽ cấp quyền cho nó bằng lệnh `chmod +x deploy.sh`.*
+- *Bây giờ chạy lại... -> Thành công rồi.*
 
-Môi trường dev, chính máy Local của lập trình viên, thì có dữ liệu tự giả lập, mức độ ổn định yêu cầu thấp, mục tiêu duy nhất là code nhanh và debug trực tiếp.
+**[Live Demo 2: Kiểm tra kết nối mạng]**
+- *Tiếp theo, thầy sẽ gõ `ping google.com` để các bạn thấy server Linux nó kiểm tra kết nối internet như thế nào. (Nhớ ấn Ctrl+C để dừng nhé).*
+- *Và đây là lệnh `curl` "thần thánh". Thầy sẽ gọi thử một API bằng lệnh `curl -v https://jsonplaceholder.typicode.com/todos/1`. Các bạn thấy đấy, chúng ta có thể xem trực tiếp request/response dưới dạng text ngay trên terminal luôn.*
+- *Cuối cùng, giả sử thầy muốn biết port 443 của Google có mở không, thầy sẽ chạy `nc -vz google.com 443`.*
 
-Môi trường Staging thì là môi trường độc lập, mô phỏng giống với production tới 99&, dữ liệu cũng được mô phỏng thật, nhưng không được chứa dữ liệu nhạy cảm. 
-Mục đích của môi trường Staging là để chạy Integration Test và UAT (kiểm thử chấp nhận) để nghiệm thu tính năng.
-
-Còn môi trường Production là môi trường thật, chạy thật và phục vụ cho người dùng cuối (end-user), dữ liệu thật và nhạy cảm, yêu cầu bảo mật tuyệt đối và uptime 99.99%
-
-Thế thì để giao tiếp tốt giữa 3 môi trường này, chúng ta cần tuân thủ nguyên tắc "Build Once, Run Anywhere", đấy là khi mà chúng ta chỉ build ra 1 file Jar duy nhất, nhưng lại có thể dùng ở bất kì đâu, điểm khác biệt chính là ở biến môi trường chúng ta nạp vào lúc chạy ứng dụng này.
-
-Nạp biến môi trường là cái gì, nghe mơ hồ quá?
-Trước nay chúng ta hẳn là đã quen với việc hardcode database url vào trong application.yml, không chỉ build ra file jar bị cứng, mà còn rủi ro bảo mật khi chúng ta đẩy file application này lên trên repo mà có nhiều người có quyền truy cập.
-
-Spring mặc định cung cấp cho chúng ta một cái rất hay để không cần fix cứng database url, mà có thể nạp khi khởi chạy, cơ chế này gọi là nội suy biến môi trường.
-
-Cú pháp của nó là sử dụng dấu đô la và ngoặc nhọn, nếu fallback thì thêm nội dung sau dấu : nữa để fallback mặc định nếu không có biến tương ứng được nạp vào.
-
-Thế khi đó biến đó được lấy từ đâu?
-
-Lấy từ trong cái shell đang hoạt động khi đó, và sử dụng lệnh export TÊN BIẾN = giá trị
-
-sau đó khởi chạy ứng dụng bằng lệnh java -jar user-service.jar
-
-
-## lesson 4 Kiến trúc triển khai hệ thống Microservices
-
-Chúng ta đều biết microservices là hệ thống phức tạp, gồm nhiều các service giao tiếp với nhau
-Nếu như trực tiếp để lộ ip của các services ra ngoài internet (10.0.1.15:8081) thì sẽ rất nguy hiểm:
-Thứ nhất là lộ cổng nội bộ, phơi bày hoàn toàn các port nội bộ ra internet, hacker có thể quét được và tấn công vào từng service.
-Thứ hai là SSL rất phúc tạp khi phải quản lý chứng chỉ HTTPS cho từng cổng của từng service.
-Thứ ba là cứng nhắc IP, khi thay đổi IP server hoặc khi cần scale hệ thống lên, thì các ứng dụng client (web, app mobile) phải cập nhật lại endpoint API, khiến cho hệ thống rất thiếu linh hoạt và khó bảo trì.
-
-Chúng ta sẽ tham khảo khiến trúc phân lớp sau của hệ thống Quickbite, cũng là hệ thống tiêu chuẩn để chúng ta thực hành trong môn học này.
-
-Quickbite chỉ có đúng 1 điểm duy nhất ra ngoài internet, vị trí này gọi là Reverse Proxy, và Nginx đảm nhận vai trò này.
-
-Tiếp theo đến bên dưới là thuộc về mạng nội bộ, có API gateway, là chỉ đường đến các service con khác, API Gateway thì các bạn đều đã học rồi.
-
-Bên dưới nữa là các service, và mỗi service có database riêng.
-
-Quickbite cũng tuân thủ nguyên tắt Database-per-service, mỗi service chỉ truy cập đến database của riêng nó, về mặt vật lý có thể dùng chung một cụm Postgressql, nhưng logic database là tách rời hoàn toàn khỏi nhau, các service không được phép ghi chéo databse của nhau.
-
-Phân biệt Nginx và API gateway.
-Chúng ta sẽ đặt câu hỏi là Nginx để làm gì đâu, API gateway làm được mà?
-Nhưng thực tế là không phải, Nginx làm rất nhiều, Nginx xử lý request bất đồng bộ tốt hơn, Nginx là tấm khiên, là nơi xử lý SSL (SSL Termination)
-Ngoài ra, nó cũng có thể trả các tài nguyên tĩnh như là html css js cho người dùng.
-
-Còn API gateway chỉ là thằng đứng sau tiếp nhận mọi request của Nginx để điều phối đến các service thôi, sử dụng cơ chế định tuyến động, gateway cũng làm việc xác thực tập trung (authentication) và Rate Limiting (chống DDOS)
-
-Kết quả cuối cùng của thiết kế này, là chỉ có cổng 443, và 80 là ra ngoài internet, cái này là dĩ nhiên rồi, bởi vì web mặc định 443 cho https, và 80 cho http, còn lại các port khác chỉ hoạt động ở bên trong, không để lộ ra ngoài.
+Thế thì qua cái phần demo ngắn vừa rồi, thầy hy vọng các bạn đã có một cái nhìn trực quan hơn về cách chúng ta sẽ "trò chuyện" với server Linux thông qua các dòng lệnh. Và phần thực hành này cũng đã khép lại nội dung của Session 1 ngày hôm nay. Hẹn gặp lại các bạn trong bài học tới!
