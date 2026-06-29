@@ -124,21 +124,26 @@ public interface RestaurantServiceClient {
   2. *Lỗi CORS (Cross-Origin Resource Sharing):* Trình duyệt chặn các request gọi chéo cổng mạng, buộc phải cấu hình cho phép CORS trên tất cả các dịch vụ độc lập.
   3. *Trùng lặp mã nguồn bảo mật (Authentication):* Logic xác thực Token JWT và phân quyền phải được lập trình lặp đi lặp lại ở mọi service.
 
-#### Slide 10: API Gateway - Điểm truy cập tập trung duy nhất (Single Entry Point)
-* **Định nghĩa:** API Gateway là thành phần máy chủ đóng vai trò làm cửa ngõ duy nhất tiếp nhận mọi request từ Client trước khi điều hướng vào hệ thống.
-* **Lợi ích cốt lõi:**
-  * Client chỉ cần kết nối tới một cổng duy nhất (ví dụ: `8080`).
-  * Thực hiện xác thực JWT, phân quyền, giới hạn lưu lượng (rate limiting) và xử lý lỗi CORS tập trung tại một nơi duy nhất.
-  * Che giấu hoàn toàn kiến trúc mạng và cổng kết nối của các microservices nội bộ.
+#### Slide 10: Khái niệm và Vai trò của API Gateway (Single Entry Point)
+* **Định nghĩa:** API Gateway là một thành phần máy chủ làm điểm truy cập tập trung duy nhất cho mọi yêu cầu gọi API từ phía Client (Web, Mobile) đi vào hệ thống.
+* **Các chức năng cốt lõi:**
+  * *Định tuyến động (Dynamic Routing):* Tự động điều hướng request dựa trên URI (ví dụ: `/api/v1/users/**` chuyển hướng ngầm tới `user-service`).
+  * *Xác thực và phân quyền tập trung:* Giải mã và xác thực Token JWT ngay tại cửa ngõ, bảo vệ các dịch vụ phía sau.
+  * *Quản lý CORS tập trung:* Giải quyết lỗi chặn truy cập chéo nguồn từ trình duyệt tại một điểm duy nhất.
+  * *Giới hạn tần suất (Rate Limiting):* Giới hạn số lượng request tối đa trên mỗi IP/User để bảo vệ tài nguyên hệ thống.
+  * *Lá chắn an toàn (Security Shield):* Cho phép đóng hoàn toàn các cổng mạng nội bộ của microservices, chỉ mở duy nhất cổng gateway (ví dụ: `8080`).
 
-#### Slide 11: Phân biệt API Gateway vs Reverse Proxy
-* **Reverse Proxy (Cấp độ hạ tầng - Nginx, HAProxy):**
-  * Hoạt động ở Layer 4/Layer 7.
-  * Tối ưu cho việc cân bằng tải (load balancing), terminate SSL, cache file tĩnh.
-  * Cấu hình tĩnh, khó can thiệp sâu vào logic nghiệp vụ của ứng dụng Spring Boot.
-* **API Gateway (Cấp độ ứng dụng - Spring Cloud Gateway, Kong):**
-  * Hoạt động sâu ở Layer 7, tích hợp chặt chẽ với framework ứng dụng.
-  * Dễ dàng lập trình các bộ lọc tùy biến (Custom Filters) để can thiệp vào request header, JWT validation, tích hợp Service Discovery động.
+#### Slide 11: Phân biệt API Gateway vs Reverse Proxy Nginx
+* **Nginx (Reverse Proxy & Web Server cấp độ hạ tầng):**
+  * Hoạt động ở lớp dưới hạ tầng (tầng mạng TCP/UDP và HTTP thô).
+  * Tối ưu cho cấu hình bảo mật SSL/HTTPS, nén dữ liệu, và phân phối nhanh các tệp tin tĩnh (HTML, CSS, JS) của Frontend.
+  * Khó can thiệp sâu vào logic nghiệp vụ của các dịch vụ chạy phía sau.
+* **Spring Cloud Gateway (API Gateway cấp độ ứng dụng):**
+  * Hoạt động trên nền tảng Spring, hiểu sâu logic ứng dụng và tích hợp chặt chẽ với hệ sinh thái Java.
+  * Cho phép lập trình các bộ lọc (Filters) bằng code Java để can thiệp sâu vào Header, Body của request, kiểm tra quyền hạn nghiệp vụ phức tạp.
+* **Mô hình phối hợp chuẩn doanh nghiệp:**
+  * *Nginx* đứng ngoài cùng tiếp nhận HTTPS từ internet và phân phối file tĩnh Frontend.
+  * *Nginx* chuyển tiếp request API vào bên trong cho *Spring Cloud Gateway* để xử lý logic định tuyến ứng dụng và bảo mật.
 
 ---
 
