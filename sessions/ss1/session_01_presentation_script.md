@@ -16,8 +16,8 @@ Thế thì hôm nay, chúng ta sẽ bắt đầu với chuỗi bài học đầu
 2. Khái niệm CI/CD
 3. 3 môi trường cơ bản: Dev, Staging và Production
 4. Nhắc lại kiến trúc Microservices
-5. Linux và vai trò của Linux trong DevOps
-6. Một vài lệnh quản lý quyền và mạng trong Linux
+5. Hệ điều hành Linux và vai trò trong triển khai hệ thống
+6. Quản lý quyền và các lệnh mạng cơ bản trong Linux
 
 **[Slide: Hạn chế của triển khai thủ công]**
 Qua các môn học trước về Java, Web Service hay Microservices, chắc hẳn các bạn đã quen với việc chạy ứng dụng bằng cách bấm nút "Run" trên IDE rồi đúng không? Tuy nhiên, nhiêu đó chỉ giúp các bạn dừng lại ở mức là một "Developer" thôi. 
@@ -85,7 +85,7 @@ Thực tế thì trong bất kỳ dự án nào, luôn luôn tồn tại ít nh�
 3. **Và cuối cùng là Production:** Đây là môi trường chạy thật, nơi người dùng cuối trực tiếp sử dụng. Dữ liệu là thật, độ bảo mật phải tuyệt đối và yêu cầu là hệ thống phải luôn hoạt động (Uptime 99.99%).
 
 **[Slide: Build Once, Run Anywhere]**
-Thế thì để quản lý tốt 3 môi trường này, chúng ta cần phải áp dụng một nguyên tắc gọi là: **"Build Once, Run Anywhere"** (Build 1 lần, Chạy mọi nơi). Tức là sao? Nghĩa là chúng ta chỉ tạo ra đúng 1 file `.jar` duy nhất ở giai đoạn CI thôi, và mang chính cái file đó đi chạy ở Dev, Staging hay Production.
+Thế thì để quản lý tốt 3 môi trường này, chúng ta cần phải áp dụng một nguyên tắc gọi là: **"Build Once, Run Anywhere"** (Build 1 lần, Chạy mọi nơi). Tức là sao? Nghĩa là chúng bản chất chỉ tạo ra đúng 1 file `.jar` duy nhất ở giai đoạn CI thôi, và mang chính cái file đó đi chạy ở Dev, Staging hay Production.
 
 Vậy thì làm sao để ứng dụng biết nó đang cần kết nối với Database nào? Câu trả lời chính là: **Biến môi trường (Environment Variables)**.
 Trước đây, hẳn là các bạn đã quen với việc "hardcode" đường dẫn database thẳng vào file `application.yml` rồi đúng không. Điều này cực kỳ rủi ro về mặt bảo mật và làm cho file `.jar` bị đóng cứng, không thể linh hoạt. 
@@ -122,47 +122,53 @@ Vậy nói tóm lại, nhờ áp dụng kiến trúc phân lớp này, toàn b�
 
 ---
 
-## Lesson 5: Linux và vai trò của Linux trong DevOps
+## Lesson 5: Hệ điều hành Linux và vai trò trong triển khai hệ thống
 
-**[Slide: Tại sao lại là Linux?]**
-Thế thì chúng ta chuyển sang một chủ đề mới nhé. Từ nãy đến giờ chúng ta nói rất nhiều về server, về hệ thống, về CI/CD. Vậy hệ điều hành nào đang chạy trên các server đó? Câu trả lời trong 99% trường hợp thực tế là **Linux**.
+**[Slide 12: Vai trò của Linux & Lệnh khởi tạo hệ thống]**
+Thế thì từ nãy đến giờ chúng ta nói rất nhiều về hệ thống, về tự động hóa. Vậy hệ điều hành nào là tiêu chuẩn để vận hành các hệ thống này? Chắc chắn đó là **Linux**. Tại sao lại thế? 
+Bởi vì công nghệ Container cốt lõi như Docker luôn dùng chung nhân hệ điều hành (thuật ngữ gọi là Shared Kernel), và cái nhân đó bắt buộc phải là Linux Kernel.
 
-Nhiều bạn sẽ thắc mắc, tại sao không phải là Windows mà chúng ta vẫn hay dùng ở nhà? Có 3 lý do chính:
-- **Thứ nhất:** Linux là mã nguồn mở và hoàn toàn miễn phí. Việc này giúp các công ty tiết kiệm được một khoản chi phí bản quyền khổng lồ khi vận hành hàng nghìn server.
-- **Thứ hai:** Nó cực kỳ nhẹ. Các bản Linux dành cho server thường không hề có giao diện người dùng (GUI), mà chỉ toàn màn hình đen dòng lệnh (CLI). Nhờ vậy nó dồn được toàn bộ sức mạnh phần cứng để chạy ứng dụng của chúng ta chứ không tốn RAM cho việc vẽ đồ họa.
-- **Thứ ba:** Là độ ổn định vô đối. Một server Linux có thể chạy vài năm trời liên tục mà không cần khởi động lại.
-
-**[Slide: Vai trò của Linux trong DevOps]**
-Và các bạn có biết không, Linux chính là "xương sống" của mảng DevOps. 
-- Mọi công cụ DevOps nổi tiếng nhất hiện nay như Docker, Kubernetes, Ansible... đều được sinh ra và tối ưu tốt nhất trên môi trường Linux.
-- Các máy chủ chạy quy trình CI/CD cũng hầu hết đều là Linux.
-Nói chung là, nếu các bạn muốn trở thành một Kỹ sư DevOps, hay đơn giản là một Backend Developer xịn, thì việc làm chủ hệ điều hành Linux trên giao diện dòng lệnh là một yêu cầu mang tính chất bắt buộc.
-
----
-
-## Lesson 6: Một vài lệnh quản lý quyền và mạng trong Linux
-
-**[Slide: Quản lý quyền (Permissions) và Mạng (Network)]**
-Thế thì khi làm việc với Linux trên giao diện dòng lệnh, có hai nhóm lệnh cơ bản mà các bạn sẽ phải dùng đi dùng lại rất nhiều lần: đó là nhóm lệnh quản lý quyền và nhóm lệnh kiểm tra mạng.
-
-- **Về quản lý quyền:** Linux quản lý file rất chặt chẽ. Một file sẽ luôn có 3 loại quyền: Đọc (Read), Ghi (Write), và Thực thi (Execute). Nó cũng chia người dùng thành 3 nhóm: Chủ sở hữu (User), Nhóm của chủ sở hữu (Group), và Những người còn lại (Others). Chúng ta sẽ thường xuyên phải dùng lệnh `chown` để thay đổi chủ sở hữu của thư mục, và dùng lệnh `chmod` để cấp quyền chạy cho một file script nào đó.
-- **Về kiểm tra mạng:** Giả sử khi một service này không gọi được cho service khác, chúng ta sẽ phải dùng `ping` để xem server kia có kết nối mạng không, dùng `curl` để gọi thử API ngay trên màn hình đen, hoặc dùng lệnh `telnet` (hay `nc`) để kiểm tra xem cái port của database bên kia đã mở chưa.
-
-**[Slide: Live Demo - Thực hành Linux cơ bản]**
-Thôi, lý thuyết nói thế là đủ rồi. Mọi thứ trên màn hình đen (CLI) mà cứ nghe chay thì nó rất trừu tượng. Thế nên thầy sẽ demo trực tiếp cho các bạn xem nó hoạt động thế nào nhé. Một nửa thời lượng còn lại của bài học này, chúng ta sẽ cất slide đi và tập trung vào thực hành.
+Bây giờ thầy sẽ chuyển sang phần thực hành, bắt đầu bằng việc chuẩn bị một server Linux để chạy code Spring Boot.
 
 **(Nhấn mạnh: Chuyển màn hình từ Slide sang Terminal)**
 
-**[Live Demo 1: Quản lý quyền với file]**
-- *Đầu tiên, thầy sẽ tạo một file script tên là `deploy.sh` bằng lệnh `touch`.*
-- *Thầy sẽ dùng `nano` mở file lên và viết một câu lệnh `echo "Deploying..."` đơn giản.*
-- *Bây giờ thầy sẽ thử chạy file đó ngay lập tức bằng `./deploy.sh` nhé. Các bạn xem này... -> Báo lỗi "Permission denied". (Giải thích: Cố tình demo lỗi để học viên thấy rõ).*
-- *Tại sao lại có lỗi này? Vì file chúng ta vừa tạo chưa có quyền thực thi. Thầy sẽ cấp quyền cho nó bằng lệnh `chmod +x deploy.sh`.*
-- *Bây giờ chạy lại... -> Thành công rồi.*
+**[Live Demo 1: Cài đặt JDK 17 bằng Script tự động]**
+- *Để cài đặt công cụ cần thiết trên Ubuntu, thay vì gõ tay từng lệnh rất dễ sai, thầy sẽ tạo hẳn một kịch bản tự động bằng file script. Thầy tạo file `initial-script.sh`.*
+- *Bên trong file, thầy gõ lệnh cập nhật hệ thống `sudo apt-get update && sudo apt-get upgrade -y` và lệnh cài đặt Java `sudo apt-get install -y openjdk-17-jdk curl git`.*
+- *Lưu file lại, thầy sẽ dùng lệnh `chmod +x initial-script.sh` để cấp quyền thực thi cho nó.*
+- *Chạy file script bằng lệnh `./initial-script.sh`. Đó, các bạn thấy không, server đang tự động cài Java 17 chuẩn chỉnh luôn.*
 
-**[Live Demo 2: Kiểm tra kết nối mạng]**
-- *Tiếp theo, thầy sẽ gõ `ping google.com` để các bạn thấy server Linux nó kiểm tra kết nối internet như thế nào. (Nhớ ấn Ctrl+C để dừng nhé).*
-- *Và đây là lệnh `curl` "thần thánh". Thầy sẽ gọi thử một API bằng lệnh `curl -v https://jsonplaceholder.typicode.com/todos/1`. Các bạn thấy đấy, chúng ta có thể xem trực tiếp request/response dưới dạng text ngay trên terminal luôn.*
-- *Cuối cùng, giả sử thầy muốn biết port 443 của Google có mở không, thầy sẽ chạy `nc -vz google.com 443`.*
+**[Slide 13: Thao tác file, thư mục và quản lý dịch vụ]**
+Ngoài các lệnh thao tác file cơ bản như `pwd`, `ls -la`, tạo thư mục `mkdir -p` hay xóa file `rm -rf`, thì kỹ năng quan trọng nhất của DevOps là quản lý biến môi trường và tiến trình hệ thống.
 
-Thế thì qua cái phần demo ngắn vừa rồi, thầy hy vọng các bạn đã có một cái nhìn trực quan hơn về cách chúng ta sẽ "trò chuyện" với server Linux thông qua các dòng lệnh. Và phần thực hành này cũng đã khép lại nội dung của Session 1 ngày hôm nay. Hẹn gặp lại các bạn trong bài học tới!
+**[Live Demo 2: Cấu hình biến môi trường và Quản lý hệ thống]**
+- *Đầu tiên, để cấu hình biến môi trường vĩnh viễn, thầy sẽ chèn biến cấu hình vào thẳng file hệ thống bằng lệnh: `echo "export QUICKBITE_DB_USER=staging_admin" >> ~/.bashrc`.*
+- *Và để nó nhận cấu hình ngay lập tức mà không cần khởi động lại, thầy dùng `source ~/.bashrc`.*
+- *Tiếp theo, giả sử hệ thống có một tiến trình Java đang bị treo. Thầy sẽ dùng `ps -ef | grep java` để dò ra tiến trình đó. Thấy số PID của nó rồi, thầy dùng lệnh `kill -9 [PID]` để tiêu diệt dứt điểm.*
+- *Nói về Nginx, có 2 lệnh kinh điển các bạn phải nằm lòng: Thứ nhất là `sudo nginx -t` để test file cấu hình trước xem có lỗi cú pháp không. Thứ hai là `sudo nginx -s reload` để cập nhật cấu hình mới mà không làm mất kết nối của client.*
+
+---
+
+## Lesson 6: Quản lý quyền và các lệnh mạng cơ bản trong Linux
+
+**[Slide 14: Bảo mật hệ thống - Tạo người dùng chuyên dụng]**
+Nói đến server là phải nói đến bảo mật. Các bạn có biết điều tối kỵ nhất trên Linux là gì không? Đó là chạy ứng dụng Web bằng quyền quản trị viên cao nhất - quyền `root`. Nếu hacker tấn công được ứng dụng, họ sẽ chiếm trọn cả máy chủ. Để ngăn chặn, chúng ta phải tạo ra các tài khoản hệ thống (system user) chỉ dùng để chạy app và không có quyền truy cập vỏ sò (shell).
+
+**[Live Demo 3: Tạo người dùng bảo mật]**
+- *Đầu tiên thầy sẽ tạo một nhóm riêng: `sudo groupadd quickbite`.*
+- *Tiếp theo là lệnh mấu chốt: `sudo useradd -r -g quickbite -s /bin/false quickbite`.*
+- *Tại sao lệnh này an toàn? Chữ `-r` ở đây là để tạo tài khoản hệ thống không có thư mục cá nhân. Còn `-s /bin/false` là để cấm tiệt tài khoản này login qua SSH. Do vậy, dù hacker có mò được pass thì cũng không thể gõ được bất kỳ lệnh phá hoại nào.*
+
+**[Slide 15: Phân quyền thư mục & Chẩn đoán mạng]**
+Có user rồi, chúng ta phải thiết lập khu vực an toàn cho thư mục chứa mã nguồn của chúng ta. Đồng thời, khi server gặp sự cố, kỹ năng chẩn đoán mạng là cứu cánh đầu tiên.
+
+**[Live Demo 4: Phân quyền và Chẩn đoán mạng]**
+- *Thầy sẽ tạo nơi lưu trữ bằng lệnh `sudo mkdir -p /opt/quickbite/user-service`.*
+- *Chuyển quyền sở hữu cho anh user bảo mật vừa tạo bằng lệnh `sudo chown -R quickbite:quickbite /opt/quickbite`.*
+- *Cuối cùng là chốt chặn phân quyền: `sudo chmod -R 750 /opt/quickbite` (chủ sở hữu được Đọc/Ghi/Chạy, nhưng những người dùng khác tuyệt đối không có quyền gì).*
+
+- *Còn về mạng thì sao? Thầy sẽ gõ `ip addr` để xem IP hiện tại của server.*
+- *Dùng lệnh `curl -I https://google.com` để gửi một HTTP Request thần tốc, test xem mạng và dịch vụ web kia có đang sống hay không.*
+- *Và đặc sản cuối cùng, kịch bản lỗi "Port 8080 already in use". Thầy sẽ dò ra thủ phạm đang chiếm cổng bằng lệnh `sudo ss -tulpn | grep :8080`. Trả về PID là 14522. Vậy thì kết liễu nó bằng lệnh `sudo kill -9 14522`. Cổng 8080 lại rảnh rang để chạy app của chúng ta!*
+
+Đó là toàn bộ những kỹ năng cốt lõi nhất của Linux mà các bạn cần nắm để bước vào thế giới DevOps thực chiến. Nó cũng khép lại nội dung Session 1 ngày hôm nay. Hẹn gặp lại các bạn trong bài học tiếp theo!
