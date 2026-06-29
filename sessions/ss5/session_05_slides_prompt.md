@@ -64,21 +64,25 @@
 services:
   user-service:
     build: ./user-service
-    ports: [- "8081:8081"]
+    ports: 
+      - "8081:8081"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://quickbite-db:5432/${USER_DB_NAME}
       - SPRING_DATASOURCE_USERNAME=${USER_DB_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${USER_DB_PASSWORD}
-    networks: [- quickbite-net]
+    networks: 
+      - quickbite-net
 
   restaurant-service:
     build: ./restaurant-service
-    ports: [- "8082:8082"]
+    ports: 
+      - "8082:8082"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://quickbite-db:5432/${RESTAURANT_DB_NAME}
       - SPRING_DATASOURCE_USERNAME=${RESTAURANT_DB_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${RESTAURANT_DB_PASSWORD}
-    networks: [- quickbite-net]
+    networks: 
+      - quickbite-net
 
 networks:
   quickbite-net:

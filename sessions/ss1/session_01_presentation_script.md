@@ -1,9 +1,11 @@
 ## lesson 1
 
-Chào các bạn sinh viên, rất vui được đồng hành với các bạn trong môn học Devops này.
-Có thể một số bạn đã nghe đến cụm từ Devops.
-Thế nhưng thầy tin rằng rất nhiều trong số chúng ta chưa hiểu rõ về Devops đâu.
-Vì thế môn học này là để chúng ta đi bóc tách và giải mã Devops.
+Thầy chào tất cả các bạn sinh viên khoá Java Backend Fullskill, rất vui được đồng hành với các bạn trong môn học Devops này.
+Chắc hẳn là các bạn không lạ gì với cụm từ Devops khi lướt trên các diễn đàn công việc như topcv hay ITViec.
+Môn học này, cũng có thể nói là, cung cấp cho các bạn "một phần" kĩ năng để ứng tuyển cho vị trí công việc Devops.
+Tại sao lại nói là một phần ạ?
+Bởi vì không phải sau khi các bạn học xong môn này thì có thể trở thành một kĩ sư Devops, thế nhưng nếu bạn đã từng suy nghĩ đến việc phát triển theo hướng Devops,
+thầy hi vọng môn học này sẽ cung cấp cho các bạn góc nhìn, và tư duy hệ thống của một KĨ SƯ, và dần dần, các bạn có thể tiến đến là một KĨ SƯ Devops.
 
 Thì tại thời điểm này của môn học
 
