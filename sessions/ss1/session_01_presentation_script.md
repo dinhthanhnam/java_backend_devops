@@ -1,19 +1,16 @@
 ## lesson 1
 
-Thầy chào tất cả các bạn sinh viên khoá Java Backend Fullskill, rất vui được đồng hành với các bạn trong môn học Devops này.
-Chắc hẳn là các bạn không lạ gì với cụm từ Devops khi lướt trên các diễn đàn công việc như topcv hay ITViec.
-Môn học này, cũng có thể nói là, cung cấp cho các bạn "một phần" kĩ năng để ứng tuyển cho vị trí công việc Devops.
-Tại sao lại nói là một phần ạ?
-Bởi vì không phải sau khi các bạn học xong môn này thì có thể trở thành một kĩ sư Devops, thế nhưng nếu bạn đã từng suy nghĩ đến việc phát triển theo hướng Devops,
-thầy hi vọng môn học này sẽ cung cấp cho các bạn góc nhìn, và tư duy hệ thống của một KĨ SƯ, và dần dần, các bạn có thể tiến đến là một KĨ SƯ Devops.
+Xin chào tất cả các học viên, rất vui được đồng hành với các bạn trong một hành trình mới, mang tên Devops, Devops là một trong số những từ khoá hot nhất hiện nay trong thị trường IT,
 
-Thì tại thời điểm này của môn học
+Mà nếu các bạn là người hay lướt các diễn đàn công việc như ITViec hay topcv, thì chắc chắn cũng đã nhận thấy điều này.
 
-Các bạn chỉ cần hiểu Devops là việc triển khai ứng dung web (ví dụ như spring boot) lên trên server rồi public nó ra internet.
+Vậy thì, devops có phải chỉ là việc triển khai cho ứng dụng web chạy được và hiển thị ra được internet hay không, chắc chắn là không rồi.
 
-Được rồi, chúng ta sẽ đến với bài đầu tiên, tổng quan Devops và Quy trình CI/CD.
+Devops thì còn nhiều hơn thế rất nhiều, và thầy mong rằng, môn học này sẽ kích thích và truyền cảm hứng cho các bạn, về một định hướng phát triển bản thân trong ngày IT này, mới lạ hơn, thay vì theo đuổi lập trình web truyền thống.
 
+Oke, Đến với chuỗi bài học đầu tiên của chúng ta: Tổng quan Devops vaf quy trình CI CD
 Bài học này có 6 nội dung:
+
 1. Tổng quan Devops, hạn chế của triển khai thủ công
 2. Khái niệm CI CD
 3. 3 Môi trường Dev Staging và Production
@@ -31,35 +28,36 @@ Và cái tư duy kĩ sư đó mà thầy muốn nhắc đến là tư duy Produc
 
 Tức là: 
 
-Code xong là có thể đóng gói được, tự động kiểm thử, tự động deploy.
+Code xong là có thể đóng gói được, tự động kiểm thử, tự động triển khai.
 
-Sau khi deploy lên thì có thể giám sát liên tục trạng thái của ứng dụng được.
+Sau khi triển khai lên thì có thể giám sát liên tục trạng thái của ứng dụng được.
 
 Và bất kì vấn đề nào xảy ra trong vòng đời của ứng dụng, chúng ta đều kiểm soát được. 
 
-Để làm được việc đó, chắc chắn chúng ta cần rất nhiều công cụ hỗ trợ.
+Và để làm được việc đó, trong môn học này chúng ta chắc chắn phải đi tìm hiểu rất nhiều công cụ hỗ trợ.
 
-Và môn học này, là việc chúng ta đi tìm hiểu, ứng dụng các công cụ đó.
+Thế nhưng trước đó, chúng ta sẽ cùng đi tìm hiểu các kịch bản mà đã từng là ác mộng trong quá khứ khi chưa có CI CD.
 
-Chúng ta sẽ đi tìm hiểu thử các kịch bản triển khai mà đã từng là ác mộng trong quá khứ khi chưa có CI CD.
+Thế thì có các lỗi gì có thể xảy ra khi triển khai thủ công?
 
-Ở đây chúng ta có một dự án giả định tên là Quickbite, là một nền tảng giao đồ ăn, và được phát triển theo kiến trúc microservice.
+Đầu tiên phải nói đến là vòng lặp sửa code vô tận, cứ mỗi lần chúng ta sửa code là một lần build lại rồi sử dụng scp để đưa file jar lên server, sau đó đăng nhập vào server, restart ứng dụng thủ công.
 
-Thế thì có các lỗi gì có thể xảy ra khi triển khai?
+Tiếp theo là rủi ro sử dụng nhầm config, dẫn đến việc hệ thống thật lại sử dụng nhầm đường dẫn của database test, gây mất dữ liệu.
 
-Đầu tiên là vòng lặp sửa code vô tận, cứ mỗi lần sửa code là một lần build lại rồi sử dụng scp để đưa file jar lên server, rồi đăng nhập vào server, restart ứng dụng thủ công.
+Hay đơn giản hơn là, lệch pha môi trường chạy, code thì được viết và biên dịch bằng java 21, nhưng server lại cài nhầm java 17.
 
-Thế nhưng chúng ta chỉ cần copy nhầm config local lên Prod. Dữ liệu thật bị ghi vào DB test.
+Một vấn đề đau đầu khác là làm sao để quản lý các phiên bản file jar của ứng dụng.
 
-Các service bị lệch môi trường, nghe thì đơn giản như rất hay mắc phải, code trên dev thì viết trên java 21, nhưng server thì lại cài nhầm jre 17.
+Và cuối cùng là, trong hệ thống microservice phức tạp với nhiều dịch vụ gọi chéo nhau, nếu như chỉ quản lý log của từng bằng Jounalctl, thì sớm muộn gì chúng ta cũng rơi vào tình trạng mù log, bởi vì không biết phải xem log thế nào.
 
-Các phiên bản file jar thì lung tung, cuối cùng không biết cái nào mới là cái dùng ổn định.
+Một câu chuyện khác về quá khứ, trước kia, các doanh nghiệp thường chia đội dev và đội operation (vận hành) là 2 đội riêng.
 
-Gần như mù tịt về logging, bởi vì hệ thống log mặc định sử dụng journalctl là không đủ.
+Dẫn đến việc, 2 đội này không bao giờ có thể hoà thuận với nhau được, do là đội dev thì muốn ưu tiên triển khai code nhanh, fix bug ngay lập tức, còn đội ops thì ưu tiên sự ổn định, tránh rủi ro sập toàn bộ hệ thống.
 
-Trong quá khứ, khi đội devs và đội ops tách biệt, thế là suốt ngày cãi nhau.
+Mâu thuẫn này đã kéo dài mãi mãi cho đến khi khái niệm và các công cụ devops ra đời.
 
 Thế thì Devops là gì?
+
 Devops là kết hợp của Development và Operations - Đây không phải là một vị trí công việc.
 Nó là sự giao thoa giữa văn hoá, quy trình, và công cụ để tự động hoá vòng đời phát hành phần mềm.
 
