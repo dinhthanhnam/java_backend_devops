@@ -52,7 +52,10 @@ Tạo hoặc cập nhật file cấu hình tại dự án `user-service` với n
 ```yaml
 name: Parallel and Sequential Workflow
 
-on: [push]
+on:
+  push:
+    branches:
+      - main
 
 jobs:
   job_info_1:
