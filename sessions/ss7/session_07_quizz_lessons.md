@@ -109,7 +109,7 @@ run: java install 17
 [EXP]
 Câu lệnh shell truyền thống phụ thuộc vào từng hệ điều hành, không phải Action tiêu chuẩn của hệ thống.
 [B]
-uses: actions/setup-java@v4
+uses: actions/setup-java@v5
 [EXP]
 Chính xác. Cú pháp `uses` gọi ra Action tiêu chuẩn `actions/setup-java`, giúp nhanh chóng cấu hình biến môi trường và JDK cần thiết.
 [C]

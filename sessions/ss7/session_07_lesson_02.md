@@ -50,8 +50,8 @@ Mỗi quy trình bao gồm một hoặc nhiều công việc, được khai báo
 
 #### 3.4 Sử dụng Actions đóng gói sẵn (Pre-built Actions)
 GitHub Actions cung cấp hệ sinh thái các module lệnh có sẵn gọi là "actions" để giảm thiểu thời gian cấu hình:
-* **`actions/checkout@v4`:** Action tự động sao chép (clone) mã nguồn từ kho lưu trữ về máy chủ Runner.
-* **`actions/setup-java@v4`:** Action cấu hình nhanh môi trường Java JDK, giúp bạn không phải viết lệnh tải và cài đặt Java thủ công trên hệ điều hành.
+* **`actions/checkout@v5`:** Action tự động sao chép (clone) mã nguồn từ kho lưu trữ về máy chủ Runner.
+* **`actions/setup-java@v5`:** Action cấu hình nhanh môi trường Java JDK, giúp bạn không phải viết lệnh tải và cài đặt Java thủ công trên hệ điều hành.
 
 ---
 
@@ -76,10 +76,10 @@ jobs:
     runs-on: [self-hosted, quickbite] # Chỉ định chạy trên Runner cục bộ
     steps:
       - name: Lấy mã nguồn về máy Runner
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         
       - name: Thiết lập môi trường Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -105,7 +105,7 @@ Khi bạn thực hiện commit và push thư mục `.github` lên nhánh `main`,
 
 * **Đặt sai đường dẫn tệp tin Workflow:** Sinh viên thường đặt tệp tin cấu hình ở thư mục gốc thay vì trong thư mục ẩn `.github/workflows/`. Hậu quả là GitHub không nhận diện được kịch bản và không có bất kỳ luồng công việc nào được kích hoạt.
 * **Sử dụng phím Tab để thụt lề cấu hình:** Cú pháp YAML cấm sử dụng phím Tab. Sinh viên thường quen nhấn Tab khiến hệ thống báo lỗi phân tích cú pháp (YAML syntax error) và từ chối chạy workflow. Bắt buộc phải sử dụng khoảng trắng.
-* **Quên bước checkout mã nguồn:** Trong GitHub Actions, mã nguồn không tự động được tải về máy Runner. Nếu quên khai báo bước `uses: actions/checkout@v4`, máy chủ Runner sẽ bắt đầu ở một thư mục trống, dẫn đến các lệnh liên quan đến tệp tin mã nguồn bị lỗi `No such file or directory`.
+* **Quên bước checkout mã nguồn:** Trong GitHub Actions, mã nguồn không tự động được tải về máy Runner. Nếu quên khai báo bước `uses: actions/checkout@v5`, máy chủ Runner sẽ bắt đầu ở một thư mục trống, dẫn đến các lệnh liên quan đến tệp tin mã nguồn bị lỗi `No such file or directory`.
 * **Hiểu lầm về biến môi trường định sẵn:** Các biến môi trường bắt đầu bằng `GITHUB_` (như `GITHUB_REF_NAME`, `GITHUB_SHA`) là các biến tự động do hệ thống cung cấp. Học viên không cần tự khai báo chúng trong khối `env` mà có thể gọi sử dụng trực tiếp trong lệnh `run`.
 
 ---

@@ -33,10 +33,10 @@ jobs:
     runs-on: [self-hosted, quickbite]
     steps:
       - name: Checkout mã nguồn
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         
       - name: Cài đặt JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
