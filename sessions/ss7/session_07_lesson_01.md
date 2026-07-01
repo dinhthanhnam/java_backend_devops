@@ -1,157 +1,163 @@
-# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITLAB CI
+# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITHUB ACTIONS
 
-## LESSON 01: Tổng quan GitLab CI/CD và Kiến trúc GitLab Runner
+## LESSON 01: Tổng quan GitHub Actions và Kiến trúc Runner
 
 ---
 
 ### PHẦN 1. MỤC TIÊU BÀI HỌC
 
-Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
-* **Giải thích** được định nghĩa, vai trò và vị trí của GitLab CI/CD trong quy trình phát triển và vận hành DevOps.
-* **Phân tích** kiến trúc Client-Server giữa GitLab Server và GitLab Runner trong việc nhận diện và điều phối các công việc (jobs).
-* **Phân biệt** được các loại Runner (Shared Runner, Specific Runner) và các loại Executor phổ biến (Docker, Shell).
-* **Thực hành cấu hình và đăng ký** thành công một GitLab Runner tự host cục bộ qua Docker Compose.
+Sau khi hoàn thành bài học này, học viên có khả năng:
+* **Giải thích** được định nghĩa, vai trò và vị trí của GitHub Actions trong quy trình phát triển và vận hành DevOps.
+* **Phân tích** kiến trúc phân tán giữa GitHub và GitHub Actions Runner trong việc nhận diện và điều phối các công việc (jobs).
+* **Phân biệt** được các loại Runner (GitHub-hosted runner, Self-hosted runner) và đặc thù tài nguyên của chúng.
+* **Thực hành cấu hình và đăng ký** thành công một Self-hosted runner cục bộ thông qua script chuẩn của GitHub.
 
 ---
 
 ### PHẦN 2. VẤN ĐỀ THỰC TẾ (HẠN CHẾ CỦA VIỆC KIỂM TRA & BUILD THỦ CÔNG)
 
-Hãy tưởng tượng nhóm phát triển của bạn đang tiếp quản hệ thống QuickBite chạy đa dịch vụ. Mỗi khi một lập trình viên cập nhật mã nguồn (ví dụ: sửa logic ví tiền trong `user-service`), quy trình thông thường sẽ là:
-1. Chạy unit test ở máy local để kiểm tra xem có làm hỏng tính năng cũ không.
-2. Biên dịch mã nguồn ra file JAR (ví dụ: chạy `./gradlew bootJar`).
-3. Đẩy code lên Git.
+Hệ thống QuickBite hoạt động theo kiến trúc đa dịch vụ (microservices). Mỗi khi một lập trình viên cập nhật mã nguồn (ví dụ: sửa đổi logic trong `user-service`), quy trình thông thường bao gồm:
+1. Chạy unit test cục bộ để xác minh tính toàn vẹn của mã nguồn.
+2. Biên dịch mã nguồn thành tệp tin JAR (ví dụ: chạy `./gradlew bootJar`).
+3. Đẩy mã nguồn lên hệ thống quản lý phiên bản Git.
 
-* **Thách thức thực tế:**
-  * **Thiếu tính tự động hóa và nhất quán:** Lập trình viên có thể quên chạy bước 1 và 2 mà trực tiếp push code lên Git. Kết quả là mã nguồn lỗi hoặc không biên dịch được vẫn được đưa lên kho lưu trữ chung, làm ảnh hưởng đến cả đội ngũ.
-  * **Sự khác biệt về môi trường:** Code chạy tốt trên máy của lập trình viên A (sử dụng JDK 17 cài sẵn) nhưng khi biên dịch ở máy lập trình viên B hoặc server (sử dụng JDK 21) thì sập do xung đột phiên bản compiler.
+* **Thách thức kỹ thuật:**
+  * **Thiếu tính tự động hóa và nhất quán:** Lập trình viên có thể bỏ qua bước 1 và 2, trực tiếp đẩy mã nguồn lên Git. Hệ quả là mã nguồn lỗi hoặc không biên dịch được vẫn được hợp nhất vào kho lưu trữ chung, gây gián đoạn quy trình của toàn đội.
+  * **Sự khác biệt về môi trường:** Mã nguồn có thể hoạt động ổn định trên máy của lập trình viên A (sử dụng JDK 17) nhưng khi biên dịch ở máy của lập trình viên B (sử dụng JDK 21) lại phát sinh lỗi do xung đột phiên bản trình biên dịch (compiler).
 
-Để giải quyết bài toán này, quy trình phát triển phần mềm hiện đại yêu cầu thiết lập một hệ thống kiểm tra và biên dịch tự động, tập trung hóa trên máy chủ trung gian. Đó chính là lý do công cụ **GitLab CI/CD** và **GitLab Runner** được đưa vào sử dụng.
+Để giải quyết vấn đề này, quy trình phát triển phần mềm hiện đại yêu cầu thiết lập một hệ thống kiểm thử và biên dịch tự động, tập trung hóa trên một máy chủ độc lập. Đó là lý do hệ thống **GitHub Actions** được triển khai.
 
 ---
 
-### PHẦN 3. KIẾN THỨC CỐT LÕI (KIẾN TRÚC GITLAB CI/CD)
+### PHẦN 3. KIẾN THỨC CỐT LÕI (KIẾN TRÚC GITHUB ACTIONS)
 
 #### 3.1 Khái niệm CI/CD
-* **CI (Continuous Integration - Tích hợp liên tục):** Quy trình tự động hóa việc tích hợp mã nguồn mới từ nhiều lập trình viên. Mỗi khi có code mới được push lên Git, hệ thống sẽ tự động chạy các bước kiểm tra cú pháp, biên dịch và chạy test để đảm bảo chất lượng code.
-* **CD (Continuous Delivery / Deployment - Chuyển giao/Triển khai liên tục):** Quy trình tự động hóa các bước tiếp theo như đóng gói Docker image, đẩy lên registry và tự động deploy sản phẩm mới lên máy chủ Production.
+* **CI (Continuous Integration - Tích hợp liên tục):** Quy trình tự động hóa việc hợp nhất mã nguồn mới từ các lập trình viên. Mỗi khi có mã nguồn mới được đẩy lên Git, hệ thống sẽ tự động chạy các bước kiểm tra cú pháp, biên dịch và chạy kiểm thử để xác minh chất lượng.
+* **CD (Continuous Delivery / Deployment - Chuyển giao/Triển khai liên tục):** Quy trình tự động hóa các bước tiếp theo như đóng gói Docker image, đẩy lên registry và triển khai sản phẩm lên máy chủ vận hành (Production).
 
-#### 3.2 Kiến trúc Client-Server của GitLab CI/CD
-Quy trình CI/CD của GitLab hoạt động dựa trên sự phối hợp của hai thành phần độc lập:
+#### 3.2 Kiến trúc điều phối của GitHub Actions
+Quy trình CI/CD của GitHub Actions hoạt động dựa trên sự phối hợp của hai thành phần độc lập:
 
 ```text
-  [ GitLab Server (Web UI/Git Repo) ]
-                │
-     (Giao tiếp REST API / Polling)
-                │
-                ▼
-  [ GitLab Runner (Máy chủ thực thi) ] ── (Chạy Jobs) ──► [ Docker / Host OS ]
+  [ GitHub Server (Web UI/Git Repo) ]
+                 │
+      (Giao tiếp REST API / Polling)
+                 │
+                 ▼
+  [ GitHub Actions Runner (Máy chủ thực thi) ] ── (Chạy Jobs) ──► [ Môi trường Host OS ]
 ```
 
-* **GitLab Server:** Nơi lưu trữ mã nguồn, quản lý cấu hình, hiển thị giao diện trực quan và điều phối các luồng chạy pipeline. GitLab Server không trực tiếp chạy lệnh build hay test.
-* **GitLab Runner:** Một dịch vụ/máy ảo độc lập đóng vai trò là tác nhân thực thi. Runner liên tục gửi yêu cầu lên GitLab Server (polling) để nhận các công việc (jobs) đang chờ xử lý, tải mã nguồn về, thực hiện các lệnh build rồi trả kết quả ngược lại cho Server hiển thị.
+* **GitHub Server:** Nơi lưu trữ mã nguồn, hiển thị giao diện quản lý và điều phối các luồng sự kiện (workflow). GitHub Server không trực tiếp thực thi các lệnh biên dịch hay kiểm thử.
+* **GitHub Actions Runner:** Ứng dụng độc lập đóng vai trò tác nhân thực thi. Runner liên tục kết nối với GitHub Server (thông qua cơ chế long-polling) để nhận các công việc (jobs) đang chờ xử lý, tải mã nguồn, thực thi kịch bản và gửi log trả về cho hệ thống trung tâm.
 
-#### 3.3 Phân loại GitLab Runner
-* **Shared Runner (Runner dùng chung):** Do hệ thống GitLab cung cấp sẵn và chia sẻ chung cho toàn bộ cộng đồng/doanh nghiệp. Shared Runner rất tiện dụng nhưng có nhược điểm là thời gian chờ hàng đợi (queue) lâu và tài nguyên giới hạn.
-* **Specific Runner (Runner riêng biệt):** Do bạn tự cài đặt và đăng ký riêng cho một dự án cụ thể. Runner này hoạt động độc lập và chỉ nhận các jobs thuộc dự án được phân quyền, đảm bảo tốc độ tối đa.
-
-#### 3.4 Khái niệm Executor trong Runner
-Khi đăng ký Runner, bạn phải cấu hình **Executor** - công nghệ dùng để tạo môi trường chạy dòng lệnh:
-* **Shell Executor:** Runner chạy trực tiếp các lệnh trên hệ điều hành máy host của nó. Phương pháp này dễ cấu hình nhưng thiếu tính cô lập (file sinh ra của job này có thể làm ảnh hưởng đến job khác).
-* **Docker Executor (Khuyên dùng):** Mỗi job chạy trong một container Docker hoàn toàn sạch sẽ và độc lập (cô lập hoàn toàn). Khi job kết thúc, container tự động bị hủy, đảm bảo không để lại rác hệ thống.
+#### 3.3 Phân loại GitHub Actions Runner
+* **GitHub-hosted runner:** Các máy ảo (VM) do chính GitHub quản lý và cung cấp sẵn (chạy Linux, Windows hoặc macOS). Chúng sạch sẽ, được khởi tạo mới hoàn toàn cho mỗi công việc, nhưng có giới hạn về cấu hình phần cứng và thời gian thực thi miễn phí.
+* **Self-hosted runner:** Máy chủ vật lý hoặc máy ảo do người dùng tự cài đặt ứng dụng Runner và đăng ký vào kho lưu trữ (repository) cụ thể. Loại này cung cấp quyền kiểm soát hoàn toàn về phần cứng, bộ nhớ đệm (cache) và không bị tính phí thời gian chạy bởi GitHub.
 
 ---
 
-### PHẦN 4. DEMO VÀ THỰC HÀNH (CÀI ĐẶT VÀ ĐĂNG KÝ LOCAL RUNNER QUA DOCKER COMPOSE)
+### PHẦN 4. DEMO VÀ THỰC HÀNH (CÀI ĐẶT SELF-HOSTED RUNNER BẰNG DOCKER COMPOSE)
 
-Dù trong chương trình học QuickBite, chúng ta định hướng tận dụng Shared Runner của GitLab để tối giản hóa tài nguyên, việc thực hành tự host một Local Specific Runner trên máy cá nhân giúp sinh viên hiểu rõ bản chất hoạt động.
+Mặc dù việc cấu hình Script trực tiếp trên máy chủ là tiêu chuẩn chung, việc triển khai **Self-hosted runner thông qua Docker Compose** mang lại ưu điểm vượt trội về tính cô lập (isolation) và quản lý vòng đời (lifecycle management), duy trì môi trường hệ thống tương tự như kiến trúc của GitLab Runner.
 
-#### 4.1 Khởi chạy dịch vụ GitLab Runner bằng Docker Compose
-Tạo tệp tin `docker-compose.yml` tại thư mục làm việc để quản lý dịch vụ Runner:
+#### 4.1 Lựa chọn cấp độ quản lý Runner: Repo-level vs Org-level
+Hệ thống cho phép cấu hình Runner ở hai cấp độ khác nhau. Việc nắm rõ sự khác biệt giúp tối ưu hóa tài nguyên phần cứng:
+
+| Tiêu chí | Cấp độ Repository (Repo-level) | Cấp độ Tổ chức (Org-level) |
+| :--- | :--- | :--- |
+| **Phạm vi hoạt động** | Chỉ nhận công việc từ 1 repository duy nhất. | Nhận công việc từ **tất cả** các repository nằm trong Organization đó. |
+| **Bảo mật & Phân quyền** | Quản trị độc lập trong nội bộ dự án. | Quản lý tập trung bằng **Runner Groups** (Quy định repo nào được phép dùng). |
+| **Tối ưu tài nguyên** | Dễ lãng phí nếu dự án không có luồng build liên tục. | Tối ưu cực tốt (Khuyên dùng cho kiến trúc Microservices như QuickBite). |
+
+#### 4.2 Lấy Token xác thực trên GitHub
+Tùy thuộc vào cấp độ Runner được chọn, vị trí lấy mã định danh bảo mật (Token) sẽ khác nhau:
+
+* **Đối với Repo-level:**
+  1. Truy cập vào kho lưu trữ tại: `https://github.com/<REPO_OWNER>/<REPO_NAME>`
+  2. Chọn **Settings** -> **Actions** -> **Runners**.
+  3. Nhấp vào nút **New self-hosted runner** và sao chép chuỗi Token.
+
+* **Đối với Org-level:**
+  1. Truy cập vào giao diện quản trị tổ chức tại: `https://github.com/organizations/<ORG_NAME>/settings/profile`
+  2. Tại thanh điều hướng bên trái, chọn **Actions** -> **Runners**.
+  3. Nhấp vào nút **New runner** -> **New self-hosted runner** và sao chép chuỗi Token.
+
+#### 4.3 Khởi chạy dịch vụ Runner bằng Docker Compose
+Tạo tệp tin `docker-compose.yml` tại thư mục cấu hình trên máy chủ để quản lý dịch vụ Runner. Dưới đây là cấu hình hỗ trợ cả hai phương pháp:
 
 ```yaml
-version: '3.8'
-
 services:
-  gitlab-runner:
-    image: gitlab/gitlab-runner:latest
-    container_name: local-gitlab-runner
-    restart: always
+  action-runner:
+    image: myoung34/github-runner:latest
+    container_name: action-runner
+    environment:
+      # KHAI BÁO CẤP ĐỘ QUẢN LÝ (CHỌN 1 TRONG 2 CÁCH DƯỚI ĐÂY)
+      # Cách 1 (Dành cho Repo-level):
+      # REPO_URL: "https://github.com/<REPO_OWNER>/<REPO_NAME>"
+      
+      # Cách 2 (Dành cho Org-level):
+      RUNNER_SCOPE: "org"
+      ORG_NAME: "backend-fullskill-devops"
+      
+      # CẤU HÌNH ĐỊNH DANH
+      RUNNER_NAME: "quickbite-runner-01"
+      RUNNER_TOKEN: "YOUR_SECURE_TOKEN_HERE" # Lấy từ bước 4.2 tương ứng
+      LABELS: "self-hosted,quickbite,backend,ubuntu"
+      EPHEMERAL: "true"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - gitlab-runner-config:/etc/gitlab-runner
+      - github-runner-work:/actions-runner/_work
+    restart: always
 
 volumes:
-  gitlab-runner-config:
+  github-runner-work:
 ```
 
-Khởi chạy container chạy ngầm bằng lệnh:
+* **Giải thích các tham số cấu hình:**
+  * `image`: Sử dụng bản phân phối mã nguồn mở phổ biến nhất để đóng gói GitHub Runner vào Docker.
+  * `ORG_RUNNER` & `ORG_NAME` (hoặc `REPO_URL`): Tham số định vị hệ thống đích để Runner kết nối.
+  * `RUNNER_TOKEN`: Chuỗi xác thực bảo mật sinh ra từ hệ thống, dùng để thiết lập tin cậy giữa máy chủ và GitHub.
+  * `LABELS`: Các nhãn dùng để điều phối luồng công việc (Workflow routing). Hệ thống sẽ định tuyến các công việc yêu cầu `runs-on: [self-hosted, quickbite]` về máy chủ này.
+  * `EPHEMERAL: "true"`: Đảm bảo máy chủ tự động khởi tạo lại môi trường sạch sau mỗi lượt chạy (Job), ngăn ngừa xung đột dữ liệu tồn dư.
+  * `volumes`: Gắn kết (Mount) Docker Socket để hỗ trợ các thao tác biên dịch ảo hóa bên trong Runner. Thư mục `_work` được gắn kết ra một Volume chuyên biệt để tối ưu hóa chia sẻ mã nguồn.
+
+#### 4.4 Kích hoạt hệ thống
+Khởi động container bằng lệnh:
 ```bash
 docker compose up -d
 ```
 
-* **Giải thích thuộc tính volumes:**
-  * `/var/run/docker.sock:/var/run/docker.sock`: Mount Docker socket của máy host vào container Runner mẹ (Runner Manager). Cấu hình này giúp bản thân dịch vụ Runner có quyền điều khiển Docker Engine của host để khởi tạo (spawn) các container con thực thi job.
-  * `gitlab-runner-config:/etc/gitlab-runner`: Named volume dùng để lưu trữ cấu hình bền vững của Runner sau khi đăng ký, tránh mất cấu hình khi container bị khởi động lại hoặc recreate.
-
-#### 4.2 Đăng ký Runner vào GitLab bằng Authentication Token mới
-Truy cập vào giao diện GitLab dự án của bạn, chọn **Settings** -> **CI/CD** -> **Runners**, bấm tạo Runner mới để lấy mã token có tiền tố là `GLRT-`. Sau đó chạy lệnh đăng ký trực tiếp thông qua Docker Compose:
-
-```bash
-docker compose exec gitlab-runner gitlab-runner register \
-  --non-interactive \
-  --url "https://gitlab.com/" \
-  --token "GLRT-YOUR_NEW_AUTHENTICATION_TOKEN_HERE" \
-  --executor "docker" \
-  --docker-image "alpine:latest" \
-  --docker-volumes "/var/run/docker.sock:/var/run/docker.sock" \
-  --description "Local Runner for QuickBite Project"
-```
-
-* **Giải thích tham số:**
-  * `docker compose exec gitlab-runner`: Thực thi lệnh trực tiếp trong container `gitlab-runner` đang chạy.
-  * `--token`: Mã xác thực của Runner mới.
-  * `--executor "docker"`: Định nghĩa môi trường chạy là Docker container.
-  * `--docker-volumes "/var/run/docker.sock:/var/run/docker.sock"`: Tự động mount Docker socket từ máy host vào bên trong các **container con (job containers)** khi Runner khởi tạo chúng.
-  * `--docker-image "alpine:latest"`: Docker image mặc định sử dụng nếu job trong file cấu hình không khai báo image cụ thể.
-
-> [!IMPORTANT]
-> **Phân biệt hai cấu hình Docker Socket:**
-> * **Trong `docker-compose.yml` (khai báo `volumes`):** Giúp *Runner mẹ* kết nối với Docker Daemon của host để sinh ra container con.
-> * **Trong lệnh `register` (tham số `--docker-volumes`):** Giúp *container con* vừa sinh ra có quyền chạy tiếp các lệnh Docker (như `docker pull`, `docker build`).
-
-* **Kết quả mong đợi:** Lệnh báo đăng ký thành công. Trên giao diện GitLab xuất hiện một Runner mới màu xanh lá cây sẵn sàng nhận job.
+* **Kết quả kỳ vọng:** Dịch vụ Runner khởi chạy ẩn dưới dạng nền (Background Service). Trên giao diện GitHub (tương ứng với cấp độ đã chọn), trạng thái của runner `quickbite-runner-01` sẽ chuyển sang `Idle` (màu xanh lá cây), sẵn sàng tiếp nhận công việc.
 
 ---
 
 ### PHẦN 5. LƯU Ý, LỖI SAI VÀ HIỂU LẦM THƯỜNG GẶP
 
-* **Nhất quán sử dụng Local Runner cho các session tiếp theo:** Sau khi cài đặt và đăng ký thành công Local Runner ở bài học này, học viên sẽ sử dụng hoàn toàn môi trường tự host này cho tất cả các bài thực hành và cấu hình pipeline ở các session sau (Session 8, 10, v.v.). Việc này đảm bảo tính nhất quán về mặt kiến trúc hệ thống và tránh xung đột cấu hình.
-  *Đánh đổi thực tế:* Hạn chế lớn nhất khi lựa chọn sử dụng hoàn toàn Local Runner thay vì Shared Runner trực tuyến là học viên sẽ khó tự đánh giá và trải nghiệm trực tiếp sự chậm trễ (tốc độ mạng chậm, hàng đợi hàng job) cũng như giới hạn thời gian chạy (runtime limits) khắt khe của Shared Runner trong môi trường thực tế.
-* **Thiếu cấu hình chia sẻ Docker Socket:** Học viên khi tự host Runner thường quên khai báo tham số `--docker-volumes "/var/run/docker.sock:/var/run/docker.sock"` khi đăng ký. Thiếu cấu hình này sẽ khiến các job chạy lệnh Docker (như `docker pull`, `docker build`) bên trong container con báo lỗi không thể kết nối tới Docker Daemon.
-* **Sử dụng sai token đăng ký cũ:** GitLab phiên bản mới yêu cầu sử dụng Authentication Token (có tiền tố `GLRT-`) để đăng ký Runner. Nhiều sinh viên vẫn sử dụng Registration Token cũ của dự án, dẫn đến lỗi xác thực và không thể kích hoạt được Runner.
-* **Hiểu lầm về vai trò của GitLab Server:** Nhiều sinh viên lầm tưởng GitLab Server trực tiếp biên dịch và kiểm thử mã nguồn. Thực tế, GitLab Server chỉ điều phối và hiển thị kết quả; việc thực thi hoàn toàn do GitLab Runner đảm nhận. Nếu không cấu hình Runner, pipeline sẽ bị kẹt ở trạng thái `pending` vô hạn.
+* **Quên thiết lập Volume Docker Socket:** Nếu quy trình biên dịch của bạn cần thực thi lệnh ảo hoá bên trong GitHub Actions, việc thiếu cấu hình `- /var/run/docker.sock:/var/run/docker.sock` sẽ khiến hệ thống từ chối quyền truy cập (Permission Denied) tới Docker Daemon.
+* **Tái sử dụng Token quá hạn:** Token sinh ra từ giao diện GitHub chỉ có hiệu lực giới hạn trong vòng 1 giờ vì lý do bảo mật. Nếu sinh viên lưu lại tệp cấu hình và chạy `docker compose up -d` sau 1 giờ, hệ thống sẽ báo lỗi `Http response code: NotFound` ở log khởi chạy. Cần tạo lại token mới từ giao diện Web và cập nhật biến `RUNNER_TOKEN`.
+* **Bỏ qua thuộc tính Ephemeral:** Nếu tắt biến `EPHEMERAL` (đặt thành `false`), container sẽ giữ nguyên dữ liệu mã nguồn và tệp sinh ra sau khi chạy xong. Điều này gây mất tính nhất quán cho các công việc chạy ở lần tiếp theo do xung đột mã nguồn.
 
 ---
 
-### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG (XÁC MINH KIẾN THỨC)
+### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG
 
-1. **Tổng quan về GitLab CI/CD:**
-   * [GitLab CI/CD Official Documentation](https://docs.gitlab.com/ee/ci/)
-2. **Hướng dẫn cài đặt và đăng ký GitLab Runner:**
-   * [GitLab Runner Registration Guide](https://docs.gitlab.com/ee/runner/register/)
+1. **Tổng quan về GitHub Actions:**
+   * [Understanding GitHub Actions](https://docs.github.com/en/actions/learn-github-actions/understanding-github-actions)
+2. **Hướng dẫn cấu hình Self-hosted runners:**
+   * [Hosting your own runners](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners)
 
 ---
 
 ### PHẦN 7. CÂU HỎI ĐÁNH GIÁ NHANH
 
 #### Câu 1 (Hiểu bản chất)
-Tại sao GitLab Server không trực tiếp thực thi các dòng lệnh trong pipeline (như chạy test hay compile Java) mà bắt buộc phải thông qua GitLab Runner?
-* *Gợi ý:* Để đảm bảo hiệu năng và tính cô lập. GitLab Server chỉ quản lý giao diện, database và điều hướng. Việc thực thi job rất tốn tài nguyên CPU/RAM, do đó phải đẩy việc này sang các máy chủ Runner độc lập nhằm tránh làm sập máy chủ quản lý trung tâm khi có hàng nghìn lập trình viên cùng push code.
+Tại sao GitHub Server không trực tiếp biên dịch mã nguồn (như chạy lệnh Java compiler) mà phải phân phối lệnh đó xuống máy chủ GitHub Actions Runner?
+* *Gợi ý:* Để đảm bảo hiệu năng và khả năng mở rộng. Việc biên dịch tiêu tốn lượng lớn CPU/RAM. Nếu GitHub trực tiếp biên dịch cho hàng triệu kho lưu trữ cùng lúc, máy chủ trung tâm sẽ quá tải. Cơ chế phân tán xuống các máy Runner giúp chia sẻ gánh nặng tính toán và đảm bảo tính cô lập tài nguyên cho từng dự án.
 
 #### Câu 2 (Phân tích so sánh)
-Sự khác biệt cốt lõi về môi trường chạy giữa Docker Executor và Shell Executor của GitLab Runner là gì?
-* *Gợi ý:* Docker Executor tạo ra một container hoàn toàn sạch sẽ, độc lập cho mỗi job và tự hủy container đó khi job kết thúc, đảm bảo không để lại rác hoặc gây xung đột môi trường. Shell Executor chạy trực tiếp trên hệ điều hành của máy host chứa Runner, làm các job dùng chung môi trường và dễ gây lỗi xung đột file/thư viện.
+Sự khác biệt cốt lõi về môi trường chạy giữa GitHub-hosted runner và Self-hosted runner là gì?
+* *Gợi ý:* GitHub-hosted runner cung cấp một máy ảo nguyên bản, hoàn toàn sạch sẽ cho mỗi lượt chạy, sau đó sẽ bị hủy để đảm bảo không bị xung đột với các phiên chạy trước. Self-hosted runner chạy trên máy do người dùng tự quản lý, trạng thái hệ điều hành (file tạm, thư viện đã tải) được giữ nguyên giữa các lượt chạy, dẫn đến nguy cơ xung đột môi trường nếu không được dọn dẹp kỹ.
 
 #### Câu 3 (Cấu hình hệ thống)
-Khi cài đặt GitLab Runner bằng Docker, tham số mount `-v /var/run/docker.sock:/var/run/docker.sock` có vai trò gì?
-* *Gợi ý:* Cho phép container GitLab Runner giao tiếp trực tiếp với Docker Daemon của máy host vật lý. Nhờ đó, Runner có thể gửi lệnh tạo, khởi chạy hoặc xóa các container Docker phụ phục vụ cho việc thực thi job của pipeline.
+Mã Token định danh khi cấu hình Self-hosted runner có ý nghĩa bảo mật như thế nào?
+* *Gợi ý:* Token đóng vai trò xác thực, đảm bảo rằng chỉ có các máy chủ Runner được người quản trị ủy quyền mới có thể kết nối vào dự án và lấy mã nguồn về thực thi, ngăn chặn các máy chủ trái phép tiếp cận dữ liệu hệ thống.
