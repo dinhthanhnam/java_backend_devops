@@ -1,85 +1,83 @@
 # QUIZ LESSONS - SESSION 08
 
-# LESSON 01: Quy trình Build Docker image trong pipeline CI/CD
+# LESSON 01: Quy trình Build Docker image trong luồng CI/CD
 
 ## Q1
 
-Khi thiết lập Local Specific Runner để chạy các lệnh Docker trực tiếp trên Docker Daemon của máy host (cơ chế DooD), cấu hình volumes của dịch vụ Runner cần khai báo mount đường dẫn nào sau đây?
+Khi thiết lập Runner để chạy các lệnh Docker trực tiếp trên Docker Daemon của máy host (cơ chế DooD), cấu hình volumes của dịch vụ Runner cần khai báo mount đường dẫn nào sau đây?
 
 [A]
 "/var/run/docker.sock:/var/run/docker.sock"
 [EXP]
 Chính xác. Việc mount Docker socket vật lý của máy host vào container của job cho phép chuyển tiếp các lệnh Docker CLI từ container về daemon của host xử lý.
 [B]
-"/var/run/docker.sock:/etc/gitlab-runner"
+"/var/run/docker.sock:/etc/github-runner"
 [EXP]
-Sai. Đường dẫn bên phải là thư mục lưu cấu hình của Runner, không phải socket giao tiếp.
+Sai. Đường dẫn bên phải không phải là socket giao tiếp.
 [C]
-"/etc/gitlab-runner:/var/run/docker.sock"
+"/etc/github-runner:/var/run/docker.sock"
 [EXP]
-Sai. Đường dẫn bên trái là thư mục cấu hình của Runner ở máy host, không phải socket.
+Sai. Đường dẫn bên trái không phải là socket ở máy host.
 [D]
 "/cache:/cache"
 [EXP]
-Sai. Volume này dùng để lưu bộ nhớ đệm (cache) của các job, không liên quan đến việc chia sẻ Docker socket.
+Sai. Volume này dùng để lưu bộ nhớ đệm (cache), không liên quan đến việc chia sẻ Docker socket.
 
 @correct: A
 @point: 20
 
 ## Q2
 
-Trong pipeline 2 stage biên dịch và đóng gói image của bài học, tại sao job build image ở stage sau cần khai báo thuộc tính `dependencies: - build_jar_job`?
+Trong workflow 2 job biên dịch và đóng gói image của bài học, tại sao job build image ở sau cần khai báo thuộc tính `needs: [build_jar]`?
 
 [A]
-Để bắt buộc GitLab Runner phải chạy hai job này song song nhằm tiết kiệm thời gian.
+Để bắt buộc GitHub Actions Runner phải chạy hai job này song song nhằm tiết kiệm thời gian.
 [EXP]
-Khai báo dependencies không làm các job chạy song song; các stage chạy tuần tự.
+Khai báo needs không làm các job chạy song song; ngược lại nó thiết lập sự phụ thuộc tuần tự.
 [B]
 Để tự động kế thừa toàn bộ biến môi trường đã định nghĩa từ job biên dịch JAR trước đó.
 [EXP]
-Biến môi trường được quản lý toàn cục hoặc theo từng job, không kế thừa qua dependencies.
+Biến môi trường không kế thừa qua needs.
 [C]
-Để GitLab Runner tự động tải file JAR artifacts đã được lưu trữ ở stage trước về thư mục làm việc sạch sẽ của job hiện tại.
+Để GitHub Actions đảm bảo job biên dịch JAR phải hoàn thành thành công trước khi bắt đầu job build image.
 [EXP]
-Chính xác. Mỗi job chạy trên một container độc lập và sạch sẽ. Nhờ thuộc tính dependencies, Runner sẽ tải file JAR artifacts từ stage trước về workspace của container hiện tại để phục vụ build image.
+Chính xác. Khai báo needs đảm bảo thứ tự chạy của các job trong workflow. Cùng kết hợp với actions/download-artifact, Runner sẽ lấy file JAR từ job trước để phục vụ build image.
 [D]
 Để tự động khởi chạy dịch vụ Docker-in-Docker (DinD) phụ trợ cho tiến trình đóng gói.
 [EXP]
-Dependencies chỉ quản lý truyền tải artifacts, không kích hoạt dịch vụ dind.
+Needs chỉ quản lý thứ tự thực thi, không kích hoạt dịch vụ dind.
 
 @correct: C
 @point: 20
 
 ## Q3
 
-Cho đoạn cấu hình pipeline CI/CD sau:
+Cho đoạn cấu hình job trong GitHub Actions sau:
 ```yaml
-build_docker_image_job:
-  stage: build_image
-  image: docker:latest
-  tags:
-    - quickbite
-  script:
-    - docker build -t user-service:latest .
+build_image:
+  runs-on: [self-hosted, quickbite]
+  steps:
+    - uses: actions/checkout@v5
+    - run: docker build -t user-service:latest .
 ```
-Tại sao job này không cần khai báo từ khóa `services: - docker:dind` nhưng vẫn có thể thực thi lệnh `docker build` thành công?
+Tại sao job này không cần khởi tạo dịch vụ Docker daemon bên trong mà vẫn có thể thực thi lệnh `docker build` thành công?
 
 [A]
 Vì Runner sử dụng cơ chế DooD (Docker-outside-of-Docker) chia sẻ trực tiếp Docker socket của máy host.
 [EXP]
-Chính xác. Các lệnh Docker CLI chạy trong container của job sẽ được chuyển tiếp qua socket để thực thi trực tiếp trên Docker daemon của máy host.
+Chính xác. Các lệnh Docker CLI chạy trong job sẽ được chuyển tiếp qua socket để thực thi trực tiếp trên Docker daemon của máy host.
 [B]
-Vì image `docker:latest` đã được tích hợp sẵn một Docker daemon chạy ngầm bên trong.
+Vì action checkout mặc định cài đặt Docker.
 [EXP]
-Image docker:latest chỉ chứa Docker CLI (client), không tự chạy Docker daemon bên trong nếu không cấu hình dind.
+Action checkout chỉ kéo mã nguồn, không cài đặt Docker.
 [C]
-Vì GitLab Server tự động cung cấp dịch vụ Docker daemon từ xa cho mọi Runner đăng ký.
+Vì GitHub tự động cung cấp dịch vụ Docker daemon từ xa cho mọi Runner tự host.
 [EXP]
-GitLab Server không cung cấp daemon từ xa; việc thực thi phụ thuộc vào cấu hình Runner local.
+GitHub không cung cấp daemon từ xa cho self-hosted runner; việc thực thi phụ thuộc vào cấu hình máy host.
 [D]
-Vì lệnh docker build được Runner tự động chuyển đổi thành tập lệnh shell chạy trực tiếp trên host.
+Vì lệnh docker build được Runner tự động chuyển đổi thành các lệnh shell cơ bản.
 [EXP]
-Runner không chuyển đổi lệnh; lệnh vẫn chạy thông qua Docker CLI bên trong container của job.
+Runner không chuyển đổi lệnh; lệnh vẫn chạy thông qua Docker CLI có sẵn trên máy host.
 
 @correct: A
 @point: 20
@@ -95,11 +93,11 @@ Cả hai mô hình đều cần kết nối mạng để tải base image nếu 
 [B]
 DooD cho phép bảo mật tuyệt đối thông tin đăng nhập Registry của lập trình viên.
 [EXP]
-Cơ chế bảo mật thông tin đăng nhập do cấu hình biến bảo mật của GitLab quản lý, không phụ thuộc vào DooD hay DinD.
+Cơ chế bảo mật thông tin đăng nhập do cấu hình biến bảo mật quản lý, không phụ thuộc vào DooD hay DinD.
 [C]
-Không đòi hỏi Runner phải chạy ở chế độ privileged (đặc quyền) và tối giản file cấu hình YAML.
+Không đòi hỏi cấu hình phức tạp với privileged (đặc quyền) và tận dụng trực tiếp cache image có sẵn trên host.
 [EXP]
-Chính xác. DooD không cần privileged trên Runner (chỉ cần chia sẻ socket) và loại bỏ khai báo services phụ trợ, đồng thời tận dụng trực tiếp cache image có sẵn trên host để tăng tốc độ build.
+Chính xác. DooD không cần privileged trên Runner (chỉ cần chia sẻ socket) và tận dụng trực tiếp cache image có sẵn trên host để tăng tốc độ build.
 [D]
 Tự động dọn dẹp các image rác sinh ra sau khi kết thúc pipeline CI/CD.
 [EXP]
@@ -110,33 +108,24 @@ DooD không tự động dọn dẹp image; các image build xong sẽ lưu tr�
 
 ## Q5
 
-Học viên cấu hình một job kiểm tra trạng thái Docker sau khi build image như sau:
-```yaml
-build_docker_image_job:
-  stage: build_image
-  script:
-    - docker build -t user-service:latest .
-  after_script:
-    - docker images | grep non-existent-image
-```
-Nếu tiến trình build ở `script` thành công, nhưng lệnh kiểm tra trong `after_script` thất bại (exit code khác 0), trạng thái cuối cùng của job trên GitLab CI là gì?
+Trong GitHub Actions, điều gì sẽ xảy ra nếu một bước (step) dọn dẹp container bằng `docker rm` được khai báo sau một bước kiểm thử bị lỗi (fail)?
 
 [A]
-Failed (Thất bại) vì mọi lỗi phát sinh trong after_script đều được tính vào kết quả của job.
+Bước dọn dẹp vẫn luôn chạy vì GitHub Actions mặc định chạy tất cả các step bất chấp lỗi.
 [EXP]
-Lỗi trong after_script được GitLab Runner bỏ qua, không làm ảnh hưởng đến kết quả job.
+Mặc định nếu một step lỗi, các step sau sẽ bị bỏ qua (skip).
 [B]
-Passed (Thành công) vì trạng thái của job chỉ được đánh giá dựa trên kết quả thực thi của khối script chính.
+Bước dọn dẹp sẽ bị bỏ qua, dẫn đến container kiểm thử vẫn đang chạy trên Runner.
 [EXP]
-Chính xác. Khối after_script chạy trong một shell độc lập sau script chính; nếu script chính thành công thì job vẫn được báo Passed bất kể sau đó có lỗi ở after_script.
+Chính xác. Nếu không có cấu hình đặc biệt như `if: always()`, step bị fail sẽ khiến workflow dừng lại, làm step dọn dẹp không được thực thi.
 [C]
-Canceled (Bị hủy) do hệ thống phát hiện xung đột trạng thái giữa script và after_script.
+Hệ thống sẽ tạm dừng và chờ lập trình viên vào dọn dẹp thủ công.
 [EXP]
-Không có trạng thái hủy tự động do xung đột này; job chỉ bị hủy bởi người dùng hoặc hệ thống gặp sự cố.
+Không có tính năng tạm dừng chờ dọn dẹp; workflow sẽ kết thúc với trạng thái failed.
 [D]
-Warning (Cảnh báo) để nhắc nhở lập trình viên kiểm tra lại log của after_script.
+Container kiểm thử tự động bị dừng bởi hệ điều hành.
 [EXP]
-GitLab CI không có trạng thái Warning riêng cho trường hợp lỗi after_script; job hiển thị Passed bình thường.
+Hệ điều hành không tự biết để dừng container, container sẽ tiếp tục chạy ngầm.
 
 @correct: B
 @point: 20
@@ -169,20 +158,20 @@ Sai. Cú pháp chính xác của cờ chỉ định nguồn stage là --from=<st
 
 ## Q2
 
-Tại sao việc áp dụng kỹ thuật Multi-stage build trong Dockerfile lại cho phép chúng ta tinh giản tệp cấu hình `.gitlab-ci.yml` về mức tối giản nhất?
+Tại sao việc áp dụng kỹ thuật Multi-stage build trong Dockerfile lại cho phép chúng ta tinh giản tệp cấu hình `.github/workflows/ci.yml` về mức tối giản nhất?
 
 [A]
-Vì Docker tự động tối ưu hóa tệp cấu hình YAML của GitLab khi phát hiện Dockerfile đa tầng.
+Vì Docker tự động tối ưu hóa tệp cấu hình YAML khi phát hiện Dockerfile đa tầng.
 [EXP]
-Docker và GitLab CI là hai hệ thống độc lập; Docker không tự ý can thiệp vào cấu hình YAML của GitLab.
+Docker và GitHub Actions là hai hệ thống độc lập; Docker không tự ý can thiệp vào cấu hình YAML.
 [B]
-Vì GitLab CI/CD không hỗ trợ chạy nhiều job khi dự án có chứa Dockerfile đa tầng.
+Vì GitHub Actions không hỗ trợ chạy nhiều job khi dự án có chứa Dockerfile đa tầng.
 [EXP]
-GitLab CI/CD vẫn hỗ trợ chạy nhiều job bình thường; việc rút gọn job là do quyết định thiết kế tối ưu hệ thống.
+GitHub Actions vẫn hỗ trợ chạy nhiều job bình thường; việc rút gọn job là do quyết định thiết kế tối ưu hệ thống.
 [C]
 Vì toàn bộ luồng biên dịch mã nguồn (JDK) và đóng gói thành phẩm (JRE) đã được tích hợp khép kín bên trong Dockerfile.
 [EXP]
-Chính xác. Khi Dockerfile tự đảm nhận khâu biên dịch, pipeline không cần tạo job biên dịch riêng biệt và truyền tải artifacts nữa, chỉ cần chạy duy nhất lệnh docker build.
+Chính xác. Khi Dockerfile tự đảm nhận khâu biên dịch, workflow không cần tạo job biên dịch riêng biệt và tải/lên artifact nữa, chỉ cần chạy duy nhất lệnh docker build.
 [D]
 Vì Runner sẽ tự động biên dịch mã nguồn Java ra file JAR mà không cần gọi lệnh Gradle.
 [EXP]
@@ -221,7 +210,7 @@ Image cuối cùng chứa môi trường JRE siêu gọn nhẹ và tệp tin JAR
 [EXP]
 Chính xác. Giúp tối thiểu hóa dung lượng image cuối cùng và tăng tính bảo mật (không lộ mã nguồn thô ở môi trường production).
 [D]
-Image được build ra chỉ chạy được trên các container có cấu hình Docker-in-Docker (DinD).
+Image được build ra chỉ chạy được trên các môi trường cloud.
 [EXP]
 Image này là image ứng dụng tiêu chuẩn, chạy được trên bất kỳ môi trường container nào hỗ trợ Docker.
 
@@ -230,20 +219,20 @@ Image này là image ứng dụng tiêu chuẩn, chạy được trên bất k�
 
 ## Q4
 
-Tại sao thời gian build image bằng Multi-stage build trên pipeline CI/CD của GitLab Runner lại kéo dài rất lâu (thường mất 4-5 phút) so với khi chạy tại máy local cá nhân của lập trình viên?
+Tại sao thời gian build image bằng Multi-stage build trên CI/CD lại kéo dài rất lâu (thường mất 4-5 phút) so với khi chạy tại máy local cá nhân của lập trình viên?
 
 [A]
-Vì GitLab Server giới hạn băng thông truyền tải mạng của mọi job chạy trên Runner.
+Vì GitHub giới hạn băng thông truyền tải mạng của mọi job chạy trên Runner.
 [EXP]
-Băng thông mạng của job phụ thuộc vào hạ tầng mạng của Runner, GitLab không bóp băng thông của Runner tự host.
+Băng thông mạng của job phụ thuộc vào hạ tầng mạng của máy host tự chạy Runner, GitHub không bóp băng thông.
 [B]
 Vì tiến trình chạy Gradle bên trong container builder tạm thời không truy cập được thư mục cache Gradle của máy host.
 [EXP]
 Chính xác. Lệnh RUN trong Dockerfile khởi chạy container builder độc lập và sạch sẽ, không có cache gradle dependencies nên bắt buộc phải tải lại toàn bộ dependencies từ Maven Central.
 [C]
-Vì GitLab Runner bắt buộc phải khởi tạo một container dind phụ trợ để biên dịch mã nguồn Java.
+Vì Runner bắt buộc phải khởi tạo một container phụ trợ để biên dịch mã nguồn Java.
 [EXP]
-Giáo trình đang dùng DooD chia sẻ socket, không sử dụng container dind phụ trợ cho biên dịch.
+Giáo trình đang dùng DooD chia sẻ socket, không sử dụng container phụ trợ độc lập cho biên dịch.
 [D]
 Vì Dockerfile đa tầng bắt buộc phải tải lại base image JDK từ Docker Hub ở mỗi lượt chạy job.
 [EXP]
@@ -263,7 +252,7 @@ Chính xác. Thiếu .dockerignore khiến toàn bộ dữ liệu tạm ở máy
 [B]
 Tiến trình build image sẽ bị trình biên dịch của Docker từ chối và báo lỗi cú pháp ngay lập tức.
 [EXP]
-Lệnh build vẫn thực thi bình thường, không báo lỗi cú pháp YAML hay Dockerfile do thiếu .dockerignore.
+Lệnh build vẫn thực thi bình thường, không báo lỗi cú pháp do thiếu .dockerignore.
 [C]
 Docker sẽ tự động bỏ qua các thư mục tạm thời này nhờ cơ chế phát hiện tự động của Engine.
 [EXP]
@@ -280,31 +269,31 @@ Các thư mục rác này chỉ nằm ở stage builder và không bị copy san
 
 ## Q1
 
-Khi tạo Personal Access Token (PAT) trên GitLab để phục vụ cho các lệnh đăng nhập và đẩy Docker image từ máy local lên Container Registry, hai quyền (scopes) nào bắt buộc phải được tích chọn?
+Khi tạo Personal Access Token (PAT) trên GitHub để phục vụ cho các lệnh đăng nhập và đẩy Docker image từ máy local lên Container Registry, quyền (scopes) nào bắt buộc phải được tích chọn?
 
 [A]
-`api` và `read_user`
+`repo` và `workflow`
 [EXP]
-Các quyền này dùng để tương tác với API hệ thống và đọc thông tin user, không dùng cho Registry.
+Các quyền này dùng để tương tác với Git repo và cấu hình workflow, không đủ để đẩy packages.
 [B]
-`read_repository` và `write_repository`
+`read:org` và `write:org`
 [EXP]
-Các quyền này cấp quyền truy cập đọc/ghi mã nguồn Git, không liên quan đến Container Registry.
+Các quyền này quản lý organization, không liên quan đến Container Registry.
 [C]
-`write_registry` và `read_registry`
+`write:packages` và `read:packages`
 [EXP]
-Chính xác. Đây là hai scope tối thiểu cho phép Docker client xác thực quyền ghi (push) và đọc (pull) image đối với kho lưu trữ.
+Chính xác. Đây là hai scope thiết yếu cho phép Docker client xác thực quyền ghi (push) và đọc (pull) đối với kho packages (GHCR).
 [D]
-`sudo` và `admin_mode`
+`admin:enterprise`
 [EXP]
-Đây là các quyền quản trị cao cấp của hệ thống GitLab, không cấp cho mục đích đăng nhập Registry thông thường.
+Đây là các quyền quản trị cao cấp, không cấp cho mục đích đăng nhập Registry thông thường.
 
 @correct: C
 @point: 20
 
 ## Q2
 
-Để đẩy thành công một Docker image được build ở máy local lên GitLab Container Registry của dự án `user-service` thuộc namespace `backend_fullskill_devops`, chuỗi các lệnh Docker CLI nào sau đây được thực hiện theo đúng trình tự?
+Để đẩy thành công một Docker image được build ở máy local lên GitHub Container Registry của tài khoản `nguyena` dự án `user-service`, chuỗi các lệnh Docker CLI nào sau đây được thực hiện theo đúng trình tự?
 
 [A]
 `docker push ...` -> `docker tag ...` -> `docker login ...`
@@ -330,12 +319,12 @@ Chính xác. Quy trình chuẩn là đăng nhập để xác thực -> gắn tag
 
 Một lập trình viên chạy câu lệnh sau trên terminal tại máy local:
 ```bash
-docker tag user-service:1.0.0 registry.gitlab.com/backend_fullskill_devops/user-service:1.0.0
+docker tag user-service:1.0.0 ghcr.io/nguyena/user-service:1.0.0
 ```
 Mục đích thực tế của lệnh này là gì?
 
 [A]
-Đẩy trực tiếp các layer của image user-service:1.0.0 lên máy chủ registry.gitlab.com.
+Đẩy trực tiếp các layer của image user-service:1.0.0 lên máy chủ ghcr.io.
 [EXP]
 Lệnh docker tag chỉ hoạt động cục bộ, không gửi dữ liệu lên mạng; lệnh docker push mới đẩy image lên.
 [B]
@@ -343,7 +332,7 @@ Tạo một bí danh (alias) trỏ đến image nguồn và định dạng lại
 [EXP]
 Chính xác. Lệnh tag tạo ra một nhãn mới trỏ đến cùng một Image ID có sẵn trong local Docker Engine để định tuyến khi push.
 [C]
-Biên dịch lại mã nguồn Java bên trong image theo cấu hình của registry.gitlab.com.
+Biên dịch lại mã nguồn Java bên trong image theo cấu hình của ghcr.io.
 [EXP]
 Lệnh docker tag không can thiệp vào cấu trúc bên trong hay biên dịch lại image.
 [D]
@@ -356,124 +345,124 @@ Lệnh này tạo thêm tag mới chứ không xóa tag cũ; cả hai tag sẽ c
 
 ## Q4
 
-Tại sao việc sử dụng Personal Access Token (PAT) lại được khuyến nghị và an toàn hơn so với việc sử dụng mật khẩu tài khoản GitLab chính để đăng nhập Docker Registry từ máy local?
+Tại sao việc sử dụng Personal Access Token (PAT) lại được khuyến nghị và an toàn hơn so với việc sử dụng mật khẩu tài khoản GitHub chính để đăng nhập Docker Registry từ máy local?
 
 [A]
-Vì Personal Access Token có thể giới hạn phạm vi quyền truy cập và dễ dàng thu hồi mà không cần đổi mật khẩu chính.
+Vì Personal Access Token có thể giới hạn phạm vi quyền truy cập (chỉ với packages) và dễ dàng thu hồi mà không cần đổi mật khẩu chính.
 [EXP]
-Chính xác. PAT cho phép cấu hình giới hạn chỉ được đọc/ghi registry; nếu bị lộ, lập trình viên chỉ cần revoke token mà không ảnh hưởng đến mật khẩu tài khoản chính.
+Chính xác. PAT cho phép cấu hình giới hạn quyền; nếu bị lộ, lập trình viên chỉ cần revoke token mà không ảnh hưởng đến toàn bộ tài khoản GitHub.
 [B]
 Vì Docker CLI sẽ tự động từ chối đăng nhập nếu lập trình viên nhập mật khẩu tài khoản chính.
 [EXP]
-Docker CLI vẫn chấp nhận mật khẩu chính nếu tài khoản không bật bảo mật 2 lớp (2FA), nhưng điều này không an toàn.
+GitHub tự chối xác thực bằng mật khẩu tài khoản chính qua command line, thay vào đó bắt buộc dùng PAT hoặc thiết bị xác thực, nhưng đó là quy định nền tảng chứ không phải tự động từ chối của bản thân client.
 [C]
 Vì sử dụng Personal Access Token giúp tăng tốc độ tải các layer của image lên Registry gấp hai lần.
 [EXP]
-Mã xác thực không ảnh hưởng đến băng thông mạng hay tốc độ truyền tải dữ liệu của lệnh push.
+Mã xác thực không ảnh hưởng đến tốc độ truyền tải dữ liệu của lệnh push.
 [D]
-Vì Personal Access Token tự động mã hóa toàn bộ dữ liệu mã nguồn trong quá trình truyền tải.
+Vì Personal Access Token tự động mã hóa dữ liệu image trong quá trình truyền tải.
 [EXP]
-Việc mã hóa dữ liệu truyền tải do giao thức HTTPS/TLS của Docker và Registry đảm nhận, không phụ thuộc vào loại token.
+Việc mã hóa dữ liệu do giao thức TLS của HTTPS đảm nhận, không phụ thuộc vào loại token.
 
 @correct: A
 @point: 20
 
 ## Q5
 
-Lập trình viên thực hiện build image thành công tại máy local và chạy lệnh `docker tag` đúng định dạng, sau đó thực thi ngay lệnh `docker push` mà quên chưa chạy lệnh `docker login`. Kết quả nhận được từ terminal là gì?
+Lập trình viên thực hiện build image thành công tại máy local và chạy lệnh `docker tag` đúng định dạng, sau đó thực thi ngay lệnh `docker push` mà chưa đăng nhập GHCR thành công. Kết quả nhận được từ terminal là gì?
 
 [A]
-Lệnh push vẫn thành công bình thường vì GitLab Container Registry mặc định cho phép đẩy image tự do.
+Lệnh push vẫn thành công bình thường vì GHCR mặc định cho phép đẩy image tự do.
 [EXP]
-GitLab Container Registry là private, bắt buộc phải đăng nhập xác thực để ghi dữ liệu.
+GHCR yêu cầu quyền truy cập hợp lệ để ghi (push).
 [B]
-Docker CLI sẽ tự động dừng lại và hiển thị giao diện yêu cầu đăng ký tài khoản GitLab mới.
+Docker CLI sẽ tự động dừng lại và hiển thị trình duyệt yêu cầu đăng nhập.
 [EXP]
-Docker CLI không hiển thị giao diện đăng ký tài khoản; nó chỉ trả về mã lỗi trên terminal.
+Docker CLI không hiển thị giao diện trình duyệt web; nó chỉ thao tác trên terminal.
 [C]
-Terminal báo lỗi từ chối truy cập `denied: requested access to the resource is denied` do chưa xác thực.
+Terminal báo lỗi từ chối truy cập `denied: unauthenticated` do chưa xác thực.
 [EXP]
-Chính xác. Khi chưa đăng nhập, Registry server sẽ phản hồi mã lỗi từ chối quyền truy cập (unauthorized) đối với yêu cầu đẩy image.
+Chính xác. Khi chưa đăng nhập hoặc thiếu token, server sẽ phản hồi mã lỗi từ chối quyền truy cập đối với yêu cầu đẩy image.
 [D]
-Hệ thống GitLab sẽ tự động khóa tài khoản cá nhân của lập trình viên do phát hiện truy cập trái phép.
+Hệ thống GitHub sẽ tự động khóa tài khoản cá nhân của lập trình viên.
 [EXP]
-Hệ thống chỉ từ chối yêu cầu đẩy image từ CLI, không tự động khóa tài khoản người dùng vì lỗi này.
+Hệ thống chỉ từ chối truy cập, không tự động khóa tài khoản người dùng.
 
 @correct: C
 @point: 20
 
-# LESSON 04: Sử dụng Docker Image từ Registry trong Pipeline CI/CD
+# LESSON 04: Sử dụng Docker Image từ Registry trong Luồng CI/CD
 
 ## Q1
 
-Trong môi trường chạy job của GitLab Runner, biến môi trường ẩn định sẵn (Predefined Variable) nào lưu trữ token đăng nhập tạm thời chỉ có hiệu lực trong vòng đời của job để truy cập Registry?
+Trong GitHub Actions, biến nào lưu trữ token bảo mật tạm thời tự động sinh ra cho job để đăng nhập GHCR?
 
 [A]
-`$CI_JOB_TOKEN`
+`${{ github.actor }}`
 [EXP]
-Biến này dùng để xác thực các API chung của GitLab, không dùng cho lệnh đăng nhập chuẩn của Docker Registry của dự án.
+Biến này lưu tên đăng nhập người kích hoạt workflow, không phải token bảo mật.
 [B]
-`$CI_REGISTRY_PASSWORD`
+`${{ secrets.GITHUB_TOKEN }}`
 [EXP]
-Chính xác. Biến này chứa token xác thực tạm thời do GitLab tự động sinh ra cho lượt chạy pipeline để đăng nhập vào Registry của dự án.
+Chính xác. Đây là biến token tạm thời tự động do GitHub sinh ra dùng để xác thực trong workflow.
 [C]
-`$CI_REGISTRY_USER`
+`${{ github.token }}`
 [EXP]
-Biến này lưu tên đăng nhập tạm thời (username), không phải mật khẩu/token xác thực.
+Cách gọi này cũng có thể dùng nhưng biến chính thống cho secret thường ở block secrets.
 [D]
-`$CI_REGISTRY_IMAGE`
+`${{ secrets.PAT_TOKEN }}`
 [EXP]
-Biến này chứa đường dẫn thư mục lưu image của dự án trên Registry, không chứa thông tin xác thực.
+Đây là tên biến người dùng tự định nghĩa, không phải token tự động sinh ra.
 
 @correct: B
 @point: 20
 
 ## Q2
 
-Khi Runner chạy job, tại sao giá trị của biến `$CI_REGISTRY_PASSWORD` lại hiển thị dưới dạng chuỗi đầu ra `[MASKED]` trên giao diện điều khiển Console Log của GitLab?
+Để biến `${{ secrets.GITHUB_TOKEN }}` có quyền tải image (pull) từ GHCR về chạy, job trong GitHub Actions cần khai báo phân quyền nào?
 
 [A]
-Do tệp cấu hình .gitlab-ci.yml quy định ẩn đi bằng các lệnh kiểm duyệt chuỗi.
+`permissions: write-all`
 [EXP]
-Khai báo YAML không quy định việc che dấu log; đây là tính năng bảo mật mặc định của GitLab CI/CD Server.
+Quyền này quá rộng và không được khuyến khích vì lý do bảo mật.
 [B]
-Do GitLab CLI tự động phát hiện và mã hóa dữ liệu trước khi gửi về máy Runner.
+`permissions: packages: read`
 [EXP]
-Giá trị biến vẫn được gửi nguyên bản đến Runner để thực thi script, chỉ có phần log in ra màn hình được lọc.
+Chính xác. Khai báo quyền packages read cho phép GITHUB_TOKEN tải image về mà vẫn tuân thủ nguyên tắc quyền tối thiểu.
 [C]
-Do Docker CLI tự động che dấu thông tin mật khẩu khi ghi nhận tham số truyền vào cờ -p.
+`permissions: contents: write`
 [EXP]
-Docker CLI không tự che dấu log đầu ra của GitLab; đây là hành vi lọc luồng log của GitLab Server.
+Quyền này cho phép ghi vào mã nguồn repo, không liên quan đến packages.
 [D]
-Để bảo vệ an toàn thông tin, tránh lộ lọt token bảo mật nhạy cảm ra màn hình log công khai khi chạy job.
+Không cần cấu hình, mặc định đã có quyền admin cao nhất.
 [EXP]
-Chính xác. GitLab Server có cơ chế lọc (mask) tự động tất cả các giá trị của biến bảo mật xuất hiện trên log để ngăn ngừa lộ mật khẩu.
+Mặc định GITHUB_TOKEN bị giới hạn quyền rất chặt chẽ, phải khai báo cụ thể.
 
-@correct: D
+@correct: B
 @point: 20
 
 ## Q3
 
-Đối với dự án `user-service` nằm trong không gian làm việc `backend_fullskill_devops`, biến môi trường định sẵn `$CI_REGISTRY_IMAGE` trong pipeline CI/CD sẽ tự động phân giải thành giá trị nào?
+Khi muốn kéo image từ GHCR với tên kho lưu trữ (`github.repository`) có chứa chữ cái hoa, tại sao lập trình viên cần sử dụng lệnh `tr '[:upper:]' '[:lower:]'`?
 
 [A]
-`registry.gitlab.com/backend_fullskill_devops`
+Để mã hóa tên kho lưu trữ chống tấn công.
 [EXP]
-Đường dẫn này chỉ dừng lại ở tên group/namespace, thiếu tên dự án cụ thể.
+Lệnh tr chỉ chuyển đổi viết hoa thành viết thường, không mã hóa.
 [B]
-`registry.gitlab.com/user-service`
+Vì Docker image name không cho phép sử dụng ký tự viết hoa.
 [EXP]
-Đường dẫn này thiếu phần namespace/group cha chứa dự án.
+Chính xác. Docker engine yêu cầu tên tham chiếu image (repository) phải hoàn toàn là chữ viết thường. Biến github.repository giữ nguyên chữ hoa nếu kho GitHub có chữ hoa, nên phải hạ xuống chữ thường.
 [C]
-`registry.gitlab.com/backend_fullskill_devops/user-service`
+Để tương thích với cú pháp YAML của GitHub Actions.
 [EXP]
-Chính xác. Biến này phân giải đầy đủ gồm: domain registry (`registry.gitlab.com`) + namespace group (`backend_fullskill_devops`) + tên project (`user-service`).
+YAML vẫn hỗ trợ chữ hoa bình thường.
 [D]
-`https://gitlab.com/backend_fullskill_devops/user-service/container_registry`
+Để tự động nhận diện và thay thế khoảng trắng thành dấu gạch ngang.
 [EXP]
-Đây là URL giao diện Web UI dùng trên trình duyệt, không phải địa chỉ Registry dùng cho Docker CLI.
+Lệnh `tr '[:upper:]' '[:lower:]'` không biến đổi khoảng trắng.
 
-@correct: C
+@correct: B
 @point: 20
 
 ## Q4
@@ -485,15 +474,15 @@ Vì Runner không phải thực hiện các tác vụ biên dịch mã nguồn J
 [EXP]
 Chính xác. Việc build image đã được thực hiện ở local trước đó; Runner chỉ chạy lệnh docker pull để tải các layer image đã đóng gói sẵn, giúp tiết kiệm thời gian biên dịch.
 [B]
-Vì GitLab Server tự động cache toàn bộ dung lượng của image trên RAM của máy host Runner.
+Vì GitHub Server tự động cache toàn bộ dung lượng của image trên RAM của máy host Runner.
 [EXP]
-GitLab không lưu cache image trên RAM; image được tải về ổ đĩa cứng của host Runner qua Docker engine.
+GitHub không lưu cache image trên RAM; image được tải về ổ đĩa cứng của host Runner qua Docker engine.
 [C]
-Vì lệnh docker pull được thực thi trực tiếp trên hệ thống mạng nội bộ siêu tốc của GitLab Server.
+Vì lệnh docker pull được thực thi trực tiếp trên hệ thống mạng nội bộ siêu tốc của máy chủ GitHub.
 [EXP]
-Tiến trình kéo image chạy trên Runner của người dùng (tự host), không chạy trên hạ tầng mạng của GitLab Server.
+Tiến trình kéo image chạy trên Runner của người dùng (tự host), tốc độ mạng do mạng cục bộ quyết định.
 [D]
-Vì Runner tự động bỏ qua bước kiểm tra chữ ký số bảo mật của Docker image khi tải từ Registry.
+Vì Runner tự động bỏ qua bước kiểm tra chữ ký số bảo mật của Docker image.
 [EXP]
 Tốc độ nhanh là do loại bỏ khâu biên dịch và đóng gói, không liên quan đến việc bỏ qua xác thực bảo mật.
 
@@ -502,33 +491,32 @@ Tốc độ nhanh là do loại bỏ khâu biên dịch và đóng gói, không 
 
 ## Q5
 
-Học viên cấu hình lệnh chạy container kiểm thử verify ứng dụng trong script của `.gitlab-ci.yml` như sau:
+Học viên cấu hình lệnh chạy container kiểm thử verify ứng dụng trong job như sau:
 ```yaml
-test_job:
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker pull $CI_REGISTRY_IMAGE:1.0.0
-    - docker run --name test_app -p 8081:8081 $CI_REGISTRY_IMAGE:1.0.0
-    - echo "Verify success"
+    - run: |
+        docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+        docker pull ghcr.io/nguyena/user-service:1.0.0
+        docker run --name test_app -p 8081:8081 ghcr.io/nguyena/user-service:1.0.0
+        echo "Verify success"
 ```
-Khi job này được kích hoạt chạy trên GitLab CI, hiện tượng gì sẽ xảy ra?
+Khi job này được kích hoạt, hiện tượng gì sẽ xảy ra?
 
 [A]
 Job hoàn thành thành công (Passed) ngay lập tức mà không gặp bất kỳ lỗi nào.
 [EXP]
 Job không thể hoàn thành Passed lập tức vì lệnh docker run sẽ chặn tiến trình chạy các lệnh tiếp theo.
 [B]
-Job CI/CD bị treo vô hạn thời gian cho đến khi gặp lỗi Timeout của hệ thống.
+Job bị treo vô hạn thời gian cho đến khi bị hủy bởi hệ thống do timeout.
 [EXP]
-Chính xác. Do lệnh docker run thiếu cờ -d (detached mode) để chạy ngầm dưới nền, container sẽ chạy chiếm quyền điều khiển shell của Runner và chặn đứng các dòng lệnh tiếp theo.
+Chính xác. Do lệnh docker run thiếu cờ -d (detached mode) để chạy ngầm dưới nền, container sẽ chạy chiếm quyền điều khiển shell của Runner và chặn đứng các lệnh phía sau.
 [C]
-Trình biên dịch GitLab CI sẽ báo lỗi cú pháp YAML và từ chối chạy pipeline ngay khi push file.
+GitHub Actions sẽ báo lỗi cú pháp YAML và từ chối chạy ngay khi push file.
 [EXP]
-Cú pháp file YAML hoàn toàn hợp lệ, lỗi chỉ phát sinh ở runtime khi chạy lệnh docker run.
+Cú pháp YAML hợp lệ, lỗi là do hành vi của lệnh.
 [D]
-Runner tự động chuyển sang chế độ chạy ngầm và in dòng chữ "Verify success" ra log console sau 5 giây.
+Runner tự động thêm tham số -d và in ra Verify success.
 [EXP]
-Runner không tự sửa lệnh để thêm cờ chạy ngầm; job sẽ bị chặn tại dòng lệnh docker run.
+Runner không thể tự động sửa đổi lệnh của lập trình viên.
 
 @correct: B
 @point: 20
@@ -539,7 +527,7 @@ Runner không tự sửa lệnh để thêm cờ chạy ngầm; job sẽ bị ch
 
 Trong kịch bản thực hành tổng hợp, lệnh khởi chạy container verify ứng dụng được viết như sau:
 ```bash
-docker run -d --name verify_app -p 8081:8081 $CI_REGISTRY_IMAGE:1.0.0
+docker run -d --name verify_app -p 8081:8081 $IMAGE_TAG
 ```
 Ý nghĩa của tham số `-d` và `-p 8081:8081` trong câu lệnh trên là gì?
 
@@ -548,17 +536,17 @@ Chạy container ở chế độ chạy ngầm dưới nền (detached) và ánh
 [EXP]
 Chính xác. Cờ -d giải phóng shell để Runner tiếp tục chạy các lệnh sau; cờ -p ánh xạ cổng mạng để phục vụ việc kiểm tra trạng thái ứng dụng.
 [B]
-Chạy container ở chế độ debug và mở cổng 8081 cho phép kết nối cơ sở dữ liệu PostgreSQL bên ngoài.
+Chạy container ở chế độ debug và mở cổng 8081 cho phép kết nối bên ngoài.
 [EXP]
-Tham số này cấu hình cho ứng dụng Spring Boot, không liên quan đến cổng của PostgreSQL (mặc định 5432).
+Tham số này không liên quan đến chế độ debug riêng biệt của Spring Boot.
 [C]
 Tự động dọn dẹp (delete) container khi dừng và gán quyền đặc quyền privileged trên cổng 8081.
 [EXP]
-Cờ dọn dẹp container khi dừng là --rm, không phải -d; cờ -p chỉ ánh xạ cổng thông thường.
+Cờ dọn dẹp container khi dừng là --rm, không phải -d.
 [D]
 Cấp quyền truy cập trực tiếp (direct) vào thư mục mã nguồn ở máy local qua cổng 8081.
 [EXP]
-Lệnh này chạy trên Runner CI/CD, không kết nối hay mount thư mục mã nguồn từ máy local của lập trình viên.
+Lệnh này không liên quan đến thư mục mã nguồn máy local.
 
 @correct: A
 @point: 20
@@ -568,21 +556,21 @@ Lệnh này chạy trên Runner CI/CD, không kết nối hay mount thư mục m
 Để cập nhật một tính năng mới trong code của ứng dụng và thực thi kiểm thử pipeline CI/CD verify phiên bản mới (ví dụ tag `1.0.1`), lập trình viên cần thực hiện chuỗi thao tác nào sau đây?
 
 [A]
-Git push code -> Cập nhật tag 1.0.1 trong .gitlab-ci.yml -> Build & Push image 1.0.1 từ local.
+Git push code -> Cập nhật tag 1.0.1 trong ci.yml -> Build & Push image 1.0.1 từ local.
 [EXP]
-Trình tự này sai vì nếu push code trước, pipeline CI/CD sẽ sập ở bước kéo image do Registry chưa có tag 1.0.1.
+Trình tự này sai vì nếu push code trước, workflow sẽ sập ở bước kéo image do Registry chưa có tag 1.0.1.
 [B]
-Cập nhật tag 1.0.1 trong .gitlab-ci.yml -> Git push code -> Build & Push image 1.0.1 từ local.
+Cập nhật tag 1.0.1 trong ci.yml -> Git push code -> Build & Push image 1.0.1 từ local.
 [EXP]
-Trình tự này sai vì pipeline vẫn chạy lỗi khi nhận commit push code do image chưa được đẩy lên Registry.
+Trình tự này sai vì workflow vẫn chạy lỗi do image chưa được đẩy lên Registry.
 [C]
-Build & Push image 1.0.1 từ local -> Cập nhật tag 1.0.1 trong .gitlab-ci.yml -> Git push code lên GitLab.
+Build & Push image 1.0.1 từ local -> Cập nhật tag 1.0.1 trong ci.yml -> Git push code lên GitHub.
 [EXP]
-Chính xác. Phải đẩy image mới lên Registry trước để chuẩn bị sẵn tài nguyên, sau đó sửa tag cấu hình trong YAML rồi mới push code kích hoạt pipeline kéo image về chạy thử.
+Chính xác. Phải đẩy image mới lên Registry trước để chuẩn bị sẵn tài nguyên, sau đó sửa tag cấu hình trong YAML rồi mới push code kích hoạt workflow kéo image về chạy thử.
 [D]
-Chạy lệnh docker pull ở local -> Cập nhật .gitlab-ci.yml -> Đẩy trực tiếp mã nguồn JAR lên GitLab Server.
+Chạy lệnh docker pull ở local -> Cập nhật ci.yml -> Đẩy trực tiếp mã nguồn JAR lên GitHub.
 [EXP]
-Lệnh docker pull ở local không tạo ra image mới; mã nguồn JAR không được đẩy trực tiếp lên GitLab Server mà truyền qua Git.
+Mã nguồn JAR không được lưu trong Git và pull image không thay thế build image.
 
 @correct: C
 @point: 20
@@ -592,69 +580,69 @@ Lệnh docker pull ở local không tạo ra image mới; mã nguồn JAR không
 Trong script của job verify ứng dụng Spring Boot, tại sao lệnh `sleep 5` lại được chèn vào ngay sau lệnh khởi chạy `docker run`?
 
 [A]
-Để cung cấp thời gian chờ cho Runner kết nối internet để đồng bộ cấu hình với GitLab Server.
+Để cung cấp thời gian chờ cho Runner kết nối internet với GitHub.
 [EXP]
-Runner và GitLab Server giao tiếp độc lập, không liên quan đến tiến trình khởi chạy của container ứng dụng.
+Runner và GitHub giao tiếp độc lập với luồng lệnh ứng dụng.
 [B]
-Để kiểm soát tốc độ ghi log của container, tránh tràn bộ nhớ đệm console log của Runner.
+Để kiểm soát tốc độ ghi log của container, tránh tràn bộ nhớ đệm.
 [EXP]
-Lệnh sleep không dùng để lọc hay kiểm soát tốc độ ghi log của ứng dụng Spring Boot.
+Lệnh sleep không dùng để lọc hay kiểm soát log.
 [C]
-Để bắt buộc container phải dừng hoạt động tạm thời trước khi tiến hành dọn dẹp môi trường.
+Để bắt buộc container phải dừng hoạt động tạm thời trước khi tiến hành dọn dẹp.
 [EXP]
-Lệnh sleep chỉ làm tạm ngưng shell script của job, không làm dừng container đang chạy ngầm dưới nền.
+Lệnh sleep làm tạm ngưng shell script, container chạy detached vẫn tiếp tục hoạt động.
 [D]
-Để trì hoãn việc chạy lệnh tiếp theo, giúp ứng dụng Spring Boot có đủ thời gian hoàn tất quá trình khởi động.
+Để trì hoãn việc chạy lệnh tiếp theo, giúp ứng dụng Spring Boot có đủ thời gian hoàn tất quá trình khởi động trước khi gọi lệnh `docker ps`.
 [EXP]
-Chính xác. Spring Boot cần vài giây để boot ứng dụng; lệnh sleep 5 đảm bảo khi chạy lệnh docker ps hoặc gọi API kiểm tra ở dòng sau thì ứng dụng đã sẵn sàng chạy.
+Chính xác. Spring Boot cần vài giây để boot ứng dụng; lệnh sleep 5 đảm bảo kiểm tra trạng thái chính xác nhất.
 
 @correct: D
 @point: 20
 
 ## Q4
 
-Tại sao việc dọn dẹp container (`docker rm -f verify_app`) ở cuối job thực hành tổng hợp lại được viết trực tiếp trong khối `script` chính thay vì đưa vào `after_script`?
+Để đảm bảo dọn dẹp môi trường (xóa container `verify_app`) ngay cả khi một số lệnh kiểm tra trước đó bị lỗi trong GitHub Actions, ta nên làm gì?
 
 [A]
-Vì after_script không thể truy cập các biến môi trường như `$CI_REGISTRY_IMAGE` của job.
+Tách thành step mới và dùng lệnh bash cơ bản.
 [EXP]
-Biến môi trường định sẵn vẫn khả dụng trong after_script bình thường.
+Step mới sẽ mặc định bị bỏ qua nếu step trước lỗi.
 [B]
-Để Runner có thể phát hiện và bắt lỗi chính xác nếu tiến trình dọn dẹp thất bại, bảo vệ tính toàn vẹn của job.
+Sử dụng toán tử `|| true` ở cuối chuỗi kiểm tra hoặc cấu hình `if: always()` ở step dọn dẹp.
 [EXP]
-Chính xác. Lỗi phát sinh trong after_script sẽ bị Runner bỏ qua và job vẫn báo Passed. Viết vào script chính giúp Runner phát hiện ngay lỗi dọn dẹp để báo Failed cho job.
+Chính xác. Điều này giúp hệ thống không hủy dọn dẹp do lỗi của bước kiểm thử.
 [C]
-Vì after_script sẽ tự động khởi chạy lại container verify_app nếu phát hiện container bị dừng.
+Gửi thông báo email cho quản trị viên vào dọn dẹp.
 [EXP]
-Khối after_script không tự động khởi chạy lại container; nó chỉ chạy các câu lệnh do lập trình viên khai báo.
+Không tự động hóa.
 [D]
-Để tiết kiệm băng thông mạng truyền tải giữa máy host Runner và máy chủ GitLab Server.
+Cấu hình Docker engine trên máy host tự xóa container.
 [EXP]
-Lệnh xóa container chạy cục bộ trên host Docker daemon, không tiêu tốn băng thông truyền tải mạng.
+Docker engine không tự động xóa nếu không có cờ cấu hình --rm.
 
 @correct: B
 @point: 20
 
 ## Q5
 
-Học viên cấu hình tệp tin `.gitlab-ci.yml` kéo image `1.0.0` về verify. Do sơ xuất, học viên push tệp tin cấu hình lên GitLab Server để kích hoạt pipeline trước khi thực hiện build và đẩy image `1.0.0` từ local lên Registry. Kết quả là gì?
+Học viên cấu hình tệp tin `ci.yml` kéo image `1.0.0` về verify. Do sơ xuất, học viên push tệp tin cấu hình lên GitHub để kích hoạt workflow trước khi thực hiện build và đẩy image `1.0.0` từ local lên Registry. Kết quả là gì?
 
 [A]
-Job verify thất bại ngay lập tức ở bước docker pull do kho lưu trữ Container Registry của dự án đang trống rỗng.
+Job verify thất bại ngay lập tức ở bước docker pull do kho lưu trữ Container Registry chưa có image đó.
 [EXP]
-Chính xác. Khi Registry chưa có image và tag tương ứng, lệnh docker pull của Runner sẽ không thể tìm thấy manifest của image và trả về lỗi, khiến job thất bại.
+Chính xác. Khi Registry chưa có image và tag tương ứng, lệnh docker pull của Runner sẽ không thể tìm thấy image và trả về lỗi, khiến job thất bại.
 [B]
-Runner sẽ tự động biên dịch mã nguồn Java từ thư mục Git để tự đóng gói thành image thay thế.
+Runner sẽ tự động biên dịch mã nguồn Java để tạo image thay thế.
 [EXP]
-Runner không tự động biên dịch thay thế nếu script của job chỉ khai báo lệnh docker pull and docker run.
+Runner không thể tự thay đổi workflow.
 [C]
-Job vẫn báo Passed bình thường vì GitLab CI tự động bỏ qua lỗi kéo image nếu phát hiện Registry trống.
+Job vẫn báo Passed bình thường vì GitHub Actions tự bỏ qua lỗi docker pull.
 [EXP]
-Lỗi docker pull là lỗi nghiêm trọng; Runner sẽ dừng thực thi lập tức và đánh dấu job hiển thị Failed.
+Lỗi docker pull sẽ làm step fail lập tức.
 [D]
-Docker Engine của máy host Runner sẽ tự động tạo ra một image giả lập (mock image) để chạy test.
+Docker Engine của host sẽ tự sinh ra mock image để vượt qua bài test.
 [EXP]
-Docker Engine không tự sinh image giả lập; nó bắt buộc phải kéo được image thật hoặc báo lỗi sập.
+Docker Engine không tạo mock image.
 
 @correct: A
 @point: 20
