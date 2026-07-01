@@ -1,116 +1,130 @@
-# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITLAB CI
+# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITHUB ACTIONS
 
-## LESSON 04: Build ứng dụng Spring Boot bằng Maven/Gradle trong CI
+## LESSON 04: Build ứng dụng Spring Boot bằng Gradle trong CI
 
 ---
 
 ### PHẦN 1. MỤC TIÊU BÀI HỌC
 
-Sau khi hoàn thành bài học này, bạn sẽ có khả năng:
-* **Cấu hình** được môi trường biên dịch (JDK, Gradle Wrapper) phù hợp với phiên bản Java của từng microservice.
-* **Biên soạn** thành công pipeline hoàn chỉnh thực hiện: Cấp quyền Gradle Wrapper -> Biên dịch ra file JAR thương mại (`bootJar`) và lưu vào artifacts một cách tối giản.
-* **Tối ưu hóa** hiệu năng pipeline chạy trên Shared Runner bằng cách loại bỏ các cấu hình cache rườm rà và bỏ qua bước test để pipeline chạy nhanh nhất.
+Sau khi hoàn thành bài học này, học viên có khả năng:
+* **Cấu hình** được môi trường biên dịch (JDK) thông qua Action chuẩn `actions/setup-java` phù hợp với phiên bản Java của từng microservice.
+* **Biên soạn** thành công quy trình đóng gói hoàn chỉnh: Tải mã nguồn -> Cấu hình Java -> Cấp quyền Gradle Wrapper -> Biên dịch ra file JAR thương mại (`bootJar`) một cách tối giản.
+* **Lưu trữ** tệp tin thành phẩm bằng cách sử dụng Action `actions/upload-artifact` để có thể tải xuống từ giao diện GitHub.
+* **Tối ưu hóa** hiệu năng luồng chạy bằng cách tinh giản các bước kiểm thử rườm rà.
 
 ---
 
-### PHẦN 2. VẤN ĐỀ THỰC TẾ (THÁCH THỨC VỀ HIỆU NĂNG VÀ TÀI NGUYÊN PIPELINE)
+### PHẦN 2. VẤN ĐỀ THỰC TẾ (THÁCH THỨC VỀ HIỆU NĂNG VÀ TÀI NGUYÊN)
 
-Trong quy trình phát triển thực hành tại lớp học hoặc các dự án nhỏ, chúng ta tận dụng tài nguyên **Shared Runner trực tuyến miễn phí** của GitLab. Tuy nhiên, Shared Runner có những giới hạn:
-* Tài nguyên CPU/RAM được cấp phát hạn chế.
-* Không duy trì bộ nhớ đệm (cache) cục bộ ổn định như máy chủ Runner tự cấu hình (self-hosted). Mỗi khi chạy, Runner có thể là một máy ảo hoàn toàn khác nhau.
-* Nếu chạy test tự động khi build, Spring Boot sẽ phải khởi chạy toàn bộ cấu trúc ứng dụng (Spring Context) lên RAM của Runner, làm tốn thời gian và dễ gây lỗi timeout hoặc thiếu RAM.
+Trong quy trình thực hành học tập, chúng ta tận dụng tài nguyên **GitHub-hosted runner miễn phí** được cấp phát chung cho các dự án mã nguồn mở hoặc dự án cá nhân nhỏ. Tuy nhiên, chúng có những giới hạn về mặt hệ thống:
+* Máy ảo chỉ được cấp phát cấu hình RAM/CPU có giới hạn (thường là 2 vCPU và 7GB RAM).
+* Môi trường sạch hoàn toàn ở mỗi lượt chạy, đồng nghĩa với việc không duy trì bộ đệm thư viện (cache) nếu không được thiết lập tường minh.
+* Nếu kích hoạt toàn bộ quy trình kiểm thử tự động cùng lúc, Spring Boot sẽ phải nạp toàn bộ cấu trúc ứng dụng (Spring Context) lên RAM của Runner, làm tăng đáng kể thời gian thực thi và rủi ro hết tài nguyên cục bộ.
 
-Để tối ưu hóa thời gian chạy pipeline xuống dưới **1.5 phút**, giúp sinh viên có phản hồi kết quả nhanh nhất sau khi push code, chúng ta cần thiết kế một **pipeline CI tinh giản tối đa**: bỏ qua bước kiểm thử tự động, tắt cấu hình cache rườm rà và đi thẳng vào mục tiêu build ra file JAR thành phẩm.
+Để tối ưu hóa thời gian trả về kết quả (thường chỉ nên nằm dưới mức **1.5 phút** cho các tác vụ biên dịch), chúng ta cần thiết kế một **luồng công việc (workflow) tinh giản tối đa**: tạm thời bỏ qua bước kiểm thử tự động phức tạp và tiến thẳng vào mục tiêu cốt lõi là biên dịch ra tệp tin JAR thành phẩm.
 
 ---
 
 ### PHẦN 3. KIẾN THỨC CỐT LÕI (CẤU HÌNH PIPELINE CI TINH GIẢN)
 
-#### 3.1 Chọn Image JDK phù hợp
-Ứng dụng Spring Boot yêu cầu môi trường JDK đầy đủ để có thể biên dịch mã nguồn Java. Chúng ta sử dụng image chính thức từ Eclipse Temurin đi kèm hệ điều hành Alpine siêu nhẹ để tối ưu dung lượng:
-* Java 17 (dành cho `user-service`, `order-service`): `eclipse-temurin:17-jdk-alpine`
-* Java 21 (dành cho `restaurant-service`): `eclipse-temurin:21-jdk-alpine`
+#### 3.1 Cấu hình JDK thông minh
+Ứng dụng Spring Boot yêu cầu môi trường JDK đầy đủ để biên dịch mã nguồn Java. Thay vì thiết lập hệ điều hành theo cách thủ công, GitHub cung cấp Action `actions/setup-java`:
+* Hỗ trợ cài đặt nhanh các phiên bản: Java 17 (dành cho `user-service`), Java 21 (dành cho `restaurant-service`).
+* Chỉ định nhà phân phối bằng tham số `distribution: 'temurin'` (tương đương với bộ Eclipse Temurin JDK tối ưu hóa).
 
 #### 3.2 Tái sử dụng Gradle Wrapper (`gradlew`)
-Chúng ta không cần cài đặt Gradle lên hệ điều hành của Runner. Thay vào đó, tận dụng tệp tin thực thi Gradle Wrapper (`gradlew` và thư mục `gradle/wrapper/`) đã được đính kèm sẵn trong mã nguồn dự án:
-* **`chmod +x ./gradlew`:** Cấp quyền thực thi cho file wrapper trước khi chạy (bắt buộc trên Linux/Docker Runner).
-* **`./gradlew bootJar`:** Câu lệnh yêu cầu Gradle biên dịch và đóng gói ứng dụng Spring Boot thành file JAR thực thi. Khác với lệnh `build` chạy đầy đủ các tác vụ kiểm thử (tests), lệnh `bootJar` mặc định không phụ thuộc vào tác vụ `test`, giúp quy trình CI diễn ra nhanh nhất mà không cần chạy các bài kiểm thử.
+Hệ thống không yêu cầu cài đặt cài đặt Gradle vào hệ điều hành của máy chủ Runner. Chúng ta sẽ tận dụng tệp tin thực thi Gradle Wrapper (`gradlew` và thư mục `gradle/wrapper/`) đã được nhà phát triển tích hợp sẵn trong mã nguồn gốc:
+* **`chmod +x ./gradlew`:** Cấp quyền thực thi cho tệp tin (execute bit) trước khi khởi chạy (điều kiện bắt buộc trên môi trường Linux).
+* **`./gradlew bootJar`:** Câu lệnh yêu cầu công cụ Gradle biên dịch và đóng gói ứng dụng Spring Boot thành tệp JAR thực thi. Tác vụ `bootJar` có đặc điểm là mặc định không kích hoạt các quy trình kiểm thử (tests), đảm bảo hệ thống phản hồi nhanh nhất.
 
 #### 3.3 Tận dụng Fallback của application.yml
-Khi build JAR, Spring Boot có thể cần kiểm tra cấu hình kết nối. Nhờ cách viết cấu hình thông minh sử dụng fallback trong `application.yml` ở Session 5:
+Trong quá trình đóng gói JAR, khuôn khổ Spring Boot có thể sẽ kiểm thử kết nối cơ sở dữ liệu để xác minh tính hợp lệ. Phương pháp thiết lập dự phòng (fallback) trong `application.yml` ở Session 5 sẽ phát huy tác dụng:
 ```yaml
 url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:quickbite_user}
 ```
-Nếu không nạp biến môi trường hệ thống, ứng dụng sẽ tự động sử dụng giá trị mặc định (như `localhost`). Nhờ đó, quá trình biên dịch và đóng gói file JAR diễn ra mượt mà mà không đòi hỏi phải có một cơ sở dữ liệu PostgreSQL thực tế đang chạy lúc build.
+Nhờ cơ chế này, quá trình biên dịch sẽ sử dụng giá trị mặc định (`localhost`) một cách mượt mà mà không đòi hỏi phải thiết lập một cơ sở dữ liệu PostgreSQL thực tế đang hoạt động đồng thời trên Runner.
+
+#### 3.4 Lưu trữ Artifacts
+Khác với kiến trúc máy chủ nguyên khối thông thường, tệp JAR sau khi được sinh ra sẽ nằm trên không gian ảo của Runner và sẽ biến mất khi phiên chạy kết thúc. Để giữ lại thành quả, cần dùng `actions/upload-artifact@v4` để đóng gói tệp tin đó và tải lên không gian lưu trữ của GitHub.
 
 ---
 
 ### PHẦN 4. DEMO VÀ THỰC HÀNH (BIÊN SOẠN FILE CI CHO USER-SERVICE)
 
----
-
-#### 4.1 Biên soạn tệp cấu hình `.gitlab-ci.yml`
-Tạo file `.gitlab-ci.yml` tại thư mục gốc của dự án `user-service` với cấu hình tinh giản sau:
+#### 4.1 Biên soạn tệp cấu hình `.github/workflows/build.yml`
+Tạo file `build.yml` tại thư mục `.github/workflows/` của dự án `user-service` với cấu hình tinh giản sau:
 
 ```yaml
-image: eclipse-temurin:17-jdk-alpine
+name: Build Spring Boot App
 
-stages:
-  - build
+on:
+  push:
+    branches:
+      - main
 
-build_executable_jar:
-  stage: build
-  tags:
-    - quickbite
-  script:
-    # Cấp quyền thực thi cho Gradle Wrapper có sẵn trong dự án
-    - chmod +x ./gradlew
-    # Biên dịch và đóng gói file JAR (tác vụ bootJar mặc định không chạy kiểm thử)
-    - ./gradlew bootJar
-  artifacts:
-    paths:
-      - build/libs/*.jar
-    expire_in: 3 days
+jobs:
+  build_executable_jar:
+    runs-on: [self-hosted, quickbite] # Sử dụng Self-hosted runner của tổ chức
+    steps:
+      - name: Checkout mã nguồn
+        uses: actions/checkout@v4
+        
+      - name: Cài đặt môi trường JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          
+      - name: Cấp quyền thực thi cho Gradle Wrapper
+        run: chmod +x ./gradlew
+        
+      - name: Biên dịch và đóng gói tệp JAR (Bỏ qua tác vụ Test)
+        run: ./gradlew bootJar
+        
+      - name: Lưu trữ sản phẩm (Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-service-jar
+          path: build/libs/*.jar
+          retention-days: 3
 ```
 
 > [!TIP]
 > **Đồng bộ cho restaurant-service:**
-> Đối với dịch vụ `restaurant-service` chạy Java 21, giảng viên chỉ cần hướng dẫn sinh viên sửa dòng cấu hình image đầu tiên thành:
-> `image: eclipse-temurin:21-jdk-alpine`
-> Toàn bộ các dòng cấu hình phía sau được giữ nguyên vẹn.
+> Đối với dịch vụ `restaurant-service` sử dụng nền tảng Java 21, học viên chỉ cần điều chỉnh tham số `java-version: '17'` thành `java-version: '21'` tại bước cài đặt môi trường. Các quy trình còn lại được kế thừa nguyên vẹn.
 
 #### 4.2 Kết quả mong đợi
-Khi push code lên GitLab, pipeline sẽ khởi chạy và hoàn thành chỉ trong khoảng **1 đến 1.5 phút**. Tệp tin sản phẩm `user-service.jar` được sinh ra tại đường dẫn `build/libs/` và được lưu giữ an toàn trên hệ thống lưu trữ artifact của GitLab.
+Khi thực hiện thao tác đẩy mã nguồn (push), quy trình sẽ khởi động và kết thúc trong khoảng **1.5 phút**. Tại tab **Actions**, chọn phiên chạy vừa hoàn tất. Bạn sẽ thấy mục **Artifacts** nằm ở cuối trang, chứa tệp tin `user-service-jar` sẵn sàng để tải xuống.
 
 ---
 
 ### PHẦN 5. LƯU Ý, LỖI SAI VÀ HIỂU LẦM THƯỜNG GẶP
 
-* **Quên cấp quyền chạy cho Gradle Wrapper:** Rất nhiều sinh viên quên không khai báo lệnh `chmod +x ./gradlew` trước khi gọi lệnh build, dẫn đến việc Runner sập ngay lập tức với lỗi `Permission Denied` trên môi trường Linux.
-* **Sử dụng sai phiên bản JDK nền:** Dùng image JDK 17 cho các dịch vụ viết trên Java 21 (như `restaurant-service`) hoặc ngược lại sẽ dẫn đến các lỗi biên dịch của Java Compiler hoặc lỗi phiên bản class chạy ứng dụng (`UnsupportedClassVersionError`). Cần sửa khóa `image` cho đồng nhất với phiên bản Java của dự án.
-* **Phân biệt tác vụ bootJar và build:** Học viên dễ nhầm lẫn rằng tác vụ `bootJar` cũng sẽ chạy test giống như tác vụ `build`. Cần nhớ rằng `bootJar` chỉ làm nhiệm vụ biên dịch và đóng gói, không phụ thuộc vào `test`. Trong các dự án thực tế của doanh nghiệp, chúng ta thường sử dụng tác vụ `build` để bắt buộc chạy toàn bộ các ca kiểm thử trước khi đóng gói sản phẩm, hoặc thiết lập stage test riêng biệt để kiểm soát chất lượng.
+* **Bỏ quên lệnh cấp quyền cho Gradle Wrapper:** Rất nhiều học viên không khai báo lệnh `chmod +x ./gradlew` trước khối lệnh biên dịch, hậu quả là máy chủ Runner sẽ trả về mã lỗi thoát (Exit code) với thông báo `Permission Denied`.
+* **Khai báo không đồng bộ phiên bản JDK:** Lỗi do thiết lập `java-version: '17'` cho các cấu phần sử dụng chuẩn ngôn ngữ Java 21. Lỗi này gây ra thông báo lỗi định dạng lớp không tương thích (`UnsupportedClassVersionError`) từ trình biên dịch.
+* **Sai cấu trúc đường dẫn Artifact:** Nếu khai báo tham số `path: target/*.jar` (dành cho Maven) thay vì `build/libs/*.jar` (dành cho Gradle), hệ thống sẽ không tìm thấy tệp tin nào để tải lên và báo cảnh báo `No files were found with the provided path`.
 
 ---
 
-### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG (XÁC MINH KIẾN THỨC)
+### PHẦN 6. TÀI LIỆU THAM KHẢO CHÍNH THỐNG
 
-1. **Đóng gói ứng dụng Spring Boot với Gradle:**
-   * [Spring Boot Gradle Plugin Reference Guide](https://docs.spring.io/spring-boot/docs/current/gradle-plugin/reference/htmlsingle/)
-2. **Các tác vụ trong Gradle:**
-   * [Gradle Java Library Plugin Reference](https://docs.gradle.org/current/userguide/java_library_plugin.html)
+1. **Thiết lập Java Action:**
+   * [actions/setup-java repository](https://github.com/actions/setup-java)
+2. **Quy chuẩn lưu trữ dữ liệu luồng công việc:**
+   * [actions/upload-artifact repository](https://github.com/actions/upload-artifact)
 
 ---
 
 ### PHẦN 7. CÂU HỎI ĐÁNH GIÁ NHANH
 
 #### Câu 1 (Hiểu bản chất)
-Tại sao chúng ta sử dụng tệp tin `./gradlew` (Gradle Wrapper) có sẵn trong dự án thay vì chạy lệnh cài đặt Gradle trực tiếp trên môi trường của Runner?
-* *Gợi ý:* Sử dụng Gradle Wrapper giúp đảm bảo tính nhất quán về mặt phiên bản Gradle được sử dụng để build dự án trên mọi môi trường (local, CI/CD, Production) mà không phụ thuộc vào việc máy chủ chạy có cài sẵn Gradle hay không và cài phiên bản nào.
+Tại sao chúng ta sử dụng tệp tin `./gradlew` (Gradle Wrapper) đính kèm sẵn trong mã nguồn thay vì sử dụng hệ thống cài đặt chung để cài Gradle trực tiếp lên hệ điều hành của máy chủ Runner?
+* *Gợi ý:* Sử dụng Gradle Wrapper giúp đảm bảo tính nhất quán tuyệt đối về phiên bản Gradle được sử dụng để xây dựng mã nguồn trên mọi hệ thống (từ máy tính cá nhân đến máy chủ CI/CD) mà không phải lo lắng về việc máy chủ chạy phiên bản công cụ khác biệt gây rủi ro kỹ thuật.
 
 #### Câu 2 (Phân tích so sánh)
-Sự khác biệt về hành vi chạy kiểm thử (unit test) giữa câu lệnh `./gradlew bootJar` và câu lệnh `./gradlew build` là gì?
-* *Gợi ý:* Lệnh `./gradlew bootJar` chỉ tập trung biên dịch mã nguồn và đóng gói file JAR thực thi mà không kích hoạt các tác vụ chạy unit test. Ngược lại, lệnh `./gradlew build` là một lifecycle task đầy đủ, sẽ tự động kích hoạt tác vụ chạy kiểm thử (`test`) và chỉ tiến hành đóng gói khi tất cả các kiểm thử đều vượt qua thành công.
+Sự khác biệt về hành vi chạy kiểm thử (unit test) giữa lệnh `./gradlew bootJar` và lệnh `./gradlew build` là gì?
+* *Gợi ý:* Lệnh `./gradlew bootJar` thuần túy thực hiện chức năng biên dịch và đóng gói tệp JAR mà bỏ qua quy trình kiểm thử tự động. Ngược lại, lệnh `./gradlew build` đại diện cho vòng đời xây dựng toàn diện, yêu cầu mọi kiểm thử phải vượt qua (Passed) mới tiến hành bước tạo tệp thành phẩm.
 
 #### Câu 3 (Cấu hình hệ thống)
-Để đóng gói một microservice viết bằng Java 21 (ví dụ: `restaurant-service`), lập trình viên cần thay đổi thông số nào trong file cấu hình `.gitlab-ci.yml` mẫu của `user-service`?
-* *Gợi ý:* Chỉ cần thay đổi giá trị của từ khóa `image` từ `eclipse-temurin:17-jdk-alpine` (Java 17) thành `eclipse-temurin:21-jdk-alpine` (Java 21) để Runner khởi tạo môi trường biên dịch tương thích với phiên bản Java của mã nguồn.
+Mục đích của việc thiết lập tham số `retention-days: 3` trong cấu hình lưu trữ Artifact là gì?
+* *Gợi ý:* GitHub cung cấp một dung lượng lưu trữ giới hạn (Quota) cho các luồng công việc. Việc giới hạn thời gian tồn tại (retention) của tệp tin thành 3 ngày giúp hệ thống tự động dọn dẹp các tệp bản dựng cũ không còn giá trị, tối ưu hóa không gian lưu trữ và tránh vượt định mức miễn phí.
