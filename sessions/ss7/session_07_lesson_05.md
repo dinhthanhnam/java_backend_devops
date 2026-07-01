@@ -1,6 +1,6 @@
-# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITHUB ACTIONS
+# SESSION 07: TỰ ĐỘNG HÓA QUY TRÌNH CI/CD VỚI GITHUB ACTIONS
 
-## LESSON 05: Thực hành phân tích log và chẩn đoán lỗi trên GitHub Actions
+## LESSON 05: Chẩn đoán sự cố và quản trị log hệ thống CI/CD
 
 ---
 

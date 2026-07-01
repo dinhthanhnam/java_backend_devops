@@ -1,6 +1,6 @@
-# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITHUB ACTIONS
+# SESSION 07: TỰ ĐỘNG HÓA QUY TRÌNH CI/CD VỚI GITHUB ACTIONS
 
-## LESSON 04: Build ứng dụng Spring Boot bằng Gradle trong CI
+## LESSON 04: Ứng dụng CI/CD: Biên dịch tự động Spring Boot với Gradle
 
 ---
 

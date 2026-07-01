@@ -1,6 +1,6 @@
-# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITHUB ACTIONS
+# SESSION 07: TỰ ĐỘNG HÓA QUY TRÌNH CI/CD VỚI GITHUB ACTIONS
 
-## LESSON 01: Tổng quan GitHub Actions và Kiến trúc Runner
+## LESSON 01: Nền tảng CI/CD: Tổng quan GitHub Actions và Kiến trúc Runner
 
 ---
 

@@ -1,6 +1,6 @@
-# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITHUB ACTIONS
+# SESSION 07: TỰ ĐỘNG HÓA QUY TRÌNH CI/CD VỚI GITHUB ACTIONS
 
-## LESSON 03: Cơ chế hoạt động của Workflow và Phân tách Jobs
+## LESSON 03: Cơ chế điều phối và phân tách Jobs trong luồng CI/CD
 
 ---
 

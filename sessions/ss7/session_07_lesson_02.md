@@ -1,6 +1,6 @@
-# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITHUB ACTIONS
+# SESSION 07: TỰ ĐỘNG HÓA QUY TRÌNH CI/CD VỚI GITHUB ACTIONS
 
-## LESSON 02: Cấu trúc và Cú pháp file Workflow
+## LESSON 02: Xây dựng cấu trúc Workflow CI/CD cơ bản
 
 ---
 

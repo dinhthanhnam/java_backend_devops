@@ -1,6 +1,6 @@
-# QUIZ LESSONS - SESSION 07
+# QUIZ LESSONS - SESSION 07: QUY TRÌNH CI/CD VỚI GITHUB ACTIONS
 
-# LESSON 01: Tổng quan GitHub Actions và Kiến trúc Runner
+# LESSON 01: Nền tảng CI/CD: Tổng quan GitHub Actions và Kiến trúc Runner
 
 ## Q1
 
@@ -74,7 +74,7 @@ Bất cứ dạng Runner nào cũng cần tiếp nhận tín hiệu từ hệ th
 @correct: A
 @point: 20
 
-# LESSON 02: Cấu trúc và Cú pháp file Workflow
+# LESSON 02: Xây dựng cấu trúc Workflow CI/CD cơ bản
 
 ## Q1
 
@@ -148,7 +148,7 @@ Phân bổ hệ điều hành là do từ khóa `runs-on` quy định, không li
 @correct: B
 @point: 20
 
-# LESSON 03: Cơ chế hoạt động của Workflow và Phân tách Jobs
+# LESSON 03: Cơ chế điều phối và phân tách Jobs trong luồng CI/CD
 
 ## Q1
 
@@ -222,7 +222,7 @@ Việc đồng bộ hoá hệ thống tập trung vào mặt định thời gian
 @correct: B
 @point: 20
 
-# LESSON 04: Build ứng dụng Spring Boot bằng Gradle trong CI
+# LESSON 04: Ứng dụng CI/CD: Biên dịch tự động Spring Boot với Gradle
 
 ## Q1
 
@@ -296,7 +296,7 @@ Hệ thống không cung cấp lõi bảo mật phần mềm cho dữ liệu t�
 @correct: A
 @point: 20
 
-# LESSON 05: Thực hành phân tích log và chẩn đoán lỗi trên GitHub Actions
+# LESSON 05: Chẩn đoán sự cố và quản trị log hệ thống CI/CD
 
 ## Q1
 
