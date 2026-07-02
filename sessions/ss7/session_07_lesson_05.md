@@ -1,122 +1,123 @@
-# SESSION 07: TỰ ĐỘNG HÓA BIÊN DỊCH VỚI GITLAB CI
+# SESSION 07: TỰ ĐỘNG HÓA QUY TRÌNH CI/CD VỚI GITHUB ACTIONS
 
-## LESSON 05: Thực hành phân tích log và chẩn đoán lỗi build trên GitLab CI
+## LESSON 05: Chẩn đoán sự cố và quản trị log hệ thống CI/CD
 
 ---
 
 ### PHẦN 1. MỤC TIÊU BÀI HỌC
 
 Sau khi hoàn thành bài học này, học viên có khả năng:
-* **Xác định vị trí** và truy cập giao diện Log Console của Job trên GitLab Web UI.
-* **Chẩn đoán nguyên nhân** lỗi của pipeline bằng phương pháp phân tích log từ dưới lên.
-* **Khắc phục trực tiếp** các lỗi thực tế kế thừa từ kịch bản build của Lesson 04 bao gồm: lỗi phân quyền thực thi (`Permission Denied`), lỗi biên dịch mã nguồn Java (`Compilation Failed`), và lỗi kiểm thử thất bại (`Test FAILED`).
+* **Xác định vị trí** và truy cập giao diện Log Console của từng bước chạy (step) trên tab Actions của GitHub.
+* **Chẩn đoán nguyên nhân** lỗi của luồng công việc (workflow) bằng phương pháp phân tích log kỹ thuật.
+* **Khắc phục trực tiếp** các sự cố thường gặp được mô phỏng từ kịch bản Lesson 04 bao gồm: lỗi phân quyền thực thi (`Permission Denied`), lỗi biên dịch mã nguồn Java (`Compilation Failed`), và lỗi kiểm thử tự động thất bại (`Test FAILED`).
 
 ---
 
 ### PHẦN 2. THIẾT LẬP MÔI TRƯỜNG THỰC HÀNH VÀ DEMO TRỰC TIẾP
 
-Bài học này được thiết kế để giảng viên thực hiện demo trực tiếp và hướng dẫn học viên chẩn đoán lỗi trên giao diện GitLab. Không tập trung vào lý thuyết trừu tượng, bài học đi thẳng vào việc tạo ra các tình huống lỗi thực tế dựa trên cấu hình build Spring Boot tối giản từ Lesson 04.
+Bài học này được thiết kế để giảng viên thực hiện mô phỏng thao tác lỗi trực tiếp, hướng dẫn học viên thực hành rà soát kỹ năng đọc mã lỗi (error logs). Bài học không tập trung vào lý thuyết trừu tượng, thay vào đó mô phỏng luồng công việc cốt lõi của dự án Spring Boot tại Lesson 04.
 
-#### 2.1 File cấu hình baseline chuẩn (từ Lesson 04)
-Học viên sử dụng dự án `user-service` với file cấu hình `.gitlab-ci.yml` chuẩn ban đầu:
+#### 2.1 Tệp cấu hình gốc (Baseline)
+Học viên khởi đầu với tệp cấu hình `.github/workflows/build.yml` của hệ thống `user-service`:
+
 ```yaml
-image: eclipse-temurin:17-jdk-alpine
+name: Build Spring Boot App
 
-stages:
-  - build
+on:
+  push:
+    branches:
+      - main
 
-build_executable_jar:
-  stage: build
-  tags:
-    - quickbite
-  script:
-    - chmod +x ./gradlew
-    - ./gradlew bootJar
-  artifacts:
-    paths:
-      - build/libs/*.jar
-    expire_in: 3 days
+jobs:
+  build_executable_jar:
+    runs-on: [self-hosted, quickbite]
+    steps:
+      - name: Checkout mã nguồn
+        uses: actions/checkout@v5
+        
+      - name: Cài đặt JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          
+      - name: Cấp quyền Gradle Wrapper
+        run: chmod +x ./gradlew
+        
+      - name: Biên dịch tệp JAR
+        run: ./gradlew bootJar
 ```
 
 ---
 
 ### PHẦN 3. KỊCH BẢN LỖI 1: LỖI PHÂN QUYỀN WRAPPER (PERMISSION DENIED)
 
-#### 3.1 Cách tạo lỗi demo
-1. Giảng viên chỉnh sửa file `.gitlab-ci.yml`, loại bỏ lệnh cấp quyền `chmod +x ./gradlew`:
-```yaml
-build_executable_jar:
-  stage: build
-  tags:
-    - quickbite
-  script:
-    - ./gradlew bootJar
-```
-2. Commit và push thay đổi lên GitLab repository để kích hoạt pipeline.
+#### 3.1 Quy trình tạo lỗi mô phỏng
+1. Giảng viên điều chỉnh tệp tin `build.yml`, vô hiệu hóa bước cấp quyền thực thi (xóa bỏ đoạn khai báo `run: chmod +x ./gradlew`).
+2. Thực hiện tải mã nguồn lên kho lưu trữ (commit & push) để kích hoạt sự kiện `push`.
 
-#### 3.2 Nhận diện lỗi trên GitLab Log Console
-Khi pipeline báo trạng thái thất bại (Failed), giảng viên hướng dẫn học viên mở log của job `build_executable_jar` và quan sát phần console output:
+#### 3.2 Nhận diện mã lỗi qua giao diện GitHub Actions
+Truy cập tab **Actions**, chọn phiên chạy báo lỗi màu đỏ (Failed). Bấm chọn vào công việc `build_executable_jar`, sau đó trỏ vào bước **Biên dịch tệp JAR** để mở rộng nội dung log hiển thị:
+
 ```text
-$ ./gradlew bootJar
-/bin/sh: eval: line 135: ./gradlew: Permission denied
-Cleaning up project directory and file based variables
-ERROR: Job failed: exit code 1
+Run ./gradlew bootJar
+  ./gradlew bootJar
+  shell: /usr/bin/bash -e {0}
+/home/runner/work/_temp/...: line 2: ./gradlew: Permission denied
+Error: Process completed with exit code 126.
 ```
 
-#### 3.3 Giải thích nguyên nhân và cách khắc phục
-* **Ý nghĩa lỗi:** Tệp thực thi `./gradlew` thiếu thuộc tính quyền thực thi (execute bit) trên hệ điều hành Linux của Runner. Lỗi này thường xuất hiện khi dự án được phát triển hoặc chỉnh sửa trên Windows (hệ điều hành không quản lý chặt chẽ thuộc tính execute bit của tệp tin), dẫn đến việc Git không lưu trữ thuộc tính này khi đẩy lên repository.
-* **Cách khắc phục:** Khai báo lệnh `chmod +x ./gradlew` trước lệnh biên dịch để cấp quyền thực thi cho wrapper trên môi trường Linux của Runner.
+#### 3.3 Giải thích nguyên nhân và phương pháp khắc phục
+* **Ý nghĩa thông báo lỗi:** Tệp thực thi `./gradlew` thiếu thuộc tính quyền thực thi (execute bit) đối với hệ điều hành phân phối dựa trên nền tảng Unix/Linux do máy chủ Runner đang sử dụng. Lỗi này thường gặp khi lập trình viên khởi tạo và biên soạn cấu trúc hệ thống trên môi trường Windows (hệ điều hành không quản lý chặt chẽ thuộc tính thực thi), do đó mã nguồn được lưu trữ thiếu thuộc tính này.
+* **Phương pháp khắc phục:** Cập nhật lại tệp `build.yml` với việc bổ sung lệnh `run: chmod +x ./gradlew` trước khối lệnh biên dịch nhằm cưỡng ép hệ thống cấp quyền chạy hợp lệ.
 
 ---
 
 ### PHẦN 4. KỊCH BẢN LỖI 2: LỖI BIÊN DỊCH MÃ NGUỒN (COMPILATION FAILED)
 
-#### 4.1 Cách tạo lỗi demo
-1. Giảng viên cố tình đưa một lỗi cú pháp vào mã nguồn Java của dịch vụ `user-service`. Ví dụ, trong file `src/main/java/com/quickbite/user/service/UserService.java`, thay đổi tên repository thành một tên không tồn tại hoặc xóa một dấu chấm phẩy `;` ở cuối dòng:
+#### 4.1 Quy trình tạo lỗi mô phỏng
+1. Giảng viên chủ ý thay đổi mã nguồn Java để tạo lỗi cú pháp. Cụ thể, truy cập tệp `src/main/java/com/quickbite/user/service/UserService.java` và chỉnh sửa khai báo thư viện không chính xác:
    ```java
-   // Lỗi cố ý: Viết sai tên class UserRepository
+   // Cố tình viết sai tên lớp từ UserRepository sang UserReposotory
    private UserReposotory userRepository;
    ```
-2. Đảm bảo file `.gitlab-ci.yml` vẫn giữ lệnh cấp quyền `chmod +x ./gradlew`.
-3. Commit và push mã nguồn lên GitLab để kích hoạt pipeline.
+2. Giữ nguyên tệp `build.yml` hợp lệ từ cấu hình gốc và đẩy mã nguồn lên hệ thống.
 
-#### 4.2 Nhận diện lỗi trên GitLab Log Console
-Mở log của job thất bại và định vị khu vực báo lỗi của Java Compiler:
+#### 4.2 Nhận diện mã lỗi qua giao diện GitHub Actions
+Truy cập chi tiết log phần **Biên dịch tệp JAR**:
+
 ```text
-$ ./gradlew bootJar
+Run ./gradlew bootJar
 > Task :compileJava FAILED
-/builds/quickbite/user-service/src/main/java/com/quickbite/user/service/UserService.java:24: error: cannot find symbol
+/home/runner/work/user-service/user-service/src/main/java/com/quickbite/user/service/UserService.java:24: error: cannot find symbol
         private UserReposotory userRepository;
                 ^
   symbol:   class UserReposotory
   location: class UserService
 1 error
+Error: Process completed with exit code 1.
 ```
 
-#### 4.3 Giải thích nguyên nhân và cách khắc phục
-* **Ý nghĩa lỗi:** Trình biên dịch Java (compiler) không thể dịch mã nguồn thành bytecode do vi phạm quy tắc cú pháp hoặc không tìm thấy các tham chiếu lớp/giao diện. Log console chỉ ra chính xác đường dẫn tệp tin, dòng (dòng 24) và ký tự gây lỗi.
-* **Cách khắc phục:** Học viên cần mở đúng tệp tin và dòng được chỉ định trong log, sửa lại mã nguồn đúng cú pháp, chạy thử lệnh `./gradlew compileJava` dưới local để xác nhận biên dịch thành công trước khi commit và push lại.
+#### 4.3 Giải thích nguyên nhân và phương pháp khắc phục
+* **Ý nghĩa thông báo lỗi:** Trình biên dịch Java (Java Compiler) từ chối tạo mã trung gian (bytecode) do cấu trúc lớp không tuân thủ cú pháp hệ thống hoặc không tìm thấy tham chiếu thư viện hợp lệ. Nhật ký log ghi rõ điểm phát sinh lỗi bao gồm đường dẫn tuyệt đối, số dòng lỗi (dòng 24) và mô tả ký tự sai lệch.
+* **Phương pháp khắc phục:** Cần xác định vị trí file và dòng được mô tả trong hệ thống log, sửa lại lỗi theo chuẩn ngôn ngữ Java. Bắt buộc thực hiện việc chạy thử nghiệm bằng câu lệnh `./gradlew compileJava` ở môi trường cục bộ để xác nhận thành công trước khi đẩy lên máy chủ mã nguồn.
 
 ---
 
 ### PHẦN 5. KỊCH BẢN LỖI 3: LỖI KIỂM THỬ THẤT BẠI (TEST FAILED)
 
-#### 5.1 Cách tạo lỗi demo
-1. Giảng viên điều chỉnh file cấu hình `.gitlab-ci.yml` để kích hoạt việc chạy Unit Test bằng cách thay thế tác vụ `bootJar` (mặc định không chạy test) thành tác vụ `build` (chạy đầy đủ các bước kiểm thử):
-```yaml
-build_executable_jar:
-  stage: build
-  tags:
-    - quickbite
-  script:
-    - chmod +x ./gradlew
-    - ./gradlew build # Thay bootJar bằng build để kích hoạt chạy test
-```
-2. Chỉnh sửa logic của một lớp kiểm thử trong thư mục `src/test/java/...` để cố tình làm kiểm thử thất bại (ví dụ: thay đổi giá trị mong đợi trong assertion `assertEquals(200, status)` thành `assertEquals(500, status)` hoặc ném ra ngoại lệ).
-3. Commit và push thay đổi lên GitLab để kích hoạt pipeline.
+#### 5.1 Quy trình tạo lỗi mô phỏng
+1. Giảng viên điều chỉnh tệp cấu hình luồng công việc để cưỡng chế hệ thống chạy quá trình kiểm thử tự động, cụ thể là thay đổi câu lệnh tác vụ từ `bootJar` sang `build`:
+   ```yaml
+   - name: Biên dịch và chạy Test
+     run: ./gradlew build
+   ```
+2. Sửa đổi hệ số logic của một kiểm thử trong thư mục `src/test/java/...` để hệ thống giả lập môi trường thất bại. Ví dụ: thay thế assertion `assertEquals(200, status)` thành `assertEquals(500, status)`.
+3. Tải lên và theo dõi log hành vi của hệ thống CI/CD.
 
-#### 5.2 Nhận diện lỗi trên GitLab Log Console
-Mở log của job thất bại và quan sát phần kết quả thực thi kiểm thử:
+#### 5.2 Nhận diện mã lỗi qua giao diện GitHub Actions
+Mở log công việc bị đình chỉ và kiểm tra trạng thái kiểm thử:
+
 ```text
 > Task :test
 
@@ -126,42 +127,42 @@ UserServiceApplicationTests > testCreateUser() FAILED
 2 tests completed, 1 failed
 
 > Task :test FAILED
+Error: Process completed with exit code 1.
 ```
 
-#### 5.3 Giải thích nguyên nhân và cách khắc phục
-* **Ý nghĩa lỗi:** Mã nguồn Java biên dịch thành công, nhưng logic chạy thử nghiệm không khớp với thiết kế kiểm thử (Assertion thất bại). Gradle phát hiện kiểm thử thất bại và dừng tiến trình đóng gói để tránh xuất bản một sản phẩm lỗi.
-* **Cách khắc phục:** 
-  1. Xác định kiểm thử bị lỗi thông qua log console.
-  2. Sửa lại mã nguồn logic hoặc assertion trong tệp kiểm thử cho chính xác.
-  3. Chạy thử nghiệm dưới máy local bằng lệnh `./gradlew test` để đảm bảo tất cả kiểm thử đều vượt qua (passed) trước khi thực hiện push code.
+#### 5.3 Giải thích nguyên nhân và phương pháp khắc phục
+* **Ý nghĩa thông báo lỗi:** Việc biên dịch lớp Java đã hoàn tất thuận lợi, tuy nhiên kết quả thực tế trả về từ các tệp kiểm thử không thỏa mãn điều kiện logic được định cấu hình. Cơ chế Gradle sẽ áp dụng hình thức "Fail-fast", ngay lập tức huỷ bỏ quá trình tạo tệp đóng gói `user-service.jar` nhằm tránh rò rỉ mã lỗi.
+* **Phương pháp khắc phục:** 
+  1. Xác định tệp kiểm thử và phương thức bị từ chối dựa vào nội dung log chỉ định.
+  2. Hiệu chỉnh logic hoạt động hoặc giá trị khẳng định (assertion) trong mã nguồn kiểm thử sao cho trùng khớp với thiết kế.
+  3. Sử dụng lệnh `./gradlew test` để đánh giá cục bộ tại thiết bị trước khi tiến hành tạo commit mới.
 
 ---
 
-### PHẦN 6. QUY TRÌNH CHẨN ĐOÁN LỖI PIPELINE TRÊN GITLAB (DÀNH CHO HỌC VIÊN)
+### PHẦN 6. QUY TRÌNH CHẨN ĐOÁN LỖI LUỒNG CÔNG VIỆC CƠ BẢN
 
-Khi pipeline của dự án báo trạng thái Failed (màu đỏ), học viên cần thực hiện quy trình chẩn đoán có hệ thống sau:
-1. **Truy cập giao diện log:** Chọn **Build** -> **Jobs** trên thanh menu trái của GitLab, click vào job bị lỗi.
-2. **Đọc log từ dưới lên:**
-   * Tìm dòng cuối cùng hiển thị mã lỗi thoát (ví dụ: `ERROR: Job failed: exit code 1`).
-   * Di chuyển ngược lên phía trên để xác định câu lệnh gây lỗi (dòng bắt đầu bằng ký tự `$`).
-   * Đọc chi tiết thông tin lỗi nằm giữa câu lệnh gây lỗi và mã lỗi thoát để xác định chính xác nguyên nhân (lỗi compiler chỉ rõ dòng code, lỗi test chỉ rõ tên kiểm thử thất bại).
-3. **Khắc phục và xác minh:** Thực hiện sửa đổi tương ứng, chạy kiểm tra cục bộ (local) trước khi push code lên Git.
+Khi quy trình CI/CD trả về báo cáo thất bại (giao diện thể hiện nút đỏ chéo), người kỹ sư cần tuân thủ quy trình xử lý bao gồm các bước phân tích:
+1. **Truy cập không gian làm việc:** Truy cập tab **Actions**, chọn sự kiện Workflow, xác định công việc (`Job`) đang hiển thị trạng thái `Failed`.
+2. **Khai thác nhật ký log từ cấp độ thấp:**
+   * Mở phần mở rộng của từng bước (step) hiển thị nút lỗi. Cuộn xuống phần cuối log để theo dõi mã báo cáo quá trình (Exit code).
+   * Lần ngược lên để đọc chi tiết thông báo lỗi được hệ thống sinh ra (Error Traces) và khoanh vùng nguyên nhân thông qua cấu trúc báo cáo của nền tảng (ví dụ: mô tả chính xác tệp/dòng đối với lỗi Compiler).
+3. **Phục hồi và Xác nhận:** Sửa đổi mã nguồn hoặc tệp cấu hình theo giải pháp, tuyệt đối chạy lệnh tự kiểm tra tại máy cá nhân, tiếp đó hợp nhất thay đổi để xác minh trạng thái luồng.
 
 ---
 
 ### PHẦN 7. LƯU Ý, LỖI SAI VÀ HIỂU LẦM THƯỜNG GẶP
 
-* **Chỉnh sửa mã nguồn không có cơ sở khi sập build:** Học viên thường tự suy đoán nguyên nhân và sửa đổi mã nguồn ngẫu nhiên khi thấy pipeline báo đỏ. Hãy luôn tuân thủ việc đọc log để định vị chính xác vị trí lỗi trước khi sửa.
-* **Bỏ qua mã lỗi Exit Code:** Không chú ý đến các mã lỗi do hệ thống trả về (ví dụ: `exit code 1` thường do lỗi biên dịch hoặc phân quyền, `exit code 127` do gõ sai tên lệnh thực thi).
-* **Mặc định mọi lỗi đỏ đều do code Java:** Nhiều lỗi thực tế xuất phát từ cấu hình YAML sai định dạng thụt lề, sai phiên bản JDK nền của Docker image, hoặc thiếu lệnh phân quyền chạy Gradle Wrapper.
+* **Phản ứng hoảng loạn và thay đổi thiếu cơ sở:** Học viên thường có xu hướng thay đổi ngẫu nhiên cấu trúc mã nguồn một cách tùy tiện mà không dựa trên chứng cứ thực nghiệm từ bộ phân tích log. Thói quen này làm giảm tính chuyên nghiệp và tiêu tốn tài nguyên quy trình đáng kể.
+* **Khước từ thông tin Exit Code:** Việc phớt lờ thông điệp Exit Code từ hệ thống làm giảm đi tính phản xạ kỹ thuật. Ví dụ, `exit code 126` báo hiệu thiếu quyền thực thi; `exit code 127` đại diện cho việc lệnh gọi bị sai chuẩn chính tả hoặc không tồn tại.
+* **Mặc định nguyên nhân xuất phát từ thuật toán:** Rất nhiều trường hợp lỗi hệ thống xuất phát từ việc cấu trúc tệp `.github/workflows` dùng sai phím khoảng trắng thụt lề hoặc thiết lập phiên bản phần mềm JDK khác với chuẩn quy định, chứ không phải do logic lập trình mã nguồn bị sai sót.
 
 ---
 
 ### PHẦN 8. TÀI LIỆU THAM KHẢO CHÍNH THỐNG
 
-1. **Khắc phục lỗi trong GitLab CI/CD:**
-   * [GitLab CI/CD Troubleshooting | GitLab Documentation](https://docs.gitlab.com/ee/ci/troubleshooting.html)
-2. **Quy chuẩn mã lỗi exit code của tiến trình Linux:**
+1. **Phân tích nhật ký luồng công việc:**
+   * [Viewing workflow run history](https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/viewing-workflow-run-history)
+2. **Quy chuẩn mã thoát hệ thống Linux (Exit Codes):**
    * [Bash Exit Codes Reference](https://tldp.org/LDP/abs/html/exitcodes.html)
 
 ---
@@ -169,13 +170,13 @@ Khi pipeline của dự án báo trạng thái Failed (màu đỏ), học viên 
 ### PHẦN 9. CÂU HỎI ĐÁNH GIÁ NHANH
 
 #### Câu 1 (Hiểu bản chất)
-Tại sao lỗi `Permission denied` thường chỉ xuất hiện khi chạy build trên Runner (Linux) mà không xuất hiện khi chạy ở máy local của học viên sử dụng hệ điều hành Windows?
-* *Gợi ý:* Vì hệ điều hành Windows không quản lý chặt chẽ thuộc tính quyền thực thi (execute bit) của file như các hệ điều hành nhân Unix (Linux/macOS). Khi file được đẩy lên Git từ máy Windows, thuộc tính quyền thực thi của file `./gradlew` có thể bị mất, khiến hệ điều hành Linux của Runner chặn không cho phép khởi chạy tiến trình.
+Tại sao lỗi mất quyền `Permission denied` ít khi xuất hiện trên thiết bị cá nhân sử dụng Windows của lập trình viên, nhưng lại chặn đứng luồng công việc trên máy chủ Runner?
+* *Gợi ý:* Vì các hệ điều hành nhân Unix (như Linux do GitHub-hosted runner tiêu chuẩn sử dụng) duy trì thuộc tính quyền thực thi phân rã rất chặt chẽ theo cơ chế tập tin. Git trong môi trường Windows thường không quản lý sâu thuộc tính này, dẫn đến việc kho lưu trữ trung tâm bị thiếu thông tin quyền khởi chạy tệp tin `gradlew` nếu không có cơ chế can thiệp.
 
 #### Câu 2 (Phân tích so sánh)
-Mục đích của việc thiết lập pipeline dừng lại ngay lập tức khi phát hiện lỗi Unit Test thất bại (Kịch bản 3) là gì?
-* *Gợi ý:* Áp dụng nguyên lý **Fail-fast (Thất bại sớm)**. Việc dừng pipeline ngay khi test thất bại giúp ngăn chặn đóng gói sản phẩm bị lỗi và tránh triển khai phiên bản lỗi này lên các môi trường tiếp theo.
+Việc đình chỉ lập tức luồng công việc khi một thao tác Unit Test thông báo thất bại mang ý nghĩa kỹ thuật nào?
+* *Gợi ý:* Đây là quá trình ứng dụng nguyên lý "Fail-fast" (Ưu tiên thất bại sớm). Việc ngắt mạch hệ thống sẽ trực tiếp loại trừ nguy cơ xuất bản các bộ tạo tác bị lỗi (artifact) và chặn đứng khả năng việc triển khai một phiên bản không đủ độ tin cậy.
 
 #### Câu 3 (Chẩn đoán lỗi)
-Nếu log của job build báo lỗi `UnsupportedClassVersionError: class has been compiled by a more recent version of the Java Runtime`, nguyên nhân do đâu và cách xử lý thế nào?
-* *Gợi ý:* Nguyên nhân do dự án được thiết lập chạy trên phiên bản Java cao hơn (ví dụ Java 21) so với phiên bản JDK của Docker image đang cấu hình cho Runner (ví dụ image đang dùng JDK 17). Cách xử lý là nâng cấp phiên bản image JDK trong file `.gitlab-ci.yml` cho tương thích (ví dụ dùng `eclipse-temurin:21-jdk-alpine`).
+Hệ thống log báo cáo mã lỗi `UnsupportedClassVersionError: class has been compiled by a more recent version of the Java Runtime`. Định hướng xử lý sự cố này trên GitHub Actions là gì?
+* *Gợi ý:* Lỗi này hình thành do hệ thống mã nguồn sử dụng phiên bản biên dịch cao (như Java 21) nhưng khối cấu hình hệ thống `actions/setup-java` lại cung cấp môi trường phiên bản thấp (như Java 17). Kỹ sư cần trực tiếp cập nhật tham số cài đặt của Action Java về chuẩn cấu hình phù hợp với mã nguồn phát triển.

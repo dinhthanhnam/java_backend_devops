@@ -8,17 +8,17 @@
 
 Sau khi hoàn thành bài học này, học viên có khả năng:
 * **Thực hành thành thạo** quy trình build, gắn tag phiên bản Docker image của dịch vụ `user-service` tại máy phát triển local.
-* **Đăng nhập và đẩy thành công** image lên GitLab Container Registry cá nhân.
-* **Biên soạn và kiểm thử** hoàn thiện tệp cấu hình `.gitlab-ci.yml` để kiểm tra container tự động trong pipeline CI/CD với thời gian chạy tối ưu.
+* **Đăng nhập và đẩy thành công** image lên GitHub Container Registry (ghcr.io) cá nhân.
+* **Biên soạn và kiểm thử** hoàn thiện tệp cấu hình `.github/workflows/ci.yml` để kiểm tra container tự động trong luồng CI/CD với thời gian chạy tối ưu.
 
 ---
 
 ### PHẦN 2. BỐI CẢNH THỰC HÀNH
 
-Bài thực hành tổng hợp này giúp học viên củng cố các kỹ năng tương tác với GitLab Container Registry đã học ở các bài học trước:
+Bài thực hành tổng hợp này giúp học viên củng cố các kỹ năng tương tác với GitHub Container Registry đã học ở các bài học trước:
 * Đóng gói và gắn tag Docker image thủ công tại máy phát triển cá nhân để nắm vững cú pháp lệnh.
-* Đẩy image lên Registry cá nhân bằng Access Token.
-* Cấu hình pipeline CI/CD để tự động kéo image đó về và khởi chạy verify trên môi trường Runner.
+* Đẩy image lên Registry cá nhân bằng Access Token (PAT).
+* Cấu hình luồng CI/CD để tự động kéo image đó về và khởi chạy verify trên môi trường Runner.
 
 > [!WARNING]
 > **Lưu ý quan trọng cho học viên:**
@@ -63,58 +63,66 @@ docker build -t user-service:1.0.0 .
 ```
 
 #### Bước 2: Khởi tạo Access Token và đăng nhập Registry
-1. Truy cập giao diện Web của GitLab cá nhân -> **Preferences** -> **Access Tokens**.
-2. Tạo một Personal Access Token mới đặt tên là `registry-token`, chọn thời hạn thích hợp và tích chọn 2 scopes: `write_registry` và `read_registry`. Sao chép mã token được sinh ra.
-3. Sử dụng terminal tại máy local, chạy lệnh đăng nhập vào Registry của GitLab:
+1. Truy cập giao diện Web của GitHub cá nhân -> **Settings** -> **Developer settings** -> **Personal access tokens** -> **Tokens (classic)**.
+2. Tạo một Personal Access Token mới đặt tên là `registry-token`, tích chọn scopes: `write:packages` và `read:packages`. Sao chép mã token bắt đầu bằng `ghp_`.
+3. Sử dụng terminal tại máy local, chạy lệnh đăng nhập vào Registry của GitHub:
 ```bash
-docker login registry.gitlab.com -u <gitlab_username>
+docker login ghcr.io -u <github_username>
 ```
    *Khi hệ thống yêu cầu nhập Password, dán mã Access Token vừa sao chép vào và nhấn Enter.*
 
-#### Bước 3: Gắn tag Registry và đẩy Image lên GitLab
-1. Thực hiện gắn tag image khớp chính xác với đường dẫn Registry của dự án (thay thế `<namespace>` bằng username hoặc group của bạn trên GitLab):
+#### Bước 3: Gắn tag Registry và đẩy Image lên GitHub
+1. Thực hiện gắn tag image khớp chính xác với đường dẫn Registry của dự án (thay thế `<github_username>` bằng username của bạn trên GitHub):
 ```bash
-docker tag user-service:1.0.0 registry.gitlab.com/<namespace>/user-service:1.0.0
+docker tag user-service:1.0.0 ghcr.io/<github_username>/user-service:1.0.0
 ```
 2. Thực hiện đẩy image lên kho lưu trữ trực tuyến:
 ```bash
-docker push registry.gitlab.com/<namespace>/user-service:1.0.0
+docker push ghcr.io/<github_username>/user-service:1.0.0
 ```
-3. Truy cập vào mục **Deploy** -> **Container Registry** trên GitLab Web UI của dự án để xác nhận image đã hiển thị tag `1.0.0`.
+3. Truy cập vào trang Profile trên GitHub -> tab **Packages** để xác nhận image `user-service` đã hiển thị tag `1.0.0`.
 
-#### Bước 4: Cấu hình và chạy thử Pipeline CI/CD
-1. Cập nhật nội dung file `.gitlab-ci.yml` tại thư mục gốc của dự án `user-service` để kéo image về và chạy verify tự động:
+#### Bước 4: Cấu hình và chạy thử Workflow CI/CD
+1. Tạo cấu trúc thư mục `.github/workflows/` và cập nhật nội dung file `ci.yml` tại thư mục gốc của dự án `user-service` để kéo image về và chạy verify tự động:
 ```yaml
-image: docker:latest
+name: Tích hợp Docker Registry
 
-stages:
-   - test_image
+on:
+  push:
+    branches:
+      - main
 
-test_docker_image_job:
-   stage: test_image
-   tags:
-      - quickbite
-   script:
-      # Đăng nhập tự động sử dụng thông tin định sẵn của Runner
-      - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-      
-      # Kéo image 1.0.0 đã được học viên push từ local về
-      - docker pull $CI_REGISTRY_IMAGE:1.0.0
-      
-      # Chạy container để kiểm tra verify ứng dụng
-      - docker run -d --name verify_app -p 8081:8081 $CI_REGISTRY_IMAGE:1.0.0
-      
-      # Chờ ứng dụng Spring Boot khởi động
-      - sleep 5
-      
-      # Kiểm tra danh sách container hoạt động
-      - docker ps
-      
-      # Dọn dẹp môi trường Runner sau khi kiểm tra xong
-      - docker rm -f verify_app
+jobs:
+  test_image:
+    runs-on: [self-hosted, quickbite]
+    permissions:
+      packages: read
+      contents: read
+    steps:
+      - name: Kiểm tra Container
+        run: |
+          # Đăng nhập tự động sử dụng thông tin định sẵn của Runner
+          docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          
+          # Kéo image 1.0.0 đã được học viên push từ local về
+          # Chuyển đổi tên kho chứa thành chữ thường
+          IMAGE_TAG=$(echo "ghcr.io/${{ github.repository }}:1.0.0" | tr '[:upper:]' '[:lower:]')
+          docker pull $IMAGE_TAG
+          
+          # Chạy container để kiểm tra verify ứng dụng
+          docker run -d --name verify_app -p 8081:8081 $IMAGE_TAG
+          
+          # Chờ ứng dụng Spring Boot khởi động
+          sleep 5
+          
+          # Kiểm tra danh sách container hoạt động
+          docker ps
+          
+          # Dọn dẹp môi trường Runner sau khi kiểm tra xong
+          docker rm -f verify_app || true
 ```
-2. Thực hiện push file cấu hình lên GitLab để kích hoạt pipeline tự động.
-3. Theo dõi log console của job trên GitLab Web UI, kiểm tra xem job có hoàn thành thành công và xác nhận tổng thời gian chạy (runtime) cực kỳ nhanh (thường dưới 30 giây).
+2. Thực hiện push file cấu hình lên GitHub để kích hoạt pipeline tự động.
+3. Theo dõi log console của job trên tab **Actions** của GitHub, kiểm tra xem job có hoàn thành thành công và xác nhận tổng thời gian chạy (runtime) cực kỳ nhanh (thường dưới 30 giây).
 
 ---
 
@@ -122,18 +130,18 @@ test_docker_image_job:
 
 Học viên sau khi hoàn thành thực hành cần chụp và đính kèm 3 hình ảnh minh chứng sau vào bài báo cáo:
 1. **Minh chứng 1:** Ảnh chụp màn hình Terminal local hiển thị quá trình build và đẩy (`docker push`) image thành công lên registry.
-2. **Minh chứng 2:** Ảnh chụp giao diện **Container Registry** trên giao diện GitLab Web UI hiển thị rõ tag `1.0.0` của image `user-service`.
-3. **Minh chứng 3:** Ảnh chụp giao diện **Pipeline Log** trên GitLab hiển thị log thực thi thành công của job `test_docker_image_job` đi kèm thông số thời gian chạy (runtime) tối ưu (dưới 30 giây).
+2. **Minh chứng 2:** Ảnh chụp giao diện tab **Packages** trên giao diện GitHub Web hiển thị rõ tag `1.0.0` của image `user-service`.
+3. **Minh chứng 3:** Ảnh chụp giao diện log thực thi của GitHub Actions hiển thị log thành công của job `test_image` đi kèm thông số thời gian chạy (runtime) tối ưu (dưới 30 giây).
 
 ---
 
 ### PHẦN 5. LƯU Ý LỖI VÀ HIỂU LẦM THƯỜNG GẶP (DÀNH CHO HỌC VIÊN)
 
-* **Pipeline báo lỗi không tìm thấy image (Image not found):** Xảy ra khi sinh viên push cấu hình file `.gitlab-ci.yml` lên GitLab kích hoạt pipeline trước khi chạy các lệnh build và push image từ local lên Registry. Do Registry trống rỗng, lệnh `docker pull` của Runner sẽ thất bại ngay lập tức.
-  *Khắc phục:* Bắt buộc phải hoàn tất việc build và push image từ local thành công lên Registry trước khi chạy pipeline CI/CD.
-* **Không cấu hình `.dockerignore` dẫn đến build context quá lớn:** Khi thực hiện lệnh `docker build` ở local với `COPY . .`, nếu học viên không cấu hình `.dockerignore`, Docker sẽ sao chép toàn bộ thư mục `build/` và `.gradle/` từ máy local vào container, làm chậm tiến trình build và có thể gây lỗi hoặc xung đột tệp tin biên dịch cục bộ.
-  *Khắc phục:* Học viên bắt buộc phải tạo tệp tin `.dockerignore` tại thư mục gốc của dự án và khai báo loại bỏ `build/`, `.gradle/`, `.git/` trước khi chạy build.
-* **Ứng dụng bị sập âm thầm (Silent Crash):** Lệnh `docker run` chạy thành công và tạo container, nhưng ứng dụng Spring Boot bên trong bị crash ngay lập tức do thiếu biến cấu hình hoặc xung đột cổng. Lệnh `docker ps` chạy sau đó sẽ không hiển thị container hoạt động.
+* **Pipeline báo lỗi không tìm thấy image (Image not found):** Xảy ra khi sinh viên push cấu hình file `ci.yml` lên GitHub kích hoạt workflow trước khi chạy các lệnh build và push image từ local lên Registry. Do Registry trống rỗng, lệnh `docker pull` của Runner sẽ thất bại ngay lập tức.
+  *Khắc phục:* Bắt buộc phải hoàn tất việc build và push image từ local thành công lên Registry trước khi đẩy file workflow CI/CD.
+* **Lỗi `denied: unauthenticated` khi chạy workflow:** Xảy ra do học viên quên bổ sung phần phân quyền `permissions: packages: read` cho luồng làm việc khiến token mặc định không được truy cập Registry.
+  *Khắc phục:* Kiểm tra file YAML và bổ sung permission.
+* **Ứng dụng bị sập âm thầm (Silent Crash):** Lệnh `docker run` chạy thành công và tạo container, nhưng ứng dụng Spring Boot bên trong bị crash ngay lập tức do thiếu biến cấu hình hoặc xung đột cổng. Lệnh `docker ps` chạy sau đó sẽ không hiển thị container hoạt động, nhưng script shell có thể không báo đỏ do lệnh kết thúc bằng `docker ps` thành công.
   *Khắc phục:* Kiểm tra log của container cục bộ tại local bằng lệnh `docker logs <container_name>` để debug lỗi trước khi đẩy lên registry.
 
 ---
@@ -142,20 +150,20 @@ Học viên sau khi hoàn thành thực hành cần chụp và đính kèm 3 hì
 
 1. **Lệnh chạy Container của Docker CLI:**
    * [docker run command reference | Docker Documentation](https://docs.docker.com/engine/reference/commandline/run/)
-2. **Tài liệu hướng dẫn Pipeline Troubleshooting của GitLab:**
-   * [Troubleshooting GitLab CI/CD | GitLab Documentation](https://docs.gitlab.com/ee/ci/troubleshooting.html)
+2. **Kiểm tra Logs Workflow của GitHub Actions:**
+   * [Using workflow run logs | GitHub Documentation](https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/using-workflow-run-logs)
 
 ---
 
 ### PHẦN 7. CÂU HỎI ĐÁNH GIÁ NHANH
 
 #### Câu 1 (Hiểu bản chất)
-Tại sao trong kịch bản thực hành tổng hợp này, việc dọn dẹp container (`docker rm -f verify_app`) lại được thực hiện ở cuối khối `script` thay vì đưa vào `after_script` như thói quen thông thường?
-* *Gợi ý:* Vì nếu đưa vào `after_script` (tiến trình shell độc lập), mã lỗi thoát của các lệnh dọn dẹp sẽ không được GitLab dùng để đánh giá trạng thái Passed/Failed của job. Việc viết trực tiếp vào `script` giúp Runner kiểm soát và phát hiện lỗi dọn dẹp chính xác hơn, bảo vệ tính toàn vẹn của pipeline.
+Tại sao trong kịch bản thực hành tổng hợp này, việc dọn dẹp container (`docker rm -f verify_app`) lại được thực hiện chung một khối `run` với các lệnh khác thay vì tách thành một `step` dọn dẹp độc lập ở cuối?
+* *Gợi ý:* Vì trong GitHub Actions mặc định nếu một lệnh `run` hoặc `step` gặp lỗi (exit code khác 0), các lệnh phía sau sẽ bị hủy bỏ (skip). Để chạy dọn dẹp dù cho test fail hay pass, chúng ta có thể nối lệnh dọn dẹp bằng `|| true` hoặc tách thành step riêng nhưng phải khai báo thuộc tính `if: always()`. Việc gộp lại giúp code ngắn gọn và dễ theo dõi đối với mục đích học thuật.
 
 #### Câu 2 (Phân tích so sánh)
 Nếu thay đổi phiên bản code của ứng dụng và muốn chạy thử nghiệm bản build mới, học viên cần thực hiện lại các bước nào trong kịch bản thực hành trên?
-* *Gợi ý:* Cần thực hiện lại: (1) Biên dịch JAR và build image tại local với tag phiên bản mới (ví dụ `1.0.1`), (2) Gắn tag Registry tương ứng `1.0.1` và push lên Registry, (3) Cập nhật file `.gitlab-ci.yml` sửa tag từ `1.0.0` thành `1.0.1` và push file cấu hình lên GitLab để chạy test.
+* *Gợi ý:* Cần thực hiện lại: (1) Biên dịch JAR và build image tại local với tag phiên bản mới (ví dụ `1.0.1`), (2) Gắn tag Registry tương ứng `1.0.1` và push lên GHCR, (3) Cập nhật file `.github/workflows/ci.yml` sửa tag từ `1.0.0` thành `1.0.1` và push file cấu hình lên GitHub để chạy test.
 
 #### Câu 3 (Cấu hình hệ thống)
 Tại sao lệnh `docker run` trong script của job sử dụng tham số `-d` và `-p 8081:8081`?
