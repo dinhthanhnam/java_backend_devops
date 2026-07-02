@@ -74,6 +74,55 @@ Bất cứ dạng Runner nào cũng cần tiếp nhận tín hiệu từ hệ th
 @correct: A
 @point: 20
 
+## Q4
+
+Đâu là lợi thế của việc sử dụng Runner triển khai bằng Docker Compose so với việc cài đặt Runner trực tiếp lên hệ điều hành của máy chủ?
+
+[A]
+Tự động hóa quá trình đóng gói và cô lập môi trường thực thi, tránh xung đột phần mềm với các dịch vụ khác trên máy chủ.
+[EXP]
+Chính xác. Docker Compose giúp cô lập runner, dễ dàng cấu hình, dọn dẹp và đảm bảo tính nhất quán môi trường so với cài trực tiếp.
+[B]
+Cho phép Runner bỏ qua các lớp bảo mật mạng nội bộ.
+[EXP]
+Docker Compose không bỏ qua bảo mật mạng; mạng vẫn tuân thủ firewall của host.
+[C]
+Tăng tốc độ đường truyền mạng lên gấp đôi.
+[EXP]
+Docker không thể tăng tốc giới hạn vật lý của đường truyền mạng.
+[D]
+Không yêu cầu cấu hình token bảo mật từ GitHub.
+[EXP]
+Dù triển khai qua Docker thì Runner vẫn bắt buộc cần RUNNER_TOKEN để xác thực.
+
+@correct: A
+@point: 20
+
+## Q5
+
+Thành phần nào trong kiến trúc GitHub Actions chịu trách nhiệm lắng nghe các sự kiện (event) và quyết định khi nào kích hoạt luồng công việc?
+
+[A]
+GitHub Actions Runner.
+[EXP]
+Runner chỉ chịu trách nhiệm nhận và thực thi công việc, không đảm nhận việc lắng nghe sự kiện của repository.
+[B]
+GitHub Server (Nền tảng trung tâm).
+[EXP]
+Chính xác. GitHub Server lắng nghe các sự kiện (như push, pull request) và tự động kích hoạt tiến trình CI/CD dựa trên cấu hình workflow.
+[C]
+Docker Daemon của máy host.
+[EXP]
+Docker Daemon dùng để chạy container, không tương tác trực tiếp với các sự kiện GitHub.
+[D]
+Webhook tích hợp bên thứ ba.
+[EXP]
+Hệ thống sử dụng cơ chế tích hợp nội bộ của GitHub, không cần webhook bên ngoài cho các luồng Actions tiêu chuẩn.
+
+@correct: B
+@point: 20
+
+
 # LESSON 02: Xây dựng cấu trúc Workflow CI/CD cơ bản
 
 ## Q1
@@ -147,6 +196,55 @@ Phân bổ hệ điều hành là do từ khóa `runs-on` quy định, không li
 
 @correct: B
 @point: 20
+
+## Q4
+
+Đường dẫn thư mục bắt buộc nào phải được tạo trong repository để GitHub tự động nhận diện và chạy các file cấu hình workflow?
+
+[A]
+`.github/workflows/`
+[EXP]
+Chính xác. GitHub yêu cầu tất cả các file cấu hình CI/CD (YAML) phải đặt chính xác trong thư mục `.github/workflows/` tại gốc của repository.
+[B]
+`.gitlab-ci/`
+[EXP]
+Thư mục này không có ý nghĩa với hệ thống GitHub Actions.
+[C]
+`workflows/`
+[EXP]
+Nếu thư mục workflows không được đặt bên trong thư mục ẩn `.github`, hệ thống sẽ không nhận diện được.
+[D]
+`.github/actions/`
+[EXP]
+Thư mục này dùng để định nghĩa các custom actions riêng lẻ, không dùng để chứa các file workflow tổng thể.
+
+@correct: A
+@point: 20
+
+## Q5
+
+Trong khối cấu hình `runs-on: [self-hosted, quickbite]`, ý nghĩa của các nhãn (labels) này là gì?
+
+[A]
+Xác định hệ điều hành cài đặt và tên máy chủ vật lý cụ thể.
+[EXP]
+Nhãn không mang thông tin mặc định về hệ điều hành, nó là từ khóa tuỳ chỉnh.
+[B]
+Định tuyến công việc tới các máy chủ Runner được gắn nhãn tương ứng.
+[EXP]
+Chính xác. Hệ thống sẽ so khớp các nhãn (tags/labels) được cấu hình trong file yaml với nhãn của runner đang hoạt động để phân bổ job. Ở đây job sẽ gửi đến runner có nhãn self-hosted và quickbite.
+[C]
+Chỉ định tên tài khoản GitHub được phép chạy job này.
+[EXP]
+Các nhãn không liên quan đến quyền của người dùng trên GitHub.
+[D]
+Kích hoạt luồng chạy nhanh (quickbite) bỏ qua các bước kiểm tra.
+[EXP]
+"quickbite" chỉ là một nhãn do người dùng định nghĩa, không mang ý nghĩa kích hoạt chức năng ẩn của hệ thống.
+
+@correct: B
+@point: 20
+
 
 # LESSON 03: Cơ chế điều phối và phân tách Jobs trong luồng CI/CD
 
@@ -222,6 +320,55 @@ Việc đồng bộ hoá hệ thống tập trung vào mặt định thời gian
 @correct: B
 @point: 20
 
+## Q4
+
+Làm thế nào để cấu trúc một workflow mà một job phân tích mã nguồn (lint) và một job kiểm thử (test) chạy đồng thời, sau đó job triển khai (deploy) chỉ chạy khi cả hai job trước đều thành công?
+
+[A]
+Đặt cả 3 job trong cùng một file YAML và không cấu hình gì thêm.
+[EXP]
+Nếu không cấu hình gì thêm, cả 3 job sẽ chạy song song đồng thời.
+[B]
+Cấu hình `needs: [lint, test]` cho job deploy, trong khi job lint và test không sử dụng từ khóa needs.
+[EXP]
+Chính xác. Bỏ trống needs ở hai job đầu giúp chúng mặc định chạy song song, và needs ở job deploy sẽ chặn nó cho đến khi hai job kia hoàn thành thành công.
+[C]
+Sử dụng từ khóa `parallel: true` ở cả 3 job.
+[EXP]
+Cú pháp GitHub Actions không sử dụng từ khóa `parallel: true` cho mục đích này.
+[D]
+Cấu hình `depends_on: [deploy]` cho job lint và test.
+[EXP]
+Cú pháp phụ thuộc là `needs`, không phải `depends_on`, và mối quan hệ phụ thuộc bị ngược.
+
+@correct: B
+@point: 20
+
+## Q5
+
+Khi sử dụng cơ chế cô lập Job (Job Isolation), nếu bạn cài đặt một phần mềm bằng dòng lệnh `apt-get install` trong `job_1`, phần mềm đó có sẵn sàng trong `job_2` không?
+
+[A]
+Có, nếu `job_2` có khai báo `needs: [job_1]`.
+[EXP]
+Từ khóa needs chỉ quy định thứ tự chạy, không vô hiệu hóa tính cô lập môi trường.
+[B]
+Có, vì cả hai job đều chạy trên cùng một máy chủ Runner.
+[EXP]
+Dù chạy chung một runner, các tiến trình công việc được Runner thiết lập cách ly dữ liệu tạm (workspace) và môi trường.
+[C]
+Không, vì mỗi job được chạy trên một môi trường hoặc phiên làm việc cô lập.
+[EXP]
+Chính xác. Job Isolation đảm bảo sự độc lập tuyệt đối giữa các tiến trình, không có tính kế thừa các sửa đổi về môi trường và phần mềm đã được cài đặt.
+[D]
+Có, nếu hệ thống sử dụng GitHub-hosted runner.
+[EXP]
+GitHub-hosted runner cấp phát một máy ảo hoàn toàn mới cho mỗi job, vì vậy tính cô lập càng được đảm bảo tuyệt đối.
+
+@correct: C
+@point: 20
+
+
 # LESSON 04: Ứng dụng CI/CD: Biên dịch tự động Spring Boot với Gradle
 
 ## Q1
@@ -296,6 +443,55 @@ Hệ thống không cung cấp lõi bảo mật phần mềm cho dữ liệu t�
 @correct: A
 @point: 20
 
+## Q4
+
+Tại sao thư mục `build/` (nơi chứa kết quả biên dịch của Spring Boot) không thể được tải trực tiếp về máy cá nhân từ giao diện một job mà phải thông qua việc khai báo hành động `actions/upload-artifact@v4`?
+
+[A]
+Vì thư mục này chứa mã độc có thể làm hại máy chủ.
+[EXP]
+Đây là kết quả biên dịch bình thường của Spring Boot, không chứa mã độc mặc định.
+[B]
+Vì bộ nhớ cục bộ của Runner chỉ tồn tại tạm thời và sẽ bị xoá đi ngay khi tiến trình job hoàn tất.
+[EXP]
+Chính xác. Mọi dữ liệu sinh ra trên môi trường runner sẽ bị tiêu hủy theo tiến trình để tiết kiệm dung lượng, phải dùng action upload để đẩy lên hệ thống máy chủ lưu trữ lâu dài của GitHub.
+[C]
+Vì kích thước thư mục build luôn vượt quá dung lượng cho phép của GitHub.
+[EXP]
+Dung lượng thư mục build thường nhỏ hơn hạn mức lưu trữ artifact của GitHub rất nhiều.
+[D]
+Vì hệ điều hành Linux bảo mật nên chặn quyền đọc thư mục build.
+[EXP]
+Runner hoàn toàn có quyền đọc các file sinh ra trong workspace của nó.
+
+@correct: B
+@point: 20
+
+## Q5
+
+Khi sử dụng `actions/setup-java@v5`, thuộc tính `distribution` (ví dụ: `temurin`) dùng để làm gì?
+
+[A]
+Định nghĩa phiên bản của ngôn ngữ Java.
+[EXP]
+Phiên bản Java được định nghĩa ở thuộc tính `java-version`.
+[B]
+Chọn nhà cung cấp bản phân phối của JDK do có nhiều tổ chức cùng đóng gói JDK.
+[EXP]
+Chính xác. Hệ sinh thái Java có nhiều tổ chức phân phối (distributions) bộ cài JDK khác nhau dựa trên mã nguồn mở OpenJDK (ví dụ: Adoptium/Temurin, Amazon Corretto, Microsoft).
+[C]
+Kích hoạt thuật toán phân phối mã nguồn tới nhiều máy chủ Runner.
+[EXP]
+Đây là thiết lập môi trường Java, không liên quan đến việc phân phối mã nguồn trên hệ thống mạng.
+[D]
+Chỉ định vùng địa lý (region) của máy chủ GitHub sẽ xử lý mã nguồn.
+[EXP]
+Vùng địa lý không được cấu hình qua khối setup-java.
+
+@correct: B
+@point: 20
+
+
 # LESSON 05: Chẩn đoán sự cố và quản trị log hệ thống CI/CD
 
 ## Q1
@@ -368,4 +564,52 @@ Kĩ sư đã quên kích hoạt cài đặt tác vụ nạp biến môi trườn
 Thiếu Java, hệ thống sẽ kết thúc thất bại trực tiếp ở quá trình tạo luồng trung gian chứ không biên dịch tệp.
 
 @correct: B
+@point: 20
+
+## Q4
+
+Khi cấu hình workflow bị lỗi "YAML syntax error" và hiển thị dấu X đỏ ngay sau khi push code, bước kiểm tra đầu tiên lập trình viên nên thực hiện là gì?
+
+[A]
+Kiểm tra kết nối mạng của máy chủ Runner.
+[EXP]
+Lỗi cấu trúc YAML xảy ra ở phía GitHub Server trước cả khi Server gửi lệnh cho Runner.
+[B]
+Mở lại tệp `.github/workflows/ci.yml` kiểm tra xem có vô tình sử dụng phím Tab thay vì Space để thụt lề hay không.
+[EXP]
+Chính xác. Lỗi phân tích cú pháp YAML (syntax error) rất hay xảy ra do định dạng khoảng trắng bị lệch hoặc lập trình viên lỡ nhấn phím Tab.
+[C]
+Khởi động lại Docker container của tiến trình Runner.
+[EXP]
+Quá trình runner khởi động lại không tác động đến lỗi cấu trúc cú pháp của tệp YAML.
+[D]
+Đổi tên repository trên GitHub để reset bộ nhớ đệm.
+[EXP]
+Đổi tên repository không giải quyết được lỗi cú pháp phần mềm.
+
+@correct: B
+@point: 20
+
+## Q5
+
+Điều gì sẽ xảy ra nếu lập trình viên không gán đúng các nhãn (labels) trên file YAML so với nhãn của Self-hosted runner (ví dụ khai báo `runs-on: [self-hosted, sai_ten]`)?
+
+[A]
+GitHub sẽ tự động bỏ qua nhãn bị sai và vẫn gửi job cho Runner gần nhất.
+[EXP]
+Hệ thống định tuyến của GitHub Actions yêu cầu so khớp chính xác cấu hình nhãn, không được tự động bỏ qua.
+[B]
+GitHub tự động phân bổ job chạy trên GitHub-hosted runner miễn phí để thay thế.
+[EXP]
+GitHub Server không tự ý chuyển hướng môi trường nếu lập trình viên đã chỉ định cụ thể các nhãn hệ thống.
+[C]
+Luồng công việc sẽ bị treo ở trạng thái chờ "Queued" hoặc "Waiting for a runner" vô thời hạn do không tìm thấy Runner khớp cấu hình.
+[EXP]
+Chính xác. Khi nhãn yêu cầu (requested labels) không khớp với nhãn của bất kỳ runner khả dụng nào đang hoạt động, tiến trình sẽ bị mắc kẹt ở hàng đợi cho đến khi bị hủy vì timeout.
+[D]
+Runner tự sửa tên nhãn của mình để phù hợp với file cấu hình.
+[EXP]
+Runner không thể tự động thay đổi cấu hình nội bộ của mình để chạy file bị sai.
+
+@correct: C
 @point: 20

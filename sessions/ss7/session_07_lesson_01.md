@@ -106,11 +106,7 @@ services:
       EPHEMERAL: "true"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - github-runner-work:/actions-runner/_work
     restart: always
-
-volumes:
-  github-runner-work:
 ```
 
 * **Giải thích các tham số cấu hình:**
