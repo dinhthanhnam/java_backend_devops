@@ -52,6 +52,7 @@ Thế thì làm sao để biết khi nào một người giỏi DevOps? Chúng t
 
 ## Lesson 2: Khái niệm CI/CD (Quy trình Build, Test, Deploy)
 
+Ở Bài học trước, chúng ta đã đi tìm hiểu về tổng quan Devops, trong bài học này chúng ta sẽ tìm hiểu về khái niệm CI CD.
 **[Câu chuyện thực tế]**
 Bây giờ chúng ta thử tưởng tượng một tình huống thực tế như thế này: Có một bạn thực tập sinh rất chăm chỉ, liên tục viết code và đẩy hàng tá commit lên hệ thống mỗi ngày. Anh Tech Lead thì làm gì có đủ thời gian để kéo code về, review và test thủ công từng cái commit một được. 
 
@@ -63,7 +64,7 @@ Giải pháp ở đây chính là cái **CI/CD Pipeline**. Nhờ có Pipeline, �
   - 1 là **Continuous Delivery (Phân phối liên tục):** Code sau khi vượt qua CI sẽ được đóng gói sẵn sàng để deploy lên môi trường Production, nhưng lúc này vẫn cần một cái "click" phê duyệt từ con người.
   - Ngược lại, **Continuous Deployment (Triển khai liên tục):** Tức là tự động hóa 100% luôn. Code tự động được đẩy thẳng lên Production mà không cần ai phê duyệt cả. Đây có thể coi là bước trưởng thành nhất, khi đội ngũ đã hoàn toàn tin tưởng vào các bài test tự động của mình rồi.
 
-*(Nhấn mạnh)*: Các bạn lưu ý là, cái lệnh `git push` chính là "công tắc" kích hoạt toàn bộ máy chủ CI/CD hoạt động nhé!
+*(Nhấn mạnh)*: Các bạn lưu ý là, cái lệnh `git push` chính là "công tắc" kích hoạt cho bộ máy CI/CD hoạt động!
 
 **[Slide: 4 Giai đoạn của Pipeline cơ bản]**
 Một sơ đồ pipeline cơ bản sẽ gồm 4 giai đoạn, và nếu bất kỳ giai đoạn nào thất bại (fail), thì toàn bộ pipeline sẽ dừng lại ngay lập tức:
@@ -76,21 +77,28 @@ Một sơ đồ pipeline cơ bản sẽ gồm 4 giai đoạn, và nếu bất k�
 
 ---
 
-## Lesson 3: Môi trường Dev, Staging, và Production
+## Lesson 3: Mô hình môi trường Dev, Staging, và Production
 
-**[Slide: Các loại môi trường]**
-Thực tế thì trong bất kỳ dự án nào, luôn luôn tồn tại ít nhất là 3 môi trường biệt lập thế này, mỗi môi trường sẽ có mức độ bảo mật và cấu hình khác nhau:
-1. **Đầu tiên là Dev (Development):** Tức là môi trường máy local của lập trình viên. Dữ liệu thì tự giả lập, độ ổn định cũng không quan trọng. Mục tiêu duy nhất chỉ là để code nhanh và debug dễ dàng.
-2. **Tiếp đến là Staging:** Đây là môi trường "Bản sao hoàn hảo" của Production (giống đến 99%). Dữ liệu cũng được làm cho giống thật nhưng không được chứa thông tin nhạy cảm. Mục đích của nó là để chạy Integration Test, kiểm thử giao diện và nghiệm thu (UAT) trước khi tung ra sản phẩm.
-3. **Và cuối cùng là Production:** Đây là môi trường chạy thật, nơi người dùng cuối trực tiếp sử dụng. Dữ liệu là thật, độ bảo mật phải tuyệt đối và yêu cầu là hệ thống phải luôn hoạt động (Uptime 99.99%).
+**[Slide: Bản đồ 3 Môi trường]**
+Khi hệ thống QuickBite lớn lên, chúng ta không thể nào vừa code, vừa test, vừa cho khách hàng chạy chung trên một server được. Bắt buộc phải có 3 môi trường phân tách rõ ràng:
+1. **Dev (Development):** Môi trường local của lập trình viên. Dữ liệu giả lập, thay đổi liên tục, code lỗi sập cũng không sao.
+2. **Staging (hay còn gọi là UAT):** Đây là "Bản sao hoàn hảo" của Production. Dữ liệu được mô phỏng giống thật 99% nhưng không chứa thông tin nhạy cảm. Mục đích của nó là để chạy Integration Test và cho khách hàng nghiệm thu trước khi ra mắt.
+3. **Production (Prod):** Môi trường "chén cơm", nơi khách hàng thật đang sử dụng. Nơi này yêu cầu bảo mật dữ liệu tuyệt đối và uptime 99.99%.
 
-**[Slide: Build Once, Run Anywhere]**
-Thế thì để quản lý tốt 3 môi trường này, chúng ta cần phải áp dụng một nguyên tắc gọi là: **"Build Once, Run Anywhere"** (Build 1 lần, Chạy mọi nơi). Tức là sao? Nghĩa là chúng bản chất chỉ tạo ra đúng 1 file `.jar` duy nhất ở giai đoạn CI thôi, và mang chính cái file đó đi chạy ở Dev, Staging hay Production.
+**[Slide: Build Once, Run Anywhere và Quản lý cấu hình]**
+Có một vấn đề bảo mật rất nhức nhối ở các công ty: Lập trình viên thường "hardcode" (gắn cứng) thông tin database, username, password vào thẳng file `application.yml`. Khi chuyển từ môi trường nội bộ lên môi trường thật, các bạn buộc phải sửa file này. Hậu quả là, bất kỳ ai có quyền đọc Git repository đều có thể thấy được mật khẩu của Production!
 
-Vậy thì làm sao để ứng dụng biết nó đang cần kết nối với Database nào? Câu trả lời chính là: **Biến môi trường (Environment Variables)**.
-Trước đây, hẳn là các bạn đã quen với việc "hardcode" đường dẫn database thẳng vào file `application.yml` rồi đúng không. Điều này cực kỳ rủi ro về mặt bảo mật và làm cho file `.jar` bị đóng cứng, không thể linh hoạt. 
+Thế thì giải pháp của DevOps là gì? Chúng ta sẽ áp dụng nguyên tắc **"Build Once, Run Anywhere"** (Theo chuẩn Twelve-Factor App). Tức là file JAR chỉ được biên dịch đúng 1 lần duy nhất trên máy chủ CI. Và chính file JAR đó sẽ được mang đi chạy ở cả 3 môi trường Dev, Staging, Prod. 
 
-Spring Boot thì lại hỗ trợ nội suy biến môi trường rất tốt bằng cú pháp `${TEN_BIEN:gia_tri_mac_dinh}`. Khi khởi chạy, chúng ta chỉ cần nạp biến môi trường vào thông qua shell (ví dụ như lệnh `export DATABASE_URL=...`), rồi sau đó chạy lệnh `java -jar application.jar` là xong.
+Vậy làm sao để file JAR tự động biết nó đang ở môi trường nào để kết nối đúng database? 
+Đó là nhờ **Biến môi trường (Environment Variables)**. Trong file `application.yml`, thay vì fix cứng, chúng ta sẽ dùng cú pháp nội suy của Spring: `${QUICKBITE_DB_URL:jdbc:postgresql://localhost:5432/quickbite_user}`. 
+Cú pháp này có nghĩa là ứng dụng sẽ ưu tiên tìm biến môi trường mang tên `QUICKBITE_DB_URL` trong hệ điều hành. Nếu không tìm thấy, nó sẽ fallback về giá trị đằng sau dấu hai chấm (dành cho máy local).
+
+**[Thực hành trên Server Staging]**
+Khi triển khai ứng dụng lên server Staging, người vận hành chỉ việc nạp tham số trước khi chạy:
+`export QUICKBITE_DB_URL=jdbc:postgresql://10.0.1.20:5432/quickbite_user_staging`
+Và sau đó chạy lệnh `java -jar user-service.jar`. 
+*(Nhấn mạnh)*: Nhờ cơ chế này, thông tin xác thực (Credentials) của Production tuyệt đối không bao giờ xuất hiện trên mã nguồn Git, mà nó chỉ tồn tại ở dạng biến môi trường trên bộ nhớ (runtime) của máy chủ thực tế. Đó mới là bảo mật đúng chuẩn DevOps!
 
 ---
 
