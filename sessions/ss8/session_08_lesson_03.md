@@ -32,13 +32,13 @@ Trong các bài học trước (State 1 & 2), chúng ta tự động hóa việc
 #### 3.1 GitHub Container Registry (ghcr.io)
 GitHub Container Registry (GHCR) là kho lưu trữ Docker image nằm trong hệ sinh thái GitHub Packages đi kèm với từng tài khoản hoặc tổ chức GitHub.
 * Địa chỉ máy chủ lưu trữ mặc định: `ghcr.io`.
-* Đường dẫn lưu image của dự án có dạng: `ghcr.io/<github_username>/user-service` (với `<github_username>` là username của học viên trên GitHub).
+* Đường dẫn lưu image của dự án có dạng: `ghcr.io/<repository_namespace>/user-service` (với `<repository_namespace>` là username cá nhân hoặc tên Organization sở hữu repository).
 * Quản lý trực quan: Xem danh sách image đã đẩy lên tại trang Profile GitHub của bạn -> tab **Packages**.
 
 #### 3.2 Quy tắc đặt nhãn (Tagging) và Phiên bản hóa (Versioning)
 Để đẩy được image lên Registry, tên của image nguồn ở máy local bắt buộc phải khớp chính xác với đường dẫn Registry được GitHub phân quyền:
 ```bash
-docker tag <local_image_name> ghcr.io/<github_username>/<project_name>:<version_tag>
+docker tag <local_image_name> ghcr.io/<repository_namespace>/<project_name>:<version_tag>
 ```
 * **Version tag:** Phân bản image rõ ràng theo phiên bản phát hành (ví dụ: `1.0.0`, `1.1.0-RC1`) để phục vụ quản lý phiên bản và rollback khi có lỗi, tránh dùng nhãn tĩnh `latest`.
 
@@ -64,7 +64,7 @@ Mở terminal tại máy cá nhân, di chuyển vào thư mục gốc của dự
 
 ```bash
 # 1. Đăng nhập an toàn vào Registry sử dụng Personal Access Token
-# Thay <github_username> bằng tên đăng nhập và nhập token vừa tạo khi terminal hỏi mật khẩu (Password)
+# Lưu ý: Luôn dùng username cá nhân của bạn (kể cả khi repo thuộc Org) và nhập token vừa tạo khi terminal hỏi mật khẩu
 docker login ghcr.io -u <github_username>
 
 # 2. Biên dịch JAR nhanh chóng tại local (nhờ tận dụng cache dependencies Gradle có sẵn)
@@ -73,11 +73,11 @@ docker login ghcr.io -u <github_username>
 # 3. Build Docker image tại local sử dụng Dockerfile đơn tầng (đã chuẩn bị ở Lesson 01)
 docker build -t user-service:1.0.0 .
 
-# 4. Gắn tag Registry cho image (thay thế <github_username> bằng username của bạn)
-docker tag user-service:1.0.0 ghcr.io/<github_username>/user-service:1.0.0
+# 4. Gắn tag Registry cho image (thay thế <repository_namespace> bằng username hoặc tên org sở hữu repo)
+docker tag user-service:1.0.0 ghcr.io/<repository_namespace>/user-service:1.0.0
 
 # 5. Đẩy image lên GitHub Container Registry trực tuyến
-docker push ghcr.io/<github_username>/user-service:1.0.0
+docker push ghcr.io/<repository_namespace>/user-service:1.0.0
 ```
 
 > [!IMPORTANT]

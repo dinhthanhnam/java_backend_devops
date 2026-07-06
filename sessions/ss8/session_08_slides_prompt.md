@@ -152,7 +152,7 @@ jobs:
 #### Slide 9: Kiến trúc GitHub Container Registry
 * **Định nghĩa:** GitHub Container Registry (GHCR) là kho lưu trữ Docker image nằm trong GitHub Packages đi kèm dự án.
 * **Cấu trúc đường dẫn Registry:**
-  `ghcr.io/<github_username>/<project_name>:<version_tag>`
+  `ghcr.io/<repository_namespace>/<project_name>:<version_tag>`
 * **Quản trị trực quan:** Kiểm tra danh sách image đã đẩy lên thông qua tab **Packages** trên Profile GitHub.
 
 #### Slide 10: Quy tắc đặt nhãn (Tagging) và Phiên bản hóa (Versioning)
@@ -161,7 +161,7 @@ jobs:
   * Áp dụng quy tắc đánh phiên bản Semantic Versioning (ví dụ: `1.0.0`, `1.1.0`).
 * **Lệnh gắn tag của Docker CLI:**
   ```bash
-  docker tag <local_image> ghcr.io/<github_username>/<project_name>:<version_tag>
+  docker tag <local_image> ghcr.io/<repository_namespace>/<project_name>:<version_tag>
   ```
   Lệnh này tạo ra một alias (bí danh) trỏ tới image nguồn, phục vụ cho việc định tuyến đẩy lên đúng kho chứa của dự án.
 
@@ -172,7 +172,7 @@ jobs:
   * Sử dụng **Personal Access Token (PAT)** được cấp quyền giới hạn: tích chọn quyền `write:packages` và `read:packages`.
 * **Lệnh xác thực an toàn:**
   ```bash
-  docker login ghcr.io -u <github_username>
+  docker login ghcr.io -u <github_username_cua_ban>
   ```
   Nhập mã token PAT khi terminal yêu cầu cung cấp Password.
 

@@ -38,7 +38,7 @@ Khi chạy trong môi trường Runner, chúng ta không được và không c�
 
 #### 3.2 Lệnh xác thực và kéo image trong Script
 Trong script của job, Runner thực thi các câu lệnh sau để chuẩn bị môi trường chạy:
-```bash
+```yaml
 # Đăng nhập tự động bằng tài khoản tạm thời
 docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
 
