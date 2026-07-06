@@ -7,15 +7,15 @@
 ### 1. Phần lý thuyết
 
 **(Mở đầu - Khơi gợi bối cảnh thực tế)**
-Xin chào các bạn học viên! Ở buổi học trước, chúng ta đã làm quen với triết lý DevOps và quy trình CI/CD tự động. Thế thì hôm nay, thầy sẽ đưa các bạn đi giải quyết một bài toán cực kỳ đau đầu trong thế giới microservices thực tế. Đó là bài toán: **Xung đột phiên bản Runtime**.
+Xin chào các bạn học viên! Ở buổi học trước, chúng ta đã làm quen với triết lý DevOps và quy trình CI/CD tự động rồi. Thế thì hôm nay, thầy sẽ cùng các bạn đi giải quyết một bài toán cực kỳ phổ biến trong thực tế khi vận hành hệ thống microservices. Đó là bài toán: **Xung đột phiên bản Java Runtime**.
 
-Hãy tưởng tượng, hệ thống QuickBite của chúng ta chạy thử trên môi trường Staging hiện tại đang có 2 dịch vụ độc lập:
-1. `user-service` được viết từ lâu, đang chạy ổn định trên **Java 17** do vướng một số thư viện Spring Security và JWT cũ chưa tương thích với bản mới.
-2. `restaurant-service` được viết sau, sử dụng các tính năng mới của **Java 21** như Virtual Threads để tối ưu hóa hiệu năng chịu tải.
+Chúng ta hãy cùng xét một bối cảnh cụ thể của dự án QuickBite: Hiện tại hệ thống đang cần chạy đồng thời 2 dịch vụ độc lập trên cùng một máy chủ VPS.
+1. Dịch vụ thứ nhất là `user-service`, do sử dụng một số thư viện bảo mật cũ chưa tương thích nên bắt buộc phải chạy trên **Java 17**.
+2. Dịch vụ thứ hai là `restaurant-service`, do cần sử dụng tính năng Virtual Threads để tối ưu hiệu năng nên yêu cầu phải chạy trên **Java 21**.
 
-Nhiệm vụ của chúng ta là phải triển khai đồng thời cả 2 dịch vụ này lên cùng một máy chủ VPS. Lúc này, nếu làm theo phương pháp truyền thống, các bạn sẽ đối mặt với 2 phương án đầy "đau đớn":
-- **Phương án 1 là Triển khai trực tiếp (Native Run):** Các bạn phải cài song song cả JDK 17 và JDK 21 trên cùng một hệ điều hành. Sau đó phải cấu hình thủ công các biến môi trường `JAVA_HOME` riêng biệt cho từng tiến trình, rồi gọi dịch vụ bằng các đường dẫn tuyệt đối cực kỳ phức tạp. Chỉ cần một đợt cập nhật hệ điều hành hoặc cấu hình nhầm biến môi trường, một trong hai dịch vụ sẽ bị lỗi crash phiên bản Class (`UnsupportedClassVersionError`) ngay lập tức.
-- **Phương án 2 là Sử dụng Máy ảo (Virtual Machine - VM):** Để cô lập hoàn toàn môi trường, các bạn tạo ra 2 máy ảo riêng biệt (VM 1 chạy JDK 17 để chạy `user-service`, VM 2 chạy JDK 21 để chạy `restaurant-service`). Phương án này giải quyết được xung đột Java, nhưng lại cực kỳ lãng phí. Các bạn phải mất thêm khoảng 2GB RAM chỉ để chạy 2 Hệ điều hành khách (Guest OS) nền. Máy chủ VPS của các bạn sẽ nhanh chóng cạn kiệt tài nguyên.
+Để triển khai cả 2 dịch vụ này, nếu làm theo những cách truyền thống trước đây, các bạn sẽ phải đối mặt với 2 phương án và những hạn chế đi kèm:
+- **Phương án thứ nhất là Triển khai trực tiếp (Native Run):** Nghĩa là các bạn phải cài đặt song song cả JDK 17 và JDK 21 trên cùng một hệ điều hành của server. Sau đó, chúng ta phải cấu hình thủ công biến `JAVA_HOME` riêng cho từng tiến trình khi khởi chạy. Cách làm này rất dễ xảy ra lỗi. Chỉ cần một cấu hình sai lệch nhỏ, hoặc khi hệ điều hành tự động cập nhật, ứng dụng sẽ bị crash ngay lập tức do lỗi không tương thích phiên bản Java.
+- **Phương án thứ hai là Sử dụng Máy ảo (Virtual Machine):** Chúng ta sẽ tạo ra 2 máy ảo độc lập, máy thứ nhất chạy Java 17 cho `user-service`, máy thứ hai chạy Java 21 cho `restaurant-service`. Cách này giúp cô lập môi trường rất tốt, nhưng lại cực kỳ lãng phí tài nguyên phần cứng. Mỗi máy ảo sẽ phải tự duy trì một hệ điều hành khách (Guest OS) riêng, làm tiêu tốn khoảng 1 đến 2 Gigabyte RAM chỉ để chạy hệ điều hành nền, trong khi tài nguyên của VPS thì có giới hạn.
 
 **[Slide: Phép ẩn dụ Biệt thự vs Căn hộ]**
 Để dễ hình dung nhất về sự khác biệt giữa Máy ảo (VM) và Container (Docker), thầy có một phép ẩn dụ trực quan thế này:
@@ -43,39 +43,42 @@ Thế thì container thực chất là cái gì? Bản chất của nó chỉ l�
 ### 1. Phần lý thuyết
 
 **[Slide: Vấn đề lệch cấu hình (Environment Drift)]**
-Thế thì sau khi giải quyết bài toán chạy song song các phiên bản Java trên một server, chúng ta lại đối mặt với một vấn đề lớn hơn: **Làm thế nào để chúng ta đóng gói toàn bộ môi trường chạy phức tạp đó và chuyển giao nó từ máy cá nhân lên server một cách đồng nhất?**
+Chào các bạn, chào mừng các bạn đến với nội dung số 2 của bài 2 này: Docker image, Docker container, Image Registry
 
-Nếu chúng ta chỉ copy file JAR trần trụi lên server bằng lệnh `scp`, chúng ta vẫn bị dính lỗi lệch cấu hình hệ thống (như sai phiên bản Java của OS server, hoặc lệch múi giờ hệ điều hành), khiến ứng dụng sập hoặc log sai lệch giờ. Câu nói kinh điển *"Ơ kìa, code chạy ngon trên máy em mà!"* (It works on my machine!) lại tiếp tục vang lên.
+Ở bài trước thầy đã giải thích các bạn về tính huống chạy song song các phiên bản java bằng công nghệ container rồi.
+Chúng ta sẽ quay về với một kịch bản đời thường hơn, mà có thể các bạn đã từng gặp phải, hoặc ít nhiều cũng đã từng nghe, đó là câu chuyện "code chạy trên máy em mà, code chạy trên máy tao mà, máy của mày bị làm sao ý".
 
-Để giải quyết triệt để vấn đề này, Docker cung cấp bộ ba thực thể: **Docker Image**, **Docker Container**, và **Docker Registry**.
+Câu chuyện này, tóm gọn lại nó là vấn đề lệch môi trường, nhưng liệu các bạn có bao giờ nghĩ rằng, mình có thể đóng gói toàn bộ môi trường để mang đi không, đỡ được bao nhiêu lỗi.
 
-- **Docker Image (Bản thiết kế bất biến - Class trong OOP):** Là một khuôn mẫu đóng gói ở trạng thái chỉ đọc (Read-only) chứa toàn bộ mã nguồn, runtime Java (JRE), biến môi trường mặc định và OS tối giản để chạy ứng dụng.
+Nghe thì ngớ ngẩn, nhưng thực tế là làm được, nó chính là xoay quanh công nghệ container hoá, và các khái niệm Docker Image, Docker Container, hay Docker Registry.
+
+Và chúng ta sẽ đi tìm hiểu, phân biệt 3 khái niệm này, vì sao nó lại tách ra 3 cái, và nó làm những việc gì.
+
+**[Slide: Khái niệm Docker Image - Bản thiết kế bất biến]**
+- **Docker Image (Tương đương Class trong OOP):** Là một khuôn mẫu đóng gói ở trạng thái chỉ đọc (Read-only) chứa toàn bộ mã nguồn, runtime Java (JRE), biến môi trường cấu hình mặc định và OS tối giản để chạy ứng dụng.
+- **Tính chất cốt lõi:**
   - **Tính bất biến (Immutable):** Image đã build thành công không thể chỉnh sửa. Mọi thay đổi yêu cầu build một Image mới.
-  - **Cấu trúc phân lớp (Layers):** Gồm nhiều lớp file system xếp chồng lên nhau (Ubuntu -> JRE -> code file JAR). Docker tự động tái sử dụng các layer có sẵn giữa các image để tiết kiệm dung lượng đĩa.
-  - **Build từ Dockerfile:** Quy trình build Image được định nghĩa tự động qua mã nguồn cấu hình `Dockerfile`.
-- **Docker Container (Thực thể sống động - Object trong OOP):** Là một thực thể tiến trình được khởi chạy từ Docker Image, hoạt động trên RAM và CPU. Khi khởi chạy, Docker Engine phủ thêm một lớp ghi tạm thời **Writable Layer (Container Layer)** lên trên Image chỉ đọc. Mọi dữ liệu phát sinh (log, file tạm) chỉ ghi vào lớp này và sẽ mất khi xóa container (`docker rm`), bảo toàn Image gốc bên dưới.
-- **Docker Registry (Nhà kho lưu trữ):** Kho lưu trữ tập trung dùng để quản lý và chia sẻ các Docker Image. Gồm Public Registry (như Docker Hub chứa image mẫu của Postgres, OpenJDK) và Private Registry của doanh nghiệp để lưu trữ bảo mật mã nguồn đóng.
+  - **Cấu trúc phân lớp (Layers):** Docker Image được cấu tạo từ nhiều lớp file system xếp chồng lên nhau (ví dụ: Lớp đáy là OS Ubuntu tối giản, lớp tiếp theo là JDK 17, lớp trên cùng là code file JAR). 
+  - **Kiến thức nâng cao - Layer Caching & Cơ chế OverlayFS:** Docker sử dụng hệ thống file xếp lớp (như OverlayFS hoặc UnionFS). Nhờ vậy, khi build dịch vụ `restaurant-service` dùng chung base Java 17 với `user-service`, Docker sẽ tái sử dụng lại các layer OS và JDK 17 có sẵn ở máy mà không cần tải hay lưu trữ lại. Hơn nữa, khi triển khai bản cập nhật, nếu các bạn chỉ thay đổi code ứng dụng, Docker chỉ tạo và tải lên lớp trên cùng chứa file JAR mới (~5KB), còn 100MB+ của các lớp OS và JRE bên dưới sẽ được giữ nguyên từ cache. Nhờ đó, tốc độ triển khai ứng dụng chỉ tính bằng giây thay vì vài chục phút.
 
-### 2. Phần thực hành (Demo)
+**[Slide: Khái niệm Docker Container - Thực thể chạy thực tế]**
+- **Docker Container (Tương đương Object trong OOP):** Là một thực thể tiến trình sống động được khởi chạy từ Docker Image, hoạt động trên RAM và CPU.
+- **Kiến thức nâng cao - Writable Layer & Cơ chế Copy-on-Write (CoW):** 
+  Khi khởi chạy container, Docker Engine sẽ phủ thêm một lớp ghi tạm thời gọi là **Writable Layer** lên trên Image chỉ đọc. Mọi thao tác như ghi log, tạo file tạm của ứng dụng chỉ được lưu ở lớp ghi tạm này. 
+  Đặc biệt, nếu ứng dụng cần sửa đổi một file hệ thống có sẵn trong Image, Docker sẽ copy file đó từ Image chỉ đọc lên lớp Writable Layer rồi mới chỉnh sửa (gọi là Copy-on-Write). Cơ chế này giúp hàng trăm container chạy chung một Image mà không sợ ghi đè hay làm hỏng dữ liệu của nhau. 
+  *(Các bạn lưu ý)*: Khi container bị xóa (`docker rm`), lớp Writable Layer này sẽ bị hủy bỏ hoàn toàn. Dữ liệu phát sinh bên trong sẽ mất sạch, và Image gốc bên dưới vẫn toàn vẹn.
 
-**[Live Demo: Vòng đời tải và chạy Image]**
-Bây giờ, thầy sẽ minh họa cho các bạn thấy cách tải một bản phân phối Java JRE chính thức từ Docker Hub về máy cá nhân và chạy nó.
+**[Slide: Khái niệm Docker Registry - Nhà kho phân phối]**
+- **Docker Registry:** Là kho lưu trữ tập trung dùng để quản lý và chia sẻ các Docker Image. Gồm Public Registry (như Docker Hub chứa image mẫu của Postgres, OpenJDK) và Private Registry của doanh nghiệp (như AWS ECR, GitLab Registry) để bảo mật mã nguồn.
+- **Kiến thức nâng cao - Registry Tag vs Digest:** Thông thường, chúng ta hay gọi Image qua các "tag" (ví dụ: `17-jre-alpine`). Tuy nhiên, các tag này có thể bị ghi đè (người khác build đè bản mới lên cùng tag đó). Để đảm bảo tính bảo mật và bất biến tuyệt đối trên Production, các kỹ sư DevOps thường gọi Image bằng chuỗi mã hóa **Digest (mã SHA256)** duy nhất của Image đó để tránh tình trạng deploy nhầm phiên bản bị thay đổi.
 
-*(Hướng dẫn thao tác trên Terminal)*:
-- *Đầu tiên, thầy tải (pull) image JRE 17 gọn nhẹ (dùng alpine linux) từ Docker Hub về:*
-  ```bash
-  docker pull eclipse-temurin:17-jre-alpine
-  ```
-- *Tiếp theo, thầy kiểm tra danh sách các Image đang lưu ở bộ nhớ máy local bằng lệnh:*
-  ```bash
-  docker images
-  ```
-  *Các bạn thấy dòng `eclipse-temurin` với tag `17-jre-alpine` hiển thị với kích thước cực kỳ nhẹ, chỉ khoảng 100MB.*
-- *Bây giờ, thầy sẽ khởi chạy thử một container kiểm tra phiên bản Java bên trong:*
-  ```bash
-  docker run --rm eclipse-temurin:17-jre-alpine java -version
-  ```
-  *Hệ thống hiển thị phiên bản Java 17 thành công và tự động xóa container ngay khi chạy xong nhờ cờ `--rm`. Rất sạch sẽ và an toàn.*
+**[Slide: Quy trình phân phối Image qua dòng lệnh (Ví dụ minh họa)]**
+Sau khi chúng ta cài đặt Docker ở bài học tiếp theo, quy trình đóng gói và kéo image về sử dụng sẽ hoạt động qua các câu lệnh cơ bản sau:
+1. **`docker pull [tên_image]`**: Lệnh yêu cầu Docker Daemon kết nối lên Registry (Docker Hub) để tải Image về máy cục bộ.
+   *Ví dụ:* `docker pull eclipse-temurin:17-jre-alpine`
+2. **`docker images`**: Lệnh liệt kê danh sách toàn bộ các Image đã được tải về và lưu trữ trên ổ cứng của server.
+3. **`docker run --rm [tên_image] [câu_lệnh]`**: Khởi tạo một container từ Image, thực thi câu lệnh bên trong, và tự động xóa bỏ container ngay khi chạy xong (`--rm`) để giải phóng tài nguyên.
+   *Ví dụ:* `docker run --rm eclipse-temurin:17-jre-alpine java -version` (Dùng để kiểm tra nhanh phiên bản Java mà không cần giữ lại container).
 
 ---
 
@@ -153,58 +156,113 @@ Bây giờ, thầy sẽ hướng dẫn các bạn cài đặt Docker Engine gố
 ### 1. Phần lý thuyết
 
 **[Slide: Câu chuyện thực tế - Kịch bản "ăn hành" của Intern khi chạy Database]**
-Thầy kể cho các bạn nghe một câu chuyện thực tế tại dự án QuickBite thế này:
-Anh Tech Lead giao cho một bạn Intern một nhiệm vụ: *"Chạy một container PostgreSQL để làm database tạm thời, sao cho ứng dụng `user-service` đang chạy ở máy host kết nối vào được để ghi dữ liệu"*.
+Chúng ta sẽ đặt một bài toán như sau: *"Làm sao để chạy một container PostgreSQL làm database tạm thời, container này phải có thể chạy được dưới nền (không chiếm shell) và không bị vô tình ngắt tắt bằng CTR C, và làm sao cho ứng dụng `user-service` đang chạy ở máy host lại có thể kết nối vào database trong container để ghi dữ liệu"*.
 
-Bạn Intern gõ lệnh run mặc định và lập tức rơi vào hai rắc rối:
-1. **Bị khóa cứng Terminal:** Log khởi động của Postgres chiếm trọn màn hình. Bạn ấy bấm `Ctrl+C` để thoát ra, thế là container database cũng bị tắt ngóm luôn.
-2. **Không thể kết nối:** Sau khi chạy lại được, database báo đã khởi động xong. Tuy nhiên, ứng dụng `user-service` ở máy host kết nối vào cổng `5432` thì liên tục báo lỗi `Connection Refused`.
-
-Để giải quyết triệt để vấn đề này, chúng ta cần làm chủ **4 tham số sống còn khi chạy Container**:
+Dĩ nhiên rồi, để chạy được container, lệnh đầu tiên chúng ta cần biết là `docker run`, cùng với **4 tham số quan trọng sau đây**:
 - **`-d` (Detached mode):** Chạy container dưới nền (background), giải phóng terminal.
 - **`-p host_port:container_port` (Port Mapping):** Ánh xạ cổng mạng máy host vào cổng container. Ví dụ: `-p 5432:5432` giúp chuyển hướng yêu cầu truy cập cổng `5432` của máy host vào database trong container.
 - **`-e KEY=VALUE` (Environment Variable):** Truyền biến môi trường vào container (ví dụ: `-e POSTGRES_PASSWORD=secret` để đặt mật khẩu).
 - **`--name`:** Đặt tên định danh dễ quản lý (ví dụ: `quickbite-db`).
 
-**[Slide: Vòng đời của Container]**
-Các bạn lưu ý, tiến trình của container trải qua 4 trạng thái chính:
+**[Slide: Vòng đời của Container & Vấn đề lưu trữ dữ liệu]**
+Tóm lại, tiến trình của container trải qua 4 trạng thái chính:
 `Created (Đã tạo) ──► Running (Đang chạy) ──► Stopped (Đã dừng) ──► Destroyed (Đã xóa vĩnh viễn)`
-Lưu ý quan trọng: Lệnh `docker stop` chỉ tạm dừng tiến trình hệ thống, giống như bạn tắt một ứng dụng trên máy. Toàn bộ dữ liệu ghi trên lớp Writable Layer của container (ví dụ: các bảng dữ liệu database đã tạo) vẫn nằm an toàn trên ổ đĩa cho đến khi bạn chạy lệnh `docker rm` để xóa bỏ hoàn toàn container khỏi hệ thống.
+- Lệnh `docker stop` chỉ tạm dừng tiến trình, dữ liệu tạm thời vẫn còn trên ổ đĩa.
+- Tuy nhiên, khi dùng `docker rm` để xóa hẳn container, toàn bộ dữ liệu ghi trên lớp Writable Layer của container đó (ví dụ các bảng dữ liệu database đã tạo) sẽ biến mất hoàn toàn. 
+
+Để giải quyết vấn đề lưu trữ bền vững (Data Persistence), chúng ta sử dụng **Docker Volume** (cụ thể là **Named Volume - Volume có tên**). Nó là một phân vùng ổ đĩa do Docker tự động tạo và quản lý độc lập ngoài vòng đời của container trên máy host.
+- Cú pháp gắn volume khi chạy container: `-v tên_volume:đường_dẫn_trong_container`
+- Đối với PostgreSQL, thư mục chứa dữ liệu mặc định bên trong container là `/var/lib/postgresql/data`. Do đó, chúng ta sẽ truyền tham số: `-v quickbite-db-data:/var/lib/postgresql/data`.
+- Khi container bị xóa, phân vùng `quickbite-db-data` trên máy host vẫn nguyên vẹn. Khi các bạn tạo container mới và gắn lại volume này, dữ liệu cũ sẽ tự động được phục hồi đầy đủ.
 
 ### 2. Phần thực hành (Demo)
 
-**[Live Demo: Vòng đời hoạt động của container PostgreSQL]**
-Bây giờ, thầy sẽ demo lần lượt quy trình quản lý một container database `quickbite-db` bằng dòng lệnh.
+**[Live Demo: Vòng đời hoạt động và Sự cố mất dữ liệu khi thiếu Volume]**
+Bây giờ, thầy sẽ demo trực tiếp cho các bạn thấy sự nguy hiểm của việc không mount volume, và cách dùng Named Volume để bảo vệ dữ liệu database của QuickBite qua các câu lệnh psql thực tế.
 
 *(Hướng dẫn thao tác trên Terminal)*:
-- *Bước 1: Khởi chạy container PostgreSQL chạy ngầm, mở cổng 5432, đặt tên rõ ràng:*
+- *Bước 1: Khởi chạy container database KHÔNG cấu hình volume:*
   ```bash
   docker run -d --name quickbite-db -p 5432:5432 -e POSTGRES_PASSWORD=secret postgres:15-alpine
   ```
-- *Bước 2: Kiểm tra danh sách container đang hoạt động:*
+- *Bước 2: Kết nối vào database bằng công cụ psql bên trong container để tạo dữ liệu giả lập:*
   ```bash
-  docker ps
+  docker exec -it quickbite-db psql -U postgres
   ```
-  *Tiến trình Postgres đang chạy ở chế độ nền và cổng 5432 đã được ánh xạ thành công.*
-- *Bước 3: Dừng container database:*
-  ```bash
-  docker stop quickbite-db
+  *Bên trong môi trường psql, gõ các lệnh SQL:*
+  ```sql
+  CREATE DATABASE quickbite_user;
+  \c quickbite_user;
+  CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(50));
+  INSERT INTO users (name) VALUES ('Nguyen Van A');
+  SELECT * FROM users;
+  \q
   ```
-- *Bước 4: Liệt kê tất cả các container, bao gồm cả container đã dừng:*
-  ```bash
-  docker ps -a
-  ```
-  *Trạng thái lúc này hiển thị Exited (0) nhưng cấu hình và dữ liệu vẫn còn đó.*
-- *Bước 5: Khởi động lại container cũ đã dừng mà không cần tạo mới:*
-  ```bash
-  docker start quickbite-db
-  ```
-- *Bước 6: Dừng và xóa bỏ hoàn toàn container khỏi hệ thống:*
+- *Bước 3: Dừng và xóa container này đi:*
   ```bash
   docker stop quickbite-db
   docker rm quickbite-db
   ```
-  *Lúc này container mới thực sự bị xóa sạch khỏi đĩa máy host.*
+- *Bước 4: Khởi chạy lại một container mới (vẫn KHÔNG cấu hình volume):*
+  ```bash
+  docker run -d --name quickbite-db -p 5432:5432 -e POSTGRES_PASSWORD=secret postgres:15-alpine
+  ```
+  *Thử kết nối vào psql để kiểm tra lại database `quickbite_user`:*
+  ```bash
+  docker exec -it quickbite-db psql -U postgres
+  ```
+  *Bên trong psql, các bạn gõ lệnh kiểm tra:*
+  ```sql
+  \l
+  ```
+  *(Giải thích): Các bạn thấy danh sách database hoàn toàn trống rỗng, không hề có `quickbite_user` vì container trước đã bị xóa sạch lớp Writable Layer. Thoát ra ngoài bằng lệnh:*
+  ```sql
+  \q
+  ```
+  *Dọn dẹp container lỗi này:*
+  ```bash
+  docker stop quickbite-db
+  docker rm quickbite-db
+  ```
+
+- *Bước 5: Khởi chạy container mới tinh kèm theo Named Volume:*
+  ```bash
+  docker run -d --name quickbite-db -p 5432:5432 -e POSTGRES_PASSWORD=secret -v quickbite-db-data:/var/lib/postgresql/data postgres:15-alpine
+  ```
+- *Bước 6: Kết nối lại và tạo dữ liệu như ở Bước 2:*
+  ```bash
+  docker exec -it quickbite-db psql -U postgres
+  ```
+  *Chạy lại các lệnh SQL:*
+  ```sql
+  CREATE DATABASE quickbite_user;
+  \c quickbite_user;
+  CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(50));
+  INSERT INTO users (name) VALUES ('Nguyen Van A');
+  \q
+  ```
+- *Bước 7: Tiến hành dừng và xóa container để kiểm tra tính bền vững:*
+  ```bash
+  docker stop quickbite-db
+  docker rm quickbite-db
+  ```
+- *Bước 8: Khởi chạy một container mới tinh nhưng gắn chung Named Volume `quickbite-db-data` cũ vào:*
+  ```bash
+  docker run -d --name quickbite-db -p 5432:5432 -e POSTGRES_PASSWORD=secret -v quickbite-db-data:/var/lib/postgresql/data postgres:15-alpine
+  ```
+- *Bước 9: Kết nối psql vào thẳng database `quickbite_user` để kiểm chứng dữ liệu:*
+  ```bash
+  docker exec -it quickbite-db psql -U postgres -d quickbite_user
+  ```
+  *Chạy lệnh kiểm tra bảng:*
+  ```sql
+  SELECT * FROM users;
+  ```
+  *(Kết quả mong đợi): Màn hình hiển thị chính xác dòng dữ liệu 'Nguyen Van A' của chúng ta. Dữ liệu đã được bảo vệ thành công! Thoát psql bằng lệnh:*
+  ```sql
+  \q
+  ```
+
 
 ---
 
