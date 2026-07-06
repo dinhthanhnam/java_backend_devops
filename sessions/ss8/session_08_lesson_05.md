@@ -67,18 +67,19 @@ docker build -t user-service:1.0.0 .
 2. Tạo một Personal Access Token mới đặt tên là `registry-token`, tích chọn scopes: `write:packages` và `read:packages`. Sao chép mã token bắt đầu bằng `ghp_`.
 3. Sử dụng terminal tại máy local, chạy lệnh đăng nhập vào Registry của GitHub:
 ```bash
-docker login ghcr.io -u <github_username>
+# 1. Đăng nhập Docker CLI bằng Personal Access Token (PAT) (Dùng username cá nhân của bạn, kể cả repo thuộc org)
+docker login ghcr.io -u <github_username_cua_ban>
 ```
    *Khi hệ thống yêu cầu nhập Password, dán mã Access Token vừa sao chép vào và nhấn Enter.*
 
 #### Bước 3: Gắn tag Registry và đẩy Image lên GitHub
-1. Thực hiện gắn tag image khớp chính xác với đường dẫn Registry của dự án (thay thế `<github_username>` bằng username của bạn trên GitHub):
+1. Thực hiện gắn tag image khớp chính xác với đường dẫn Registry của dự án (thay thế `<repository_namespace>` bằng username cá nhân hoặc tên Organization sở hữu GitHub):
 ```bash
-docker tag user-service:1.0.0 ghcr.io/<github_username>/user-service:1.0.0
+docker tag user-service:1.0.0 ghcr.io/<repository_namespace>/user-service:1.0.0
 ```
 2. Thực hiện đẩy image lên kho lưu trữ trực tuyến:
 ```bash
-docker push ghcr.io/<github_username>/user-service:1.0.0
+docker push ghcr.io/<repository_namespace>/user-service:1.0.0
 ```
 3. Truy cập vào trang Profile trên GitHub -> tab **Packages** để xác nhận image `user-service` đã hiển thị tag `1.0.0`.
 
