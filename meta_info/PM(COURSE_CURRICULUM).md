@@ -12,6 +12,7 @@ Lesson 03    Cài đặt Docker và kiểm tra môi trường
 Lesson 04    Các lệnh Docker cơ bản trong vòng đời container
 Lesson 05    Kiểm tra log và truy cập container (logs, exec)
 Session 03   Hệ thống kiến thức Session 01, 02
+
 Session 04    Docker Compose và Dockerfile    
 
 Lesson 01    Dockerfile và cách đóng gói ứng dụng Spring Boot thực tế
@@ -20,6 +21,7 @@ Lesson 03    Cấu trúc file docker-compose.yml (services, image, build)
 Lesson 04    Biến môi trường (environment) và cấu hình port
 Lesson 05    Volume và network trong Docker Compose
 Lesson 06    Quản lý vòng đời hệ thống với Docker Compose
+
 Session 05    Multi-container System & API Gateway   
 
 Lesson 01    Kiến trúc hệ thống nhiều service trong microservices
@@ -28,6 +30,7 @@ Lesson 03    Giao tiếp giữa các service qua Docker network
 Lesson 04    Vai trò của API Gateway trong hệ thống microservices
 Lesson 05    Định tuyến request với Spring Cloud Gateway
 Lesson 06    Luồng request end-to-end (client → gateway → service)
+
 Session 06    Hệ thống kiến thức Session 03,04        
 
 Session 07    Tự động hóa biên dịch với GitLab CI    
@@ -50,14 +53,11 @@ Session 09    Hệ thống kiến thức Session 07,08
 
 Session 10    Triển khai hệ thống lên VPS    
 
-Lesson 01    Khái niệm VPS và mô hình triển khai thực tế
-Lesson 02    Chọn và cấu hình VPS phù hợp
-Lesson 03    Kết nối SSH và tạo user deploy
-Lesson 04    Cấu hình bảo mật SSH cơ bản
-Lesson 05    Cài đặt Docker và Docker Compose trên VPS
-Lesson 06    Cấu hình firewall và mở port cần thiết
-Lesson 07    Triển khai hệ thống bằng Docker Compose trên VPS
-Lesson 08    Pull image và chạy hệ thống bằng Docker Compose trên VPS
+Lesson 01    Khởi tạo VPS và thiết lập kết nối cơ bản qua Bitvise Client
+Lesson 02    Tạo User mới và bảo mật VPS bằng cơ chế khóa SSH (SSH Hardening)
+Lesson 03    Cài đặt nhanh Docker & Docker Compose và thiết lập tường lửa UFW
+Lesson 04    Đồng bộ dự án qua Git bằng SSH Key và vận hành cụm Microservices
+
 Session 11    Reverse proxy với Nginx trong môi trường production    
 
 Lesson 01    Reverse proxy và vai trò của Nginx
@@ -66,7 +66,8 @@ Lesson 03    Proxy request từ Nginx đến API Gateway
 Lesson 04    Cấu hình routing theo path và subdomain
 Lesson 05    Cấu hình HTTPS với Let’s Encrypt
 Lesson 06    Reload cấu hình và xử lý lỗi Nginx
-Session 12    Hệ thống kiến thức Session 10,11        
+
+Session 12    Hệ thống kiến thức Session 10,11
 
 Session 13    Giám sát hệ thống với Prometheus    
 
@@ -75,7 +76,8 @@ Lesson 02    Kiến trúc và cơ chế hoạt động của Prometheus
 Lesson 03    Triển khai Prometheus bằng Docker Compose
 Lesson 04    Spring Boot Actuator và endpoint metrics
 Lesson 05    Node Exporter để giám sát VPS
-Session 14    Tạo dashboard với Grafana    
+
+Session 14    Tạo dashboard với Grafana
 
 Lesson 01    Grafana và vai trò trong giám sát hệ thống
 Lesson 02    Kết nối Grafana với Prometheus
@@ -91,7 +93,8 @@ Lesson 02    Log level và quy ước ghi log backend
 Lesson 03    Cấu hình Logback trong Spring Boot
 Lesson 04    Structured logging với định dạng JSON
 Lesson 05    MDC và traceId trong luồng request phân tán
-Session 17    Logging tập trung với EFK Stack    
+
+Session 17    Logging tập trung với EFK Stack
 
 Lesson 01    Logging tập trung trong hệ thống microservices
 Lesson 02    Tổng quan Elasticsearch, Fluentd và Kibana

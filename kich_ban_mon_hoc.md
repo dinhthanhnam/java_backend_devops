@@ -1,4 +1,4 @@
-# SESSION 01
+﻿# SESSION 01
 
 ## TỔNG QUAN DEVOPS & QUY TRÌNH CI/CD
 
@@ -1718,130 +1718,264 @@ build_docker_image_job:
 
 ---
 
-### LESSON 01: Chuẩn bị môi trường máy chủ VPS và cấu hình an toàn (Security)
+### LESSON 01: Giới thiệu VPS và thiết lập kết nối cơ bản qua Bitvise Client
 
 #### 1. Mục tiêu bài học
 
-* **Thực hiện kết nối SSH** bảo mật bằng SSH Key thay cho mật khẩu truyền thống vào máy chủ VPS Linux (Ubuntu Server).
-* **Cấu hình hệ thống tường lửa (UFW)** để chỉ mở các cổng dịch vụ cần thiết, bảo vệ các dịch vụ nội bộ của QuickBite.
+* **Phân biệt** được mô hình máy chủ ảo VPS với các dịch vụ điện toán đám mây (Cloud Services) và mô hình triển khai truyền thống.
+* **Xác định** tiêu chuẩn lựa chọn cấu hình phần cứng phù hợp cho việc vận hành hệ thống Microservices.
+* **Thực hiện kết nối** và quản lý thông tin phiên làm việc trên VPS bằng Bitvise SSH Client.
 
 #### 2. Bối cảnh hệ thống
 
-* **Trạng thái:** Chuyển dịch từ STATE 2 (Chạy Docker Compose local) sang STATE 3 (Production Cloud Infrastructure).
-* **Vấn đề:** Khi thuê một con VPS trống từ các nhà cung cấp (như DigitalOcean, AWS, hoặc Cloud trong nước), máy chủ này mặc định mở toang cổng SSH bằng mật khẩu và chưa được cài đặt bất kỳ công cụ nào. Nếu mang nguyên si thói quen chạy ứng dụng ở máy local lên VPS mà không cấu hình tường lửa, database PostgreSQL (cổng 5432) của QuickBite có thể bị quét và tấn công brute-force từ Internet chỉ sau vài tiếng.
+* **Trạng thái:** Dịch chuyển môi trường triển khai từ máy phát triển cục bộ (Local Development) sang hạ tầng máy chủ ảo độc lập (Production Cloud Infrastructure).
+* **Vấn đề:** Để đưa ứng dụng QuickBite tiếp cận người dùng thực tế, hệ thống không thể chạy mãi trên máy tính cá nhân của lập trình viên. Việc thiết lập một máy chủ Linux độc lập (headless server) là bắt buộc. Tuy nhiên, việc ghi nhớ thủ công thông tin kết nối, địa chỉ IP và mật khẩu root của VPS để đăng nhập liên tục qua terminal rất bất tiện và dễ xảy ra sai sót trong quá trình thao tác quản trị.
 
 #### 3. Nội dung trọng tâm
 
-* **Cơ chế SSH Key Authentication:** Thay vì gõ mật khẩu dễ bị dò quét, lập trình viên sử dụng cặp khóa Public Key (đặt trên VPS) và Private Key (giữ ở máy cá nhân) để xác thực.
-* **Tường lửa UFW (Uncomplicated Firewall):** Lớp bảo vệ tầng mạng của Ubuntu, quy định cổng nào được phép đón traffic từ ngoài Internet vào (Cổng 22 cho SSH, cổng 80/443 cho Web) và chặn toàn bộ các cổng còn lại.
+* **Khái niệm VPS:** Bản chất của máy chủ ảo được phân tách bằng công nghệ ảo hóa từ một máy chủ vật lý, chạy hệ điều hành độc lập (ở đây sử dụng Ubuntu Server LTS) và quản trị hoàn toàn qua giao diện dòng lệnh (CLI).
+* **So sánh hạ tầng:** So sánh chi tiết giữa VPS truyền thống với Cloud Services (như AWS EC2, Google Compute Engine) và dịch vụ Container Serverless/PaaS về chi phí, khả năng kiểm soát hệ thống và mức độ phức tạp trong vận hành.
+* **Nguyên tắc chọn cấu hình:** Đánh giá các thông số CPU, RAM, dung lượng SSD dựa trên số lượng container của hệ thống QuickBite nhằm tối ưu hóa chi phí và đảm bảo hiệu năng.
+* **Công cụ quản trị Bitvise SSH Client:** Giới thiệu tính năng lưu trữ thông tin phiên (Session Profiles), quản lý khóa bảo mật, tích hợp SFTP trực quan để hỗ trợ thao tác vận hành từ máy local chạy hệ điều hành Windows.
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Cấu hình SSH Key, cập nhật hệ điều hành VPS và thiết lập tường lửa UFW cơ bản.
-* **Lệnh thực hiện (Command):**
-```bash
-# Máy cá nhân: Sinh cặp khóa SSH (nếu chưa có) và đẩy lên VPS
-ssh-keygen -t ed25519 -b 4096
-ssh-copy-id -i ~/.ssh/id_ed25519.pub root@vps_public_ip
+* **Mục tiêu demo:** Hướng dẫn mua VPS theo tháng, thực hiện kết nối cơ bản qua Terminal mặc định và thiết lập lưu phiên đăng nhập trên Bitvise SSH Client.
+* **Các bước thực hiện:**
+  1. Hướng dẫn các bước lựa chọn gói dịch vụ VPS (khuyến nghị hệ điều hành Ubuntu Server 22.04 LTS, tối thiểu 2 vCPU và 2GB RAM để vận hành cụm Microservices).
+  2. Sử dụng Terminal/PowerShell tại máy local để thực hiện kết nối SSH đầu tiên bằng tài khoản root:
+     ```bash
+     ssh root@vps_public_ip
+     ```
+  3. Cập nhật cơ sở dữ liệu gói phần mềm và nâng cấp hệ điều hành VPS lên phiên bản mới nhất:
+     ```bash
+     sudo apt update && sudo apt upgrade -y
+     ```
+  4. Cấu hình Bitvise SSH Client trên máy local: Nhập `Host` (IP của VPS), `Port` (22), `Username` (root), thiết lập phương thức xác thực bằng mật khẩu để đăng nhập ban đầu, sau đó lưu lại cấu hình dưới dạng tệp tin profile (.bjp) để kết nối nhanh trong các phiên làm việc sau mà không cần nhập lại mật khẩu.
 
-# Trên VPS: Đăng nhập không cần mật khẩu
-ssh root@vps_public_ip
-
-# Trên VPS: Cập nhật danh sách gói phần mềm hệ thống
-sudo apt update && sudo apt upgrade -y
-
-# Trên VPS: Cấu hình tường lửa UFW
-sudo ufw default deny incoming  # Chặn mọi traffic từ ngoài vào mặc định
-sudo ufw default allow outgoing # Cho phép VPS kết nối ra ngoài internet
-sudo ufw allow 22/tcp           # BẮT BUỘC: Mở cổng SSH để không bị khóa kết nối
-sudo ufw allow 80/tcp           # Mở cổng HTTP cho Nginx sau này
-sudo ufw allow 443/tcp          # Mở cổng HTTPS cho Nginx sau này
-
-# Kích hoạt tường lửa
-sudo ufw enable
-
-# Kiểm tra trạng thái tường lửa
-sudo ufw status verbose
-```
-
-* **Kết quả mong đợi:** Tường lửa hoạt động, các cổng 22, 80, 443 ở trạng thái `ALLOW`, các cổng khác bị chặn hoàn toàn từ bên ngoài.
+* **Kết quả mong đợi:** Người học làm chủ giao diện CLI của VPS, kết nối ổn định thông qua Bitvise SSH Client và chuẩn bị sẵn sàng hệ điều hành sạch cho các bước tiếp theo.
 
 #### 5. Điểm cần nhấn mạnh
-
-* Phải chạy lệnh `sudo ufw allow 22/tcp` **TRƯỚC CHÌA KHÓA** khi gõ `sudo ufw enable`. Nếu không, tường lửa bật lên sẽ lập tức cắt đứt kết nối SSH hiện tại và giảng viên/sinh viên sẽ bị khóa (lockout) hoàn toàn khỏi VPS.
+* Việc nâng cấp hệ thống bằng lệnh `apt upgrade` ngay sau khi nhận VPS là bước bắt buộc để vá các lỗ hổng bảo mật của phiên bản phân phối cũ từ nhà cung cấp dịch vụ.
+* Bitvise SSH Client hỗ trợ mở đồng thời cửa sổ Terminal (Terminal Console) và trình quản lý tệp tin đồ họa (SFTP window), giúp giảm tải thao tác lệnh khi quản trị tệp tin trên máy chủ.
 
 #### 6. Hiểu lầm thường gặp
-
-* **Hiểu sai:** Nghĩ rằng khi dùng UFW chặn cổng 5432, các container ứng dụng như `order-service` chạy trên VPS cũng không kết nối vào database PostgreSQL được.
-* **Đính chính:** Tường lửa UFW chỉ chặn traffic đi từ card mạng ngoài (Internet công cộng) vào. Các container của QuickBite giao tiếp với nhau qua card mạng ảo nội bộ của Docker Network (`quickbite-net`), nên kết nối nội bộ giữa các service và database vẫn diễn ra bình thường, an toàn.
+* **Hiểu sai:** Nghĩ rằng VPS và Cloud Server (như AWS EC2) là một hoặc chỉ khác nhau ở tên gọi.
+* **Đính chính:** VPS thường có tài nguyên cố định trên một node vật lý và khó mở rộng linh hoạt. Cloud Server hoạt động trên nền tảng điện toán đám mây phân tán với khả năng tự động co giãn (Auto Scaling), tính sẵn sàng cao (High Availability) và thanh toán linh hoạt theo giờ/phút sử dụng thực tế.
 
 ---
 
-### LESSON 02: Cài đặt Docker Engine và đồng bộ mã nguồn Docker Compose lên VPS
+### LESSON 02: Tạo User mới và bảo mật VPS bằng cơ chế khóa SSH (SSH Hardening)
 
 #### 1. Mục tiêu bài học
 
-* **Triển khai cài đặt sạch (Clean Install)** Docker Engine và Docker Compose plugin trên môi trường Linux Ubuntu.
-* **Vận chuyển và đồng bộ hóa** bộ tệp cấu hình triển khai hạ tầng từ máy local lên VPS một cách chuyên nghiệp.
+* **Giải thích** cơ chế tấn công dò mã (Brute-force) nhắm vào cổng SSH mặc định của máy chủ.
+* **Thiết lập** tài khoản người dùng quản trị mới với quyền hạn hạn chế và phân quyền thực thi quản trị tối cao qua `sudo`.
+* **Cấu hình tối ưu bảo mật SSH (SSH Hardening)** để vô hiệu hóa hoàn toàn phương thức xác thực bằng mật khẩu và tài khoản root.
 
 #### 2. Bối cảnh hệ thống
 
-* **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
-* **Vấn đề:** Để chạy được hệ thống đa dịch vụ QuickBite bằng Docker Compose như đã làm ở local, con VPS cần có một môi trường Docker Engine tiêu chuẩn (không phải bản Docker Desktop đồ họa như trên Windows). Đồng thời, lập trình viên cần chuyển file `docker-compose.yml` và các file cấu hình ứng dụng lên VPS để kích hoạt hệ thống.
+* **Trạng thái:** VPS đã được khởi tạo và kết nối thành công với tài khoản root sử dụng xác thực mật khẩu qua cổng 22.
+* **Vấn đề:** Khi một máy chủ có IP công khai (Public IP) xuất hiện trên Internet, các hệ thống botnet tự động sẽ liên tục quét cổng 22 và thực hiện hàng triệu lượt thử đăng nhập bằng mật khẩu (Brute-force) mỗi ngày. Nếu quản trị viên giữ nguyên tài khoản root mặc định và cho phép đăng nhập bằng mật khẩu, máy chủ QuickBite sẽ đối mặt với nguy cơ bị xâm nhập rất cao.
 
 #### 3. Nội dung trọng tâm
 
-* **Cài đặt Docker qua Repository chính thức:** Đảm bảo cài bản Docker Engine ổn định (LTS) thay vì cài bản cũ thông qua lệnh `apt install docker.io` mặc định của Ubuntu.
-* **Đồng bộ hóa thư mục cấu hình:** Sử dụng công cụ `scp` hoặc `rsync` để đẩy thư mục chứa file `docker-compose.yml`, các file cấu hình `.env`, cấu hình database từ máy local lên thư mục `/opt/quickbite-infra/` trên VPS.
+* **Nguy cơ Brute-force mật khẩu:** Cơ chế hoạt động của các cuộc tấn công dò quét tự động và lý do tại sao phương thức xác thực bằng mật khẩu thông thường không đủ an toàn cho môi trường Production.
+* **Nguyên tắc đặc quyền tối thiểu (Least Privilege):** Hạn chế tối đa việc sử dụng tài khoản root cho các hoạt động vận hành thường nhật. Thay vào đó, tạo một người dùng quản trị riêng biệt và chỉ nâng quyền khi cần thiết.
+* **Cơ chế xác thực khóa SSH (Asymmetric Cryptography):** Sử dụng cặp khóa mã hóa bất đối xứng gồm Private Key (nằm trên máy local cá nhân của quản trị viên) và Public Key (đặt trong thư mục được cấu hình trên VPS) để xác thực danh tính mà không cần truyền mật khẩu qua mạng.
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Cài đặt Docker và khởi chạy toàn bộ hệ thống QuickBite (4 services + 1 DB) bằng Docker Compose trên môi trường VPS thật.
-* **Lệnh thực hiện trên VPS (Command):**
-```bash
-# 1. Gỡ cài đặt các bản docker cũ (nếu có)
-for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do sudo apt-get remove $pkg; done
+* **Mục tiêu demo:** Tạo tài khoản user mới, thiết lập xác thực bằng SSH Key và khóa cấu hình đăng nhập root cùng mật khẩu truyền thống.
+* **Các bước thực hiện:**
+  1. Trên VPS, tạo người dùng mới (ví dụ đặt tên là `deployer`) và gán vào nhóm quản trị `sudo`:
+     ```bash
+     sudo adduser deployer
+     sudo usermod -aG sudo deployer
+     ```
+  2. Tại máy local (PowerShell/Terminal), sinh cặp khóa SSH bảo mật cao sử dụng thuật toán Ed25519:
+     ```bash
+     ssh-keygen -t ed25519 -C "deployer_vps_key"
+     ```
+     *(Lưu ý: Tệp `id_ed25519` là khóa bí mật cá nhân, tệp `id_ed25519.pub` chứa khóa công khai).*
+  3. Đẩy khóa công khai (Public Key) từ máy local lên VPS và lưu vào danh sách xác thực của user `deployer`:
+     ```bash
+     ssh-copy-id -i ~/.ssh/id_ed25519.pub deployer@vps_public_ip
+     ```
+  4. Tiến hành kết nối thử từ máy local bằng user `deployer` với SSH Key (không nhập mật khẩu) để kiểm tra tính chính xác.
+  5. Thực hiện bảo mật dịch vụ SSH (SSH Hardening) bằng cách chỉnh sửa tệp cấu hình daemon SSH trên VPS:
+     ```bash
+     sudo nano /etc/ssh/sshd_config
+     ```
+     Tìm và sửa đổi các chỉ thị cấu hình sau:
+     ```text
+     PermitRootLogin no
+     PasswordAuthentication no
+     PubkeyAuthentication yes
+     ```
+  6. Khởi động lại dịch vụ SSH daemon để áp dụng cấu hình mới:
+     ```bash
+     sudo systemctl restart ssh
+     ```
 
-# 2. Cài đặt các thư viện tiền đề và nạp GPG key của Docker
-sudo apt-get update
-sudo apt-get install ca-certificates curl gnupg
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-# 3. Thêm Docker Repository vào nguồn apt
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.p/docker.list > /dev/null
-
-# 4. Cài đặt Docker Engine và Docker Compose v2
-sudo apt-get update
-sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
-
-# 5. Phân quyền chạy docker cho user hiện tại (không cần dùng sudo)
-sudo usermod -aG docker $USER
-# Khởi động lại session terminal để nhận quyền mới mà không cần reboot máy chủ
-newgrp docker
-```
-
-* **Đồng bộ và Khởi chạy hệ thống (Thao tác từ máy Local):**
-
-```bash
-# Từ máy local, push toàn bộ thư mục infra lên VPS
-scp -r ./quickbite-infra user@vps_public_ip:/opt/
-
-# SSH vào VPS và kích hoạt hệ thống chạy ngầm
-ssh user@vps_public_ip "cd /opt/quickbite-infra && docker compose up -d"
-
-```
-
-* **Kết quả mong đợi:** Lệnh `docker ps` trên VPS hiển thị 5 container (`quickbite-db`, `user-service`, `restaurant-service`, `order-service`, `notification-service`) đều ở trạng thái `Up`.
+* **Kết quả mong đợi:** Không thể sử dụng tài khoản `root` để SSH vào VPS. Thử kết nối SSH bằng mật khẩu thông thường sẽ bị hệ thống từ chối ngay lập tức. Chỉ duy nhất máy local nắm giữ Private Key tương ứng mới có quyền truy cập VPS dưới tên người dùng `deployer`.
 
 #### 5. Điểm cần nhấn mạnh
+* Tuyệt đối không được tắt phiên kết nối SSH hiện tại trước khi kiểm tra thành công kết nối SSH mới bằng SSH Key trên một cửa sổ Terminal/Bitvise khác. Sai sót trong cấu hình có thể dẫn đến việc bị khóa quyền truy cập máy chủ vĩnh viễn.
+* File Private Key sinh ra trên máy local phải được lưu trữ an toàn, không chia sẻ cho bất kỳ ai và không được đưa lên kho chứa mã nguồn công khai (Git Repository).
 
-* Trong file `docker-compose.yml` triển khai trên VPS, các cổng của 4 service nội bộ (`8081`, `8082`, `8083`, `8084`) **không nên map ra ngoài máy host** (tức là xóa bỏ cấu hình `ports: - "8081:8081"`). Chúng ta chỉ cần expose cổng ra nội bộ mạng để chuẩn bị cho bài học Nginx ở Session 11. Điều này đảm bảo không ai có thể chọc trực tiếp vào backend từ bên ngoài.
+#### 6. Hiểu lầm thường gặp
+* **Hiểu sai:** Cho rằng việc đặt mật khẩu tài khoản cực kỳ phức tạp (dài, nhiều ký tự đặc biệt) là đã đủ an toàn trước tấn công Brute-force mà không cần cấu hình SSH Key.
+* **Đính chính:** Tấn công Brute-force có thể làm cạn kiệt tài nguyên mạng và băng thông của VPS do số lượng yêu cầu kết nối quá lớn. Tắt hoàn toàn tính năng xác thực mật khẩu giúp triệt tiêu nguy cơ này ngay tại bước bắt tay kết nối của giao thức SSH.
 
 ---
 
-# SESSION 11
+### LESSON 03: Thiết lập Tường lửa UFW và Cài đặt Docker trên Ubuntu Server
+
+#### 1. Mục tiêu bài học
+
+* **Cài đặt sạch (Clean Install)** Docker Engine và Docker Compose Plugin chính thức từ kho lưu trữ của Docker trên môi trường dòng lệnh Linux.
+* **Cấu hình phân quyền** cho phép người dùng chạy các lệnh Docker CLI trực tiếp mà không cần tiền tố `sudo`.
+* **Thiết lập tường lửa UFW** nhằm kiểm soát chặt chẽ toàn bộ lưu lượng mạng đi vào hệ thống, chỉ mở các cổng dịch vụ tiêu chuẩn.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** VPS đã được bảo mật kết nối SSH bằng tài khoản `deployer`. Hệ điều hành chưa được cài đặt Docker để chạy container và chưa có hệ thống lọc lưu lượng mạng tầng Host.
+* **Vấn đề:** Để chạy các dịch vụ Spring Boot của QuickBite dưới dạng container, ta cần cài đặt môi trường Docker Engine ổn định và đúng chuẩn LTS. Đồng thời, việc chạy các lệnh quản trị Docker với tiền tố `sudo` liên tục tạo ra các tệp tin có quyền root không mong muốn và tiềm ẩn rủi ro bảo mật hệ thống. Bên bên đó, hệ thống cần được bao bọc bởi một lớp tường lửa ở cấp độ máy chủ để ngăn chặn mọi truy cập trái phép từ Internet vào các cổng nội bộ.
+
+#### 3. Nội dung trọng tâm
+
+* **Cài đặt Docker chuẩn Enterprise:** Tránh sử dụng các gói cài đặt mặc định của Ubuntu (`docker.io` hoặc `snap`) vốn thường cũ và thiếu ổn định. Thay vào đó, thiết lập liên kết trực tiếp tới Docker Repository chính thức để nhận các bản vá bảo mật mới nhất.
+* **Cơ chế Docker Socket & Docker Group:** Hiểu lý do tại sao lệnh Docker yêu cầu quyền root và cách thức nhóm bảo mật `docker` giúp xử lý vấn đề phân quyền.
+* **Tường lửa UFW (Uncomplicated Firewall):** Nguyên lý hoạt động lọc gói tin tầng host và cách cấu hình chính sách mặc định chặn toàn bộ kết nối đi vào (Default Deny), chỉ mở các cổng kết nối dịch vụ thiết yếu (22 cho SSH quản trị, 80 cho HTTP và 443 cho HTTPS sau này).
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Cài đặt Docker Engine và Docker Compose, thiết lập phân quyền user nhóm docker, cấu hình tường lửa UFW chỉ cho phép các cổng 22, 80, 443.
+* **Các bước thực hiện:**
+  1. Gỡ bỏ hoàn toàn các gói cài đặt cũ hoặc không chính thức (nếu có):
+     ```bash
+     for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do sudo apt-get remove $pkg; done
+     ```
+  2. Nạp khóa GPG chính thức và thêm Docker Repository vào cơ sở dữ liệu `apt`:
+     ```bash
+     sudo apt-get update
+     sudo apt-get install ca-certificates curl gnupg -y
+     sudo install -m 0755 -d /etc/apt/keyrings
+     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+     sudo chmod a+r /etc/apt/keyrings/docker.gpg
+     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+     ```
+  3. Cài đặt các gói thành phần cốt lõi của Docker:
+     ```bash
+     sudo apt-get update
+     sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+     ```
+  4. Tạo nhóm người dùng `docker` và đưa tài khoản `deployer` vào nhóm để chạy lệnh không cần `sudo`:
+     ```bash
+     sudo usermod -aG docker deployer
+     newgrp docker
+     ```
+  5. Cấu hình tường lửa UFW bảo vệ máy chủ:
+     ```bash
+     sudo ufw default deny incoming  # Chặn mọi kết nối đi vào mặc định
+     sudo ufw default allow outgoing # Cho phép máy chủ kết nối ra Internet tự do
+     sudo ufw allow 22/tcp           # Mở cổng kết nối SSH quản trị
+     sudo ufw allow 80/tcp           # Mở cổng dịch vụ HTTP
+     sudo ufw allow 443/tcp          # Mở cổng dịch vụ HTTPS
+     sudo ufw enable                 # Kích hoạt UFW hoạt động
+     ```
+  6. Kiểm tra lại trạng thái hoạt động của các dịch vụ:
+     ```bash
+     docker version
+     sudo ufw status verbose
+     ```
+
+* **Kết quả mong đợi:** Lệnh `docker version` chạy thành công bằng user `deployer` mà không báo lỗi phân quyền socket. Tường lửa UFW hiển thị trạng thái `active` với danh sách các cổng được mở duy nhất là 22, 80, 443.
+
+#### 5. Điểm cần nhấn mạnh
+* Phải thực hiện mở cổng SSH bằng lệnh `sudo ufw allow 22/tcp` **TRƯỚC KHI** chạy lệnh kích hoạt tường lửa `sudo ufw enable`. Việc bỏ qua bước này sẽ dẫn đến việc kết nối SSH hiện tại bị ngắt và người dùng không thể kết nối lại vào máy chủ.
+* Lệnh `newgrp docker` giúp cập nhật quyền hạn nhóm cho session terminal hiện tại ngay lập tức mà không cần thực hiện logout rồi login lại.
+
+#### 6. Hiểu lầm thường gặp
+* **Hiểu sai:** Nghĩ rằng tường lửa UFW chặn cổng 5432 (PostgreSQL) sẽ làm cho ứng dụng Spring Boot chạy trong container Docker không kết nối được tới database PostgreSQL chạy trong container khác.
+* **Đính chính:** Các container Docker giao tiếp nội bộ thông qua card mạng ảo `bridge network` được quản lý bởi Docker Engine. Tường lửa UFW cài đặt trên hệ điều hành host chỉ lọc lưu lượng mạng đi qua các card mạng vật lý kết nối ra Internet. Do đó, giao tiếp nội bộ giữa các container hoàn toàn không bị ảnh hưởng.
+
+---
+
+### LESSON 04: Đồng bộ cấu hình qua Git bằng SSH Key và vận hành cụm Microservices
+
+#### 1. Mục tiêu bài học
+
+* **Giải thích** mối quan hệ và cơ chế xác thực giữa Git/GitHub với các cặp khóa SSH Key bảo mật.
+* **Phân biệt** rõ ràng vai trò của hai loại khóa SSH Key hoạt động trong quy trình triển khai: SSH Key của máy local truy cập VPS và SSH Key của VPS truy cập Git Repository.
+* **Thao tác** thiết lập cấu hình SSH Key trên tài khoản Git (GitHub/GitLab) và clone các dự án private an toàn về máy chủ.
+* **Vận hành và giám sát** cụm container Microservices của QuickBite sử dụng tệp tin cấu hình môi trường `.env` chuẩn Production.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** VPS đã được bảo mật bằng tường lửa, cài đặt sẵn Docker và phân quyền user `deployer`.
+* **Vấn đề:** Để khởi chạy hệ thống QuickBite, ta cần nạp các mã nguồn cấu hình triển khai bao gồm tệp `docker-compose.yml`, các mã nguồn backend để build nếu cần, và cấu hình môi trường `.env`. Việc truyền tải thủ công các tệp tin cấu hình này từ máy local lên VPS qua SCP là phản khuôn mẫu trong DevOps chuyên nghiệp, gây khó khăn cho việc quản lý phiên bản và cập nhật mã nguồn. Giải pháp tối ưu là sử dụng hệ thống quản lý mã nguồn Git để đồng bộ trực tiếp từ Repository về VPS. Tuy nhiên, các Repository lưu trữ mã nguồn của doanh nghiệp thường ở dạng riêng tư (Private Repository), yêu cầu cơ chế xác thực an toàn bằng khóa SSH Key được thiết lập trên VPS.
+
+#### 3. Nội dung trọng tâm
+
+* **Git và cơ chế xác thực qua SSH:** Sử dụng giao thức SSH để xác thực tài khoản Git mà không cần điền username/password khi thao tác với kho lưu trữ mã nguồn từ máy chủ VPS CLI.
+* **Phân biệt rõ ràng vai trò của 2 cặp khóa SSH:**
+  1. **SSH Key 1 (Local -> VPS):** Sinh ra ở máy cá nhân (Local). Khóa Public được đặt trên VPS để cho phép quản trị viên đăng nhập vào quản trị hệ thống.
+  2. **SSH Key 2 (VPS -> GitHub/GitLab):** Sinh ra trực tiếp trên máy chủ VPS. Khóa Public được cấu hình trên GitHub/GitLab (dưới dạng Deploy Key của repository hoặc SSH Key cá nhân) để cho phép VPS có quyền đọc và clone mã nguồn về.
+* **Ứng dụng cấu hình môi trường Production:** Nạp các tham số bảo mật (mật khẩu database, token bí mật, đường dẫn endpoint) qua tệp `.env` đã thiết kế ở Session 08 để tách biệt hoàn toàn mã nguồn triển khai và thông số cấu hình nhạy cảm.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Cấu hình SSH Key trên VPS để kết nối GitHub, clone các dự án `quickbite-base`, `quickbite-user`, `quickbite-restaurant`, thiết lập tệp `.env` và khởi chạy toàn bộ cụm Microservices bằng Docker Compose.
+* **Các bước thực hiện:**
+  1. Trên VPS (đăng nhập bằng user `deployer`), sinh cặp khóa SSH mới dùng để kết nối với kho Git:
+     ```bash
+     ssh-keygen -t ed25519 -C "vps_to_github_key"
+     ```
+  2. Đọc và sao chép nội dung của khóa công khai vừa tạo:
+     ```bash
+     cat ~/.ssh/id_ed25519.pub
+     ```
+  3. Truy cập vào giao diện web của GitHub/GitLab, thêm nội dung khóa công khai này vào mục **Deploy Keys** của các repository dự án (`quickbite-base`, `quickbite-user`, `quickbite-restaurant`) hoặc mục **SSH Keys** của tài khoản nhà phát triển.
+  4. Thực hiện kiểm tra kết nối SSH giữa VPS và GitHub:
+     ```bash
+     ssh -T git@github.com
+     ```
+  5. Clone các dự án về thư mục làm việc trên VPS:
+     ```bash
+     mkdir -p ~/projects && cd ~/projects
+     git clone git@github.com:your_username/quickbite-base.git
+     git clone git@github.com:your_username/quickbite-user.git
+     git clone git@github.com:your_username/quickbite-restaurant.git
+     ```
+  6. Di chuyển vào thư mục hạ tầng triển khai (`quickbite-base` chứa file `docker-compose.yml`). Tạo và hiệu chỉnh tệp tin cấu hình môi trường `.env`:
+     ```bash
+     nano .env
+     ```
+     *(Khai báo các biến môi trường cấu hình cơ sở dữ liệu, cổng chạy, thông số xác thực bí mật tương tự như đã học ở Bài học 08 dành cho môi trường Production).*
+  7. Khởi chạy toàn bộ cụm Microservices ở chế độ chạy ngầm (detached mode):
+     ```bash
+     docker compose up -d
+     ```
+  8. Kiểm tra trạng thái và giám sát hoạt động của hệ thống trên VPS:
+     ```bash
+     docker compose ps
+     docker compose logs -f
+     docker stats
+     ```
+
+* **Kết quả mong đợi:** Các dự án được clone thành công từ Git thông qua xác thực khóa SSH. Lệnh `docker compose ps` hiển thị toàn bộ các container dịch vụ ở trạng thái `Up (healthy)`.
+
+#### 5. Điểm cần nhấn mạnh
+* Việc phân biệt rõ vai trò của 2 cặp khóa SSH giúp sinh viên tránh được sai sót nghiêm trọng là sao chép Private Key của máy local lên VPS hoặc ngược lại.
+* File `.env` chứa các thông tin tuyệt mật của môi trường chạy thực tế (Production), do đó tệp tin này bắt buộc phải được đưa vào danh sách `.gitignore` để không bao giờ bị đẩy ngược lại lên kho chứa mã nguồn công khai.
+
+#### 6. Hiểu lầm thường gặp
+* **Hiểu sai:** Nghĩ rằng chỉ cần cài đặt Git là có thể clone bất kỳ Repository nào về VPS mà không cần thiết lập SSH Key hay tài khoản.
+* **Đính chính:** Với các Repository để ở chế độ riêng tư (Private), máy chủ VPS không có thông tin xác thực danh tính sẽ bị Git Server từ chối truy cập. Cơ chế SSH Key cung cấp một kênh xác thực bảo mật và tự động hóa cao mà không cần lưu trữ mật khẩu trực tiếp dưới dạng văn bản thuần túy (plain text) trên máy chủ.
+
+---# SESSION 11
 
 ## REVERSE PROXY VỚI NGINX TRONG MÔI TRƯỜNG PRODUCTION
 
