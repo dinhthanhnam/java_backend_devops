@@ -60,12 +60,10 @@ Lesson 04    Đồng bộ dự án qua Git bằng SSH Key và vận hành cụm 
 
 Session 11    Reverse proxy với Nginx trong môi trường production    
 
-Lesson 01    Reverse proxy và vai trò của Nginx
-Lesson 02    Cài đặt Nginx và cấu hình domain
-Lesson 03    Proxy request từ Nginx đến API Gateway
-Lesson 04    Cấu hình routing theo path và subdomain
-Lesson 05    Cấu hình HTTPS với Let’s Encrypt
-Lesson 06    Reload cấu hình và xử lý lỗi Nginx
+Lesson 01    Khái niệm Reverse Proxy và vai trò của Nginx trong kiến trúc Microservices
+Lesson 02    Cấu trúc tệp cấu hình Nginx và các khối khai báo chính
+Lesson 03    Triển khai Nginx làm Reverse Proxy chuyển tiếp yêu cầu đến API Gateway
+Lesson 04    Cấu hình tên miền (Domain) và mã hóa bảo mật SSL/HTTPS với Let's Encrypt
 
 Session 12    Hệ thống kiến thức Session 10,11
 
