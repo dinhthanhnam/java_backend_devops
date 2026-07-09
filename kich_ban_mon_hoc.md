@@ -2198,113 +2198,245 @@ build_docker_image_job:
 
 # SESSION 13
 
-## GIÁM SÁT HỆ THỐNG (MONITORING) VỚI PROMETHEUS
+## GIÁM SÁT HỆ THỐNG VỚI PROMETHEUS
 
 ---
 
-### LESSON 01: Kiến trúc Prometheus và Mô hình Thu thập dữ liệu (Pull-based)
+### LESSON 01: Khái niệm giám sát hệ thống (Metrics) và Kiến trúc hoạt động của Prometheus
 
 #### 1. Mục tiêu bài học
 
-* **Giải thích** được thành phần kiến trúc của Prometheus và ưu/nhược điểm của mô hình thu thập chỉ số kiểu kéo (Pull-based Model) so với kiểu đẩy (Push-based Model).
-* **Nắm rõ** cấu trúc định dạng dữ liệu chuỗi thời gian (Time-series Data) và cách thức hoạt động của công cụ quét chỉ số (Scraper).
-
-#### 2. Bối cảnh hệ thống
-
-* **Trạng thái:** STATE 3 — Production Cloud Infrastructure (Hệ thống QuickBite đã chạy trên VPS, có Nginx làm Gateway).
-* **Vấn đề:** Ứng dụng `order-service` thỉnh thoảng bị treo vào những khung giờ cao điểm (11h30 - 12h30). Đội ngũ vận hành hoàn toàn "mù" thông tin về trạng thái phần cứng của VPS cũng như trạng thái sức khỏe nội bộ của các container. Hệ thống cần một giải pháp giám sát có khả năng tự động đi gom các chỉ số tài nguyên theo chu kỳ thời gian để làm cơ sở chẩn đoán lỗi.
-
-#### 3. Nội dung trọng tâm
-
-* **Mô hình Pull-based cốt lõi:** Thay vì bắt các service của QuickBite phải tốn tài nguyên tự gửi dữ liệu đi, Prometheus sẽ đứng đóng vai trò trung tâm, định kỳ chủ động gửi request HTTP tới các endpoint của các service để "kéo" (pull/scrape) dữ liệu metrics về.
-* **Cấu trúc Time-series Database (TSDB):** Dữ liệu giám sát được lưu trữ dưới dạng chuỗi thời gian, định danh bằng tên chỉ số (metric name) và các cặp nhãn khóa-giá trị (labels key-value).
-* *Ví dụ:* `http_requests_total{method="POST", handler="/api/v1/orders", status="201"}`
-
-#### 4. Demo và thực hành
-
-* **Mục tiêu demo:** Minh họa trực quan mô hình thu thập dữ liệu dạng Pull của Prometheus đối với hệ thống Microservices QuickBite.
-* **Luồng dữ liệu (Data Flow):**
-1. Các service (`user-service`, `order-service`,...) mở sẵn một cổng hiển thị dữ liệu thô.
-2. Prometheus đọc file cấu hình `prometheus.yml`, lấy danh sách các địa chỉ đích (targets).
-3. Đúng chu kỳ (ví dụ 15 giây), Prometheus gửi lệnh kéo dữ liệu và nạp vào kho lưu trữ TSDB nội bộ.
-
----
-
-### LESSON 02: Cấu hình Prometheus Scrape Metrics từ Spring Boot Actuator
-
-#### 1. Mục tiêu bài học
-
-* **Cấu hình tích hợp** thư viện Spring Boot Actuator và Micrometer Prometheus Registry vào mã nguồn các dịch vụ QuickBite.
-* **Viết tệp cấu hình `prometheus.yml**` hoàn chỉnh để khai báo các job quét chỉ số tự động trong mạng nội bộ Docker.
+* **Giải thích** được các khái niệm cơ bản về giám sát hệ thống (Monitoring) và các loại Metrics cốt lõi.
+* **Phân biệt** được mô hình thu thập dữ liệu kiểu kéo (Pull-based) của Prometheus so với kiểu đẩy (Push-based).
+* **Mô tả** được sơ đồ kiến trúc và thành phần chính của hệ thống Prometheus.
 
 #### 2. Bối cảnh hệ thống
 
 * **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
-* **Vấn đề:** Để Prometheus có thể kéo được dữ liệu từ các dịch vụ Spring Boot, bản thân các dịch vụ này phải được cài đặt "cảm biến" để chuyển đổi các thông số kỹ thuật bên trong JVM (như dung lượng bộ nhớ Heap, số lượng Thread) thành định dạng văn bản thô (Plain text) mà Prometheus hiểu được.
+* **Vấn đề:** Hệ thống QuickBite đang vận hành trên môi trường Production với nhiều container (Nginx, API Gateway, các microservices, Database). Thỉnh thoảng, dịch vụ `order-service` bị treo hoặc phản hồi rất chậm vào giờ cao điểm. Đội ngũ vận hành hoàn toàn "mù" thông tin (Black-box) về tài nguyên VPS cũng như trạng thái sức khỏe bên trong các JVM container, không biết lỗi là do cạn RAM, nghẽn Thread hay CPU quá tải. Chúng ta cần một hệ thống giám sát tập trung tự động thu thập thông tin để chuẩn đoán lỗi nhanh chóng.
 
 #### 3. Nội dung trọng tâm
 
-* **Spring Boot Actuator & Micrometer:** Actuator mở ra các cổng giám sát, còn Micrometer đóng vai trò như một bộ biên dịch (Adapter) chuyển các chỉ số đo đạc nội bộ của Java sang định dạng chuẩn của Prometheus.
-* **Cấu hình bảo mật tầng mạng:** Các endpoint hiển thị chỉ số (`/actuator/prometheus`) chứa nhiều thông tin nhạy cảm về hệ thống, do đó chúng chỉ được mở trong mạng nội bộ Docker (`quickbite-net`) để duy nhất container Prometheus truy cập, tuyệt đối không cấu hình qua Nginx để lộ ra Internet.
+* **Giám sát hệ thống (Metrics):** Là quá trình thu thập và phân tích các số liệu định lượng (Metrics) theo chu kỳ thời gian về trạng thái hoạt động của phần cứng và phần mềm.
+* **4 loại Metrics cốt lõi trong Prometheus:**
+  * *Counter:* Chỉ số chỉ tăng hoặc reset về 0 khi khởi động lại (ví dụ: tổng số request `http_requests_total`).
+  * *Gauge:* Chỉ số có thể tăng hoặc giảm tự do (ví dụ: dung lượng RAM tiêu thụ, số lượng thread đang chạy).
+  * *Histogram:* Chia nhỏ dữ liệu thành các khoảng (buckets) để đo tần suất xuất hiện (ví dụ: thời gian phản hồi API).
+  * *Summary:* Tương tự Histogram nhưng tính toán trực tiếp các phân vị (quantiles) ở phía Client.
+* **Mô hình Pull-based của Prometheus:**
+  * Trái ngược với mô hình Push (các client chủ động gửi dữ liệu về server), Prometheus đóng vai trò trung tâm sẽ định kỳ gửi request HTTP GET tới các máy con (targets) để kéo (pull/scrape) metrics về.
+  * *Lợi ích:* Đơn giản hóa mã nguồn Client, tránh làm quá tải Server giám sát khi Client bị đột biến lưu lượng (Spike), và dễ dàng phát hiện khi một service bị sập (Target down).
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Cấu hình mã nguồn một service mẫu, tạo file `prometheus.yml` và nhúng container Prometheus vào file `docker-compose.yml` hạ tầng trên VPS.
-* **Cấu hình ứng dụng (`order-service/src/main/resources/application.yml`):**
-```yaml
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health, prometheus # Chỉ mở các endpoint cần thiết
-  metrics:
-    tags:
-      application: ${spring.application.name} # Dán nhãn tên ứng dụng vào mọi metric
-```
+* **Mục tiêu demo:** Minh họa trực quan luồng kéo dữ liệu của Prometheus từ các container dịch vụ.
+* **Sơ đồ luồng Scraping:**
+  ```text
+  [ Prometheus Server ]
+            │
+            ├─(HTTP GET /actuator/prometheus mỗi 15s)─► [ user-service (8081) ]
+            │
+            ├─(HTTP GET /actuator/prometheus mỗi 15s)─► [ order-service (8083) ]
+            │
+            └─(HTTP GET /metrics mỗi 15s)─────────────► [ Node Exporter (9100) ]
+  ```
 
-* **Tệp cấu hình của Prometheus (`./quickbite-infra/prometheus/prometheus.yml`):**
-```yaml
-global:
-  scrape_interval: 15s # Định kỳ quét chỉ số mỗi 15 giây
-  evaluation_interval: 15s
+#### 5. Điểm cần nhấn mạnh cho giảng viên
+* Nhấn mạnh cho sinh viên hiểu tại sao Prometheus chọn mô hình Pull: Giúp bảo vệ Server giám sát không bị nghẽn (DDoS) bởi chính các service của mình khi hệ thống gặp sự cố tải cao.
 
-scrape_configs:
-  - job_name: 'quickbite-backend'
-    metrics_path: '/actuator/prometheus'
-    static_configs:
-      # Gọi trực tiếp bằng tên container nhờ DNS nội bộ của Docker Network
-      - targets: ['user-service:8081', 'restaurant-service:8082', 'order-service:8083', 'notification-service:8084']
-```
-
-* **Cập nhật tệp `docker-compose.yml` trên VPS:**
-```yaml
-services:
-  # ... các dịch vụ backend và nginx giữ nguyên ...
-
-  prometheus:
-    image: prom/prometheus:v2.45.0
-    container_name: quickbite-prometheus
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      # Gắn ổ đĩa volume để bảo toàn dữ liệu metrics khi container restart
-      - prometheus-data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-    networks:
-      - quickbite-net
-    # Không cần mở port ra ngoài máy host nếu chỉ dùng nội bộ với Grafana
-
-volumes:
-  prometheus-data:
-    driver: local
-```
-
-* **Kết quả mong đợi:** Sau khi chạy `docker compose up -d`, Prometheus khởi chạy thành công. Giảng viên có thể hướng dẫn sinh viên dùng lệnh `docker exec -it quickbite-prometheus wget -qO- http://localhost:9090/api/v1/targets` để kiểm tra trạng thái các target đều báo `UP` (màu xanh).
+#### 6. Hiểu lầm thường gặp
+* **Hiểu sai:** Cho rằng dữ liệu Metrics được Prometheus lưu trữ trực tiếp vào các cơ sở dữ liệu quan hệ truyền thống như PostgreSQL hay MySQL.
+* **Đính chính:** Prometheus sử dụng một cơ sở dữ liệu chuỗi thời gian tự thiết kế riêng gọi là **TSDB (Time-Series Database)**. TSDB tối ưu hóa tốc độ ghi và nén dữ liệu cực kỳ tốt cho các dữ liệu dạng số đi kèm mốc thời gian.
 
 ---
 
-# SESSION 14
+### LESSON 02: Tích hợp Spring Boot Actuator và cấu hình xuất chỉ số (Metrics Exposure)
+
+#### 1. Mục tiêu bài học
+
+* **Tích hợp** thành công thư viện Spring Boot Actuator và Micrometer Prometheus vào mã nguồn các microservices của QuickBite.
+* **Cấu hình** cho phép hiển thị endpoint `/actuator/prometheus` trên môi trường Production một cách an toàn.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
+* **Vấn đề:** Bản thân ứng dụng Spring Boot chạy Java chứa rất nhiều chỉ số quan trọng (JVM heap memory, GC pauses, active threads...). Tuy nhiên, mặc định Java không tự động xuất các chỉ số này ra ngoài, và định dạng dữ liệu nội bộ của JVM không tương thích với Prometheus. Chúng ta cần cài đặt "bộ dịch" để chuyển đổi các chỉ số này sang định dạng chuẩn của Prometheus.
+
+#### 3. Nội dung trọng tâm
+
+* **Spring Boot Actuator:** Thư viện cung cấp các tính năng giám sát và quản lý ứng dụng Spring Boot qua các HTTP Endpoints (như `/actuator/health`, `/actuator/info`).
+* **Micrometer Prometheus Registry:** Đóng vai trò làm lớp trung gian (Facade) thu thập các số liệu từ Actuator và "dịch" (Format) chúng thành định dạng văn bản thô (Plain text) theo cú pháp quy định của Prometheus.
+* **Bảo mật Endpoint giám sát:** Các metrics hệ thống chứa thông tin nhạy cảm nên **tuyệt đối không expose** ra Internet qua Nginx. Chúng chỉ được phép mở trong mạng nội bộ để Prometheus container kết nối trực tiếp.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Cấu hình file dependency Maven/Gradle và tệp cấu hình `application.yml` cho `order-service` để kích hoạt endpoint metrics.
+* **Cấu hình Dependencies (`build.gradle`):**
+  ```groovy
+  implementation 'org.springframework.boot:spring-boot-starter-actuator'
+  implementation 'io.micrometer:micrometer-registry-prometheus'
+  ```
+* **Cấu hình ứng dụng (`src/main/resources/application.yml`):**
+  ```yaml
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health, prometheus  # Chỉ mở duy nhất 2 endpoint này
+    metrics:
+      tags:
+        application: ${spring.application.name}  # Gắn nhãn tên microservice vào mọi metric
+  ```
+* **Kết quả mong đợi:** Truy cập thử `http://localhost:8083/actuator/prometheus` từ máy local nhận về màn hình text chứa hàng trăm dòng metrics định dạng chuẩn (ví dụ: `jvm_memory_used_bytes{area="heap",id="G1 Eden Space"} 4.5678e07`).
+
+#### 5. Điểm cần nhấn mạnh cho giảng viên
+* Giải thích cho sinh viên tầm quan trọng của việc gắn tag `application: ${spring.application.name}`. Khi Prometheus thu thập metrics từ nhiều microservices cùng lúc, nhãn này sẽ giúp chúng ta phân biệt được CPU/RAM này là của service nào.
+
+#### 6. Hiểu lầm thường gặp
+* **Hiểu sai:** Nghĩ rằng chỉ cần cài đặt `spring-boot-starter-actuator` là mặc định Prometheus có thể quét được metrics ngay lập tức.
+* **Đính chính:** Thiếu thư viện adapter `micrometer-registry-prometheus` thì Nginx/Prometheus khi truy cập endpoint sẽ bị lỗi 404 hoặc trả về định dạng JSON của Actuator mà Prometheus không thể đọc được.
+
+---
+
+### LESSON 03: Triển khai Prometheus bằng Docker Compose thu thập chỉ số Backend
+
+#### 1. Mục tiêu bài học
+
+* **Khởi dựng** thành công container Prometheus bằng Docker Compose trên máy chủ VPS.
+* **Biên soạn** tệp cấu hình `prometheus.yml` định kỳ tự động quét chỉ số các microservices.
+* **Sử dụng volume** để lưu trữ bền vững dữ liệu metrics của Prometheus khi container khởi động lại.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
+* **Vấn đề:** Các microservices đã mở cổng Actuator. Bây giờ, chúng ta cần triển khai bộ não trung tâm Prometheus trên VPS để bắt đầu quá trình kéo metrics theo chu kỳ 15 giây/lần và lưu trữ vào ổ đĩa cứng của VPS.
+
+#### 3. Nội dung trọng tâm
+
+* **Tệp cấu hình `prometheus.yml`:**
+  * `global`: Định cấu hình tham số chung như tần suất quét (`scrape_interval: 15s`).
+  * `scrape_configs`: Định nghĩa các công việc quét chỉ số (`job_name`), đường dẫn endpoint (`metrics_path: /actuator/prometheus`), và danh sách địa chỉ đích cần quét (`targets`).
+* **Lưu trữ dữ liệu (Volume Persistence):** Tránh làm mất toàn bộ lịch sử biểu đồ giám sát mỗi khi container Prometheus bị restart hoặc nâng cấp bằng cách mount volume vật lý từ VPS vào thư mục `/prometheus` bên trong container.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Viết file cấu hình `prometheus.yml`, cập nhật `docker-compose.yml` hạ tầng của QuickBite để thêm dịch vụ Prometheus.
+* **Tệp cấu hình Prometheus (`./quickbite-infra/prometheus/prometheus.yml`):**
+  ```yaml
+  global:
+    scrape_interval: 15s
+    evaluation_interval: 15s
+
+  scrape_configs:
+    - job_name: 'quickbite-microservices'
+      metrics_path: '/actuator/prometheus'
+      static_configs:
+        # Sử dụng DNS nội bộ của Docker Network để gọi tên container backend trực tiếp
+        - targets:
+            - 'user-service:8081'
+            - 'restaurant-service:8082'
+            - 'order-service:8083'
+            - 'notification-service:8084'
+  ```
+* **Cấu hình dịch vụ trong tệp `docker-compose.yml` hạ tầng trên VPS:**
+  ```yaml
+  services:
+    # ... Các services Backend và Database giữ nguyên ...
+
+    prometheus:
+      image: prom/prometheus:v2.45.0
+      container_name: quickbite-prometheus
+      volumes:
+        - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+        - prometheus-data:/prometheus
+      command:
+        - '--config.file=/etc/prometheus/prometheus.yml'
+        - '--storage.tsdb.path=/prometheus'
+      networks:
+        - quickbite-net
+      # Không cần expose port 9090 ra ngoài host vì sau này chỉ để Grafana kết nối nội bộ
+
+  volumes:
+    prometheus-data:
+      driver: local
+  ```
+* **Vận hành hệ thống:**
+  ```bash
+  docker compose up -d prometheus
+  ```
+  *Kiểm tra kết nối:* Chạy lệnh `docker exec -it quickbite-prometheus wget -qO- http://localhost:9090/api/v1/targets` trên VPS để đảm bảo toàn bộ trạng thái các microservices backend đều báo `UP` (hoạt động tốt).
+
+#### 5. Điểm cần nhấn mạnh cho giảng viên
+* Nhấn mạnh việc Prometheus kết nối tới các microservices bằng tên container (`user-service:8081`...) thông qua mạng ảo Docker Bridge. Đây chính là lợi ích của Service Discovery có sẵn trong Docker Network.
+
+#### 6. Hiểu lầm thường gặp
+* **Hiểu sai:** Mở toang cổng `9090` của Prometheus ra ngoài host VPS để tiện xem giao diện đồ thị mặc định của Prometheus.
+* **Đính chính:** Đây là lỗi bảo mật lớn vì giao diện thô của Prometheus không có sẵn lớp xác thực bảo mật (No Authentication). Người ngoài có thể truy cập xem toàn bộ thông số hệ thống hoặc gửi request xóa dữ liệu. Cổng 9090 chỉ nên chạy ẩn bên trong Docker Network.
+
+---
+
+### LESSON 04: Triển khai Node Exporter giám sát tài nguyên VPS
+
+#### 1. Mục tiêu bài học
+
+* **Giải thích** được vai trò của Node Exporter trong việc giám sát tài nguyên phần cứng hệ điều hành.
+* **Triển khai** container Node Exporter và mount các thư mục hệ thống hệ điều hành host (`/proc`, `/sys`) vào container một cách an toàn.
+* **Cấu hình** Prometheus scrape chỉ số từ Node Exporter để có bức tranh toàn cảnh về sức khỏe của máy chủ VPS.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
+* **Vấn đề:** Giám sát JVM container là chưa đủ. VPS của chúng ta có thể bị sập do các yếu tố phần cứng vật lý (như ổ đĩa cứng SSD bị đầy do phình log, RAM vật lý bị cạn kiệt dẫn đến OOM Killer kích hoạt tắt container, hoặc CPU bị nghẽn 100%). Prometheus không thể tự đọc được thông số phần cứng của OS host. Chúng ta cần một công cụ chuyên biệt để đo đạc tài nguyên máy chủ VPS.
+
+#### 3. Nội dung trọng tâm
+
+* **Node Exporter:** Là một exporter chính thống do Prometheus phát triển, chuyên thu thập các chỉ số liên quan đến hệ điều hành và phần cứng của máy chủ Linux (CPU, Memory, Disk Space, Network Traffic).
+* **Cơ chế đọc chỉ số hệ điều hành của container:**
+  * Container chạy cô lập nên mặc định không thấy được tài nguyên của máy host.
+  * *Giải pháp:* Khởi chạy container Node Exporter và mount chế độ Read-Only các thư mục ảo đặc biệt của hệ điều hành host (`/proc` chứa thông tin tiến trình, `/sys` chứa thông tin thiết bị phần cứng, và thư mục gốc `/`) vào bên trong container để Node Exporter lấy dữ liệu thực tế của VPS.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Thêm dịch vụ Node Exporter vào `docker-compose.yml` và cập nhật cấu hình Prometheus quét chỉ số.
+* **Thêm Node Exporter vào tệp `docker-compose.yml` trên VPS:**
+  ```yaml
+  services:
+    # ... các dịch vụ khác giữ nguyên ...
+
+    node-exporter:
+      image: prom/node-exporter:v1.6.0
+      container_name: quickbite-node-exporter
+      volumes:
+        - /proc:/host/proc:ro
+        - /sys:/host/sys:ro
+        - /:/rootfs:ro
+      command:
+        - '--path.procfs=/host/proc'
+        - '--path.sysfs=/host/sys'
+        - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      networks:
+        - quickbite-net
+  ```
+* **Cập nhật tệp cấu hình `/etc/prometheus/prometheus.yml` (Thêm job quét Node Exporter):**
+  ```yaml
+    - job_name: 'vps-hardware'
+      static_configs:
+        - targets: ['node-exporter:9100']
+  ```
+* **Vận hành hệ thống:**
+  ```bash
+  docker compose up -d node-exporter
+  docker compose restart prometheus
+  ```
+
+#### 5. Điểm cần nhấn mạnh cho giảng viên
+* Giải thích cơ chế mount `:ro` (Read-Only) của các thư mục `/proc` và `/sys`. Đây là nguyên tắc bảo mật tối quan trọng, đảm bảo container Node Exporter chỉ có quyền đọc chỉ số tài nguyên hệ thống chứ không thể ghi đè làm thay đổi trạng thái hoạt động của máy host VPS.
+
+#### 6. Hiểu lầm thường gặp
+* **Hiểu sai:** Nghĩ rằng chỉ cần cài đặt Node Exporter là tự động giám sát được luôn cả lượng RAM tiêu thụ chi tiết của các đối tượng Java bên trong JVM.
+* **Đính chính:** Node Exporter chỉ đứng ở tầng ngoài hệ điều hành và nhìn các container như các tiến trình đen thông thường (đo tổng RAM tiến trình). Muốn giám sát sâu bên trong cấu trúc bộ nhớ JVM (Heap, Non-Heap), bắt buộc phải kết hợp quét chỉ số từ Spring Boot Actuator ở Lesson 2.
+
+---# SESSION 14
 
 ## TẠO DASHBOARD VỚI GRAFANA
 
