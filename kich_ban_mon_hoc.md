@@ -1,4 +1,4 @@
-﻿# SESSION 01
+# SESSION 01
 
 ## TỔNG QUAN DEVOPS & QUY TRÌNH CI/CD
 
@@ -1985,159 +1985,214 @@ build_docker_image_job:
 
 #### 1. Mục tiêu bài học
 
-* **Phân biệt** được cơ chế hoạt động giữa Forward Proxy và Reverse Proxy.
-* **Giải thích** được tại sao Nginx đóng vai trò là chiếc "khiên bảo vệ" kiêm cổng định tuyến lưu lượng (Routing) tối thượng cho hệ thống QuickBite trước khi dòng tiền/dữ liệu đổ vào các service.
+* **Phân biệt** được cơ chế hoạt động của Forward Proxy so với Reverse Proxy.
+* **Giải thích** được vai trò của Nginx làm cổng kết nối duy nhất (Single Entry Point) bảo vệ và định tuyến (Routing) lưu lượng cho cụm dịch vụ QuickBite.
 
 #### 2. Bối cảnh hệ thống
 
 * **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
-* **Vấn đề:** Hiện tại, 4 dịch vụ của QuickBite đang ẩn mình an toàn sau mạng nội bộ của VPS. Khách hàng sử dụng ứng dụng Mobile/Web ở ngoài Internet không thể kết nối tới hệ thống vì các cổng service đã bị khóa. Chúng ta không thể mở toang các cổng `8081`-`8084` ra ngoài vì vi phạm bảo mật. Hệ thống cần một thành phần duy nhất đứng ở "mặt tiền" (cổng 80), tiếp nhận mọi request của khách hàng và tự động phân phối (định tuyến) vào đúng vị trí của từng service bên trong.
+* **Vấn đề:** Các container ứng dụng (`user-service`, `restaurant-service`...) và `api-gateway` được đóng gói độc lập. Nếu expose trực tiếp tất cả các cổng (`8080`, `8081`...) ra ngoài Host để Client gọi trực tiếp thì sẽ tạo ra diện tấn công rất lớn và vi phạm bảo mật hệ thống. Hệ thống cần một "khiên bảo vệ" đứng ở mặt tiền (cổng 80/443), tiếp nhận toàn bộ request từ Internet và làm nhiệm vụ định tuyến vào bên trong.
 
 #### 3. Nội dung trọng tâm
 
 * **Forward Proxy vs Reverse Proxy:**
-* *Forward Proxy:* Đứng trước Client, đại diện cho Client để đi ra Internet (ví dụ: VPN giúp ẩn danh IP người dùng).
-* *Reverse Proxy:* Đứng trước Server, đại diện cho Server để đón nhận request từ Internet gửi vào. Client hoàn toàn không biết cấu trúc server phía sau.
-
-* **Lợi ích khi đặt Nginx làm Reverse Proxy cho QuickBite:**
-* *Single Entry Point:* Chỉ cần mở duy nhất cổng 80/443 trên IP của VPS.
-* *Security:* Ẩn giấu hoàn toàn địa chỉ mạng, cổng chạy và kiến trúc microservices bên dưới.
-* *Tải tĩnh (Static Content):* Nginx có thể trực tiếp gánh tải phần Frontend (HTML/CSS/JS) cực kỳ nhanh, giải phóng tài nguyên cho Spring Boot chỉ tập trung xử lý API nghiệp vụ.
+  * *Forward Proxy:* Làm đại diện cho Client để đi ra Internet (ví dụ: VPN giúp ẩn danh IP client).
+  * *Reverse Proxy:* Làm đại diện cho Server để tiếp nhận request từ Internet gửi vào. Client chỉ biết IP của Reverse Proxy, hoàn toàn không biết cấu trúc mạng nội bộ phía sau.
+* **Vai trò của Nginx làm Reverse Proxy:**
+  * *Single Entry Point:* Chỉ mở duy nhất cổng 80/443 trên tường lửa VPS.
+  * *Security Hardening:* Ẩn giấu hoàn toàn các cổng thực tế và IP nội bộ của các container microservices.
+  * *Static Content Caching:* Xử lý và phân phối trực tiếp các tệp tin tĩnh (HTML/CSS/JS) của Frontend cực kỳ nhanh, giảm tải cho Spring Boot.
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Sơ đồ hóa kiến trúc dòng dữ liệu đi qua Nginx Reverse Proxy trên môi trường VPS thực tế.
-* **Luồng di chuyển của dữ liệu (Traffic Flow):**
-* Khách hàng gọi API lấy thông tin ví dụ: `http://vps_public_ip/api/v1/users`
-* Request đập vào cổng 80 của VPS -> Nginx tiếp nhận.
-* Nginx đọc cấu hình (Context Path `/api/v1/users`) -> Hiểu rằng cần đẩy request này vào mạng nội bộ Docker tới địa chỉ `http://user-service:8081/api/v1/users`.
+* **Mục tiêu demo:** Sơ đồ hóa kiến trúc dòng dữ liệu đi qua Nginx Reverse Proxy ở biên hệ thống trước khi đi vào các container backend.
+* **Sơ đồ luồng dữ liệu (Traffic Flow):**
+  ```text
+  [ Client (Browser/Postman) ]
+               │
+      (HTTP Request cổng 80)
+               ▼
+      [ Nginx Reverse Proxy ] (Cổng 80 - VPS Host Network)
+               │
+     (Proxy Pass tới Host Port 8080)
+               ▼
+      [ API Gateway Container ] (Cổng 8080 - Docker Host Mapping)
+               │
+               ├─► [ user-service (8081) ]
+               └─► [ restaurant-service (8082) ]
+  ```
+
+#### 5. Điểm cần nhấn mạnh
+* Nginx không thay thế API Gateway mà đóng vai trò là "Edge Proxy" bao bọc bên ngoài API Gateway để bảo vệ cổng vào hệ thống ở tầng host.
+
+#### 6. Hiểu lầm thường gặp
+* **Hiểu sai:** Cho rằng Nginx làm Reverse Proxy sẽ tự động giải quyết các vấn đề nghiệp vụ như xác thực người dùng (Authentication) hay cân bằng tải cấp microservice của API Gateway.
+* **Đính chính:** Nginx chỉ quản lý định tuyến mức mạng (IP/Port/Domain) và SSL. Các nghiệp vụ sâu như JWT validation, Rate Limiting theo business logic vẫn được xử lý tối ưu tại API Gateway phía sau.
 
 ---
 
-### LESSON 02: Cấu hình Nginx định tuyến (Routing) dòng dữ liệu Microservices
+### LESSON 02: Cấu trúc tệp cấu hình Nginx và các khối khai báo chính (Configuration Blocks)
 
 #### 1. Mục tiêu bài học
 
-* **Viết file cấu hình `nginx.conf**` để định tuyến chính xác dòng dữ liệu dựa trên đường dẫn Context Path `/api/v1/...`.
-* **Tích hợp Nginx vào cụm Docker Compose** để tận dụng cơ chế Service Discovery, gọi các dịch vụ backend bằng tên container.
+* **Hiểu** cơ chế hoạt động của tệp cấu hình chính `nginx.conf` (được giữ mặc định) và cách Nginx tự động nạp các tệp cấu hình con từ thư mục `/etc/nginx/conf.d/`.
+* **Sử dụng thành thạo** các khối khai báo `server`, `location` và các chỉ thị phổ biến bên trong để cấu hình máy chủ ảo.
 
 #### 2. Bối cảnh hệ thống
 
 * **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
-* **Vấn đề:** Tiến hành cấu hình thực tế cho Nginx trên VPS để kết nối toàn bộ hạ tầng 4 dịch vụ đơn lẻ thành một thể thống nhất, giúp Client bên ngoài có thể thực hiện trọn vẹn luồng nghiệp vụ: Đăng nhập -> Xem nhà hàng -> Tạo đơn hàng.
+* **Vấn đề:** Trong thực tế vận hành doanh nghiệp, chúng ta **không bao giờ chỉnh sửa trực tiếp** tệp cấu hình gốc `nginx.conf` của hệ thống để tránh rủi ro làm hỏng cấu hình toàn cục. Thay vào đó, tệp `nginx.conf` mặc định đã có sẵn chỉ thị `include /etc/nginx/conf.d/*.conf;` bên trong khối `http`. Việc của DevOps là chỉ viết các file cấu hình con (như `quickbite.conf`) đặt vào thư mục `/etc/nginx/conf.d/` để Nginx tự động import vào. Do đó, chúng ta cần nắm vững cú pháp viết các block `server` và `location` độc lập.
 
 #### 3. Nội dung trọng tâm
 
-* **Cấu trúc khối cấu hình Nginx (`server`, `location`):**
-* Khối `server`: Khai báo cổng lắng nghe (`listen 80`) và tên miền/IP của máy chủ (`server_name`).
-* Khối `location`: Khai báo quy tắc khớp chuỗi đường dẫn (Path Matching) và sử dụng chỉ thị `proxy_pass` để bẻ hướng luồng dữ liệu sang container tương ứng.
-
-* **Xử lý HTTP Headers:** Khi Nginx chuyển tiếp request, nó cần nạp thêm các thông tin tiêu đề (`X-Real-IP`, `X-Forwarded-For`) để ứng dụng Spring Boot phía sau biết được IP thực sự của khách hàng là gì, thay vì chỉ thấy IP của Nginx.
+* **Cơ chế nạp cấu hình (Configuration Inclusion):**
+  * Tệp `nginx.conf` gốc: Quản lý các cấu hình hệ thống (như `user`, `worker_processes`, và block `http` bao ngoài). Được giữ nguyên bản.
+  * Thư mục `/etc/nginx/conf.d/`: Nơi chứa các file cấu hình custom (ví dụ: `quickbite.conf`).
+* **Cấu trúc khối cấu hình custom trong `conf.d/`:**
+  * Khối `server`: Định nghĩa một máy chủ ảo, lắng nghe trên một cổng vật lý (`listen`) và phản hồi cho tên miền hoặc IP xác định (`server_name`).
+  * Khối `location`: So khớp đường dẫn URL (URI Path Matching) của request đổ vào để xử lý hoặc chuyển hướng.
+* **Quy tắc so khớp location (Path Matching Rules):**
+  * Khớp tiền tố (Prefix match): `location /api`
+  * Khớp chính xác (Exact match): `location = /favicon.ico`
+  * Khớp Regular Expression: `location ~ \.(gif|jpg|png)$`
 
 #### 4. Demo và thực hành
 
-* **Mục tiêu demo:** Viết file cấu hình `quickbite.conf`, nhúng container Nginx vào file `docker-compose.yml` hạ tầng và kiểm chứng kết nối API End-to-End từ máy cá nhân qua VPS.
-* **Cấu hình hệ thống (Tệp cấu hình Nginx `./quickbite-infra/nginx/quickbite.conf`):**
+* **Mục tiêu demo:** Phân tích cấu trúc của một file cấu hình custom đặt trong thư mục `conf.d/`.
+* **Tệp cấu hình con mẫu (`/etc/nginx/conf.d/quickbite.conf`):**
+  ```nginx
+  server {
+      listen 80;
+      server_name localhost;
 
-```nginx
-server {
-    listen 80;
-    server_name _; # Nhận mọi request đổ vào IP của VPS
+      # Cấu hình log riêng cho dịch vụ
+      access_log /var/log/nginx/quickbite_access.log;
+      error_log /var/log/nginx/quickbite_error.log;
 
-    # Cấu hình log để tiện debug
-    access_log /var/log/nginx/quickbite_access.log;
-    error_log /var/log/nginx/quickbite_error.log;
+      # Định tuyến thư mục gốc hiển thị trang chào mừng mặc định
+      location / {
+          root /usr/share/nginx/html;
+          index index.html index.htm;
+      }
+  }
+  ```
 
-    # Khai báo các tham số header chung khi chuyển tiếp request
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-
-    # 1. Định tuyến luồng User Service
-    location /api/v1/users {
-        proxy_pass http://user-service:8081;
-    }
-
-    # 2. Định tuyến luồng Restaurant Service
-    location /api/v1/restaurants {
-        proxy_pass http://restaurant-service:8082;
-    }
-
-    # 3. Định tuyến luồng Order Service
-    location /api/v1/orders {
-        proxy_pass http://order-service:8083;
-    }
-
-    # 4. Định tuyến luồng Notification Service
-    location /api/v1/notifications {
-        proxy_pass http://notification-service:8084;
-    }
-
-    # Cấu hình trang lỗi mặc định nếu gọi sai endpoint
-    error_page 500 502 503 504 /50x.html;
-    location = /50x.html {
-        root /usr/share/nginx/html;
-    }
-}
-```
-
-* **Cập nhật tệp `docker-compose.yml` (Bổ sung thêm mảnh ghép Nginx):**
-
-```yaml
-version: '3.8'
-
-services:
-  # ... 4 services (user, restaurant, order, notification) và quickbite-db giữ nguyên cấu hình mạng ...
-
-  nginx-gateway:
-    image: nginx:1.25-alpine
-    container_name: quickbite-nginx-gateway
-    ports:
-      - "80:80" # Mở duy nhất cổng 80 của VPS nối vào cổng 80 container Nginx
-    volumes:
-      # Gắn file cấu hình từ VPS vào trong container Nginx
-      - ./nginx/quickbite.conf:/etc/nginx/conf.d/default.conf
-      # Gắn thư mục để lưu log ra ngoài VPS phục vụ việc xem log
-      - ./logs/nginx:/var/log/nginx
-    networks:
-      - quickbite-net
-    depends_on:
-      - user-service
-      - restaurant-service
-      - order-service
-      - notification-service
-
-networks:
-  quickbite-net:
-    driver: bridge
-
-```
-
-* **Lệnh chạy thực tế và kiểm chứng (Từ máy cá nhân của Sinh viên):**
-```bash
-# Trên VPS: Khởi động lại cụm docker compose để nhận cấu hình Nginx mới
-docker compose up -d --remove-orphans
-
-# Từ máy cá nhân ở nhà: Dùng Postman hoặc cURL gọi thử API thông qua IP của VPS trên cổng 80
-curl http://vps_public_ip/api/v1/restaurants
-```
-
-* **Kết quả mong đợi:** Khách hàng nhận về mã trạng thái `200 OK` cùng chuỗi dữ liệu JSON danh sách nhà hàng. Khi gõ lệnh `tail -f ./logs/nginx/quickbite_access.log` trên VPS, giảng viên sẽ thấy dòng log ghi nhận request vừa thực hiện thành công.
-
-#### 5. Điểm cần nhấn mạnh cho giảng viên (Pedagogical Tips)
-
-* **Sức mạnh của DNS Docker:** Hãy chỉ cho sinh viên thấy trong file cấu hình Nginx, chuỗi định tuyến được viết là `proxy_pass http://user-service:8081`. Nginx (vốn là một công cụ độc lập của bên thứ ba) có thể hiểu được chữ `user-service` là gì nhờ việc nó được đặt chung mạng `quickbite-net` với các service khác và thừa hưởng DNS nội bộ của Docker Engine.
-* **Kiểm tra cú pháp cấu hình Nginx:** Hướng dẫn sinh viên thói quen: Mỗi lần sửa đổi file cấu hình `.conf` của Nginx, trước khi restart container, nên dùng câu lệnh `docker exec quickbite-nginx-gateway nginx -t` để hệ thống tự động kiểm tra xem có bị gõ thiếu dấu chấm phẩy (`;`) hay sai cú pháp ở dòng nào không. Điều này giúp tránh làm sập cổng Gateway đang chạy trên production.
+#### 5. Điểm cần nhấn mạnh
+* Giải thích cho sinh viên hiểu tại sao file cấu hình custom trong `/etc/nginx/conf.d/` không cần có các block bao ngoài như `events { ... }` hay `http { ... }` vì các file này khi được import đã nằm sẵn bên trong block `http` của file `nginx.conf` gốc rồi.
 
 #### 6. Hiểu lầm thường gặp
-
-* **Hiểu sai:** Nghĩ rằng mỗi lần sửa file `quickbite.conf` là phải chạy lệnh `docker compose restart nginx-gateway` làm gián đoạn cổng kết nối của người dùng.
-* **Đính chính:** Nginx hỗ trợ cơ chế nạp lại cấu hình mà không cần dừng tiến trình (Zero-Downtime Hot Reload). Thay vì restart container, giảng viên hướng dẫn sinh viên gõ câu lệnh: `docker exec quickbite-nginx-gateway nginx -s reload`. Hệ thống sẽ lập tức cập nhật luật định tuyến mới mà không làm rớt bất kỳ request nào của khách hàng đang đặt đồ ăn.
+* **Hiểu sai:** Nghĩ rằng mỗi lần cấu hình một website hay dịch vụ mới là phải vào sửa đổi tệp `/etc/nginx/nginx.conf`.
+* **Đính chính:** Sửa trực tiếp `nginx.conf` là một bad practice cực kỳ nguy hiểm. Chuẩn vận hành là giữ nguyên file gốc và tạo mới các file cấu hình có đuôi `.conf` riêng biệt trong thư mục `/etc/nginx/conf.d/` để dễ quản lý và bật/tắt dịch vụ độc lập.
 
 ---
 
-*Giảng viên lưu ý: Hoàn thành Session 11, sinh viên đã chính thức thiết lập xong một hệ thống **Production-ready** thu nhỏ cho QuickBite trên môi trường Cloud thực tế. Sự kết hợp giữa tường lửa VPS, mạng cô lập Docker Network và cổng định tuyến duy nhất Nginx Reverse Proxy tạo nên một kiến trúc hạ tầng phòng thủ chiều sâu chuẩn chỉnh của DevOps.*
+### LESSON 03: Triển khai Nginx làm Reverse Proxy chuyển tiếp yêu cầu đến API Gateway
+
+#### 1. Mục tiêu bài học
+
+* **Cấu hình** thành công chỉ thị `proxy_pass` trong tệp cấu hình con `/etc/nginx/conf.d/quickbite.conf` để định tuyến request từ cổng 80 vào cổng 8080 của API Gateway đang map trên host.
+* **Thiết lập** các HTTP Headers (`X-Real-IP`, `X-Forwarded-For`) để bảo toàn thông tin IP của Client.
+* **Áp dụng** cơ chế Zero-Downtime Hot Reload để nạp cấu hình mới trong `/etc/nginx/conf.d/` không làm gián đoạn hệ thống.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
+* **Vấn đề:** Ứng dụng API Gateway của QuickBite đã được khởi chạy trong container Docker và đang map cổng `8080:8080` ra ngoài máy host VPS. Chúng ta cần viết cấu hình Nginx lắng nghe ở cổng `80` (cổng mặc định), tiếp nhận các request có tiền tố `/api/...` từ Client ngoài Internet và proxy chuyển tiếp nó vào cổng `8080` của API Gateway trên localhost.
+
+#### 3. Nội dung trọng tâm
+
+* **Chỉ thị `proxy_pass`:** Chuyển tiếp request nhận được ở `location` hiện tại tới địa chỉ IP và Port của dịch vụ API Gateway (`http://127.0.0.1:8080`).
+* **Thiết lập HTTP Headers khi proxy:**
+  * `proxy_set_header Host $host`: Bảo toàn tên host ban đầu của request.
+  * `proxy_set_header X-Real-IP $remote_addr`: Gửi IP thực của Client cho Backend nhận diện.
+  * `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for`: Ghi vết chuỗi IP mà request đi qua.
+* **Zero-Downtime Hot Reload:** Cơ chế nạp lại cấu hình của Nginx bằng cách spawn worker mới và tắt worker cũ từ từ, không làm rơi bất kỳ kết nối nào của khách hàng.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Cài đặt Nginx trên VPS, viết file cấu hình `quickbite.conf` định tuyến `/api` tới API Gateway và kiểm chứng kết nối.
+* **Cấu hình file con `/etc/nginx/conf.d/quickbite.conf` trên VPS:**
+  ```nginx
+  server {
+      listen 80;
+      server_name _;
+
+      access_log /var/log/nginx/quickbite_access.log;
+      error_log /var/log/nginx/quickbite_error.log;
+
+      location /api {
+          proxy_pass http://127.0.0.1:8080;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+      }
+  }
+  ```
+* **Lệnh kiểm tra và nạp cấu hình trên VPS:**
+  ```bash
+  # 1. Kiểm tra lỗi cú pháp của các file config con vừa thêm
+  sudo nginx -t
+
+  # 2. Reload cấu hình không gián đoạn dịch vụ
+  sudo systemctl reload nginx
+  ```
+* **Kết quả mong đợi:** Gọi API từ máy local bằng Postman hoặc cURL tới địa chỉ `http://vps_public_ip/api/v1/users` qua cổng 80 (không cần gõ cổng 8080) nhận về mã trạng thái `200 OK`.
+
+#### 5. Điểm cần nhấn mạnh
+* Hướng dẫn sinh viên thói quen luôn chạy lệnh `nginx -t` trước khi chạy lệnh reload để tránh làm chết tiến trình Nginx đang chạy nếu file config bị gõ thiếu dấu chấm phẩy (`;`).
+
+#### 6. Hiểu lầm thường gặp
+* **Hiểu sai:** Nghĩ rằng mỗi lần cập nhật file cấu hình Nginx là phải restart dịch vụ làm ngắt kết nối của các request đang thực thi.
+* **Đính chính:** Lệnh `systemctl reload nginx` (hoặc `nginx -s reload`) giúp nạp cấu hình mới ngay lập tức mà không làm dừng dịch vụ (Zero-Downtime).
+
+---
+
+### LESSON 04: Cấu hình tên miền (Domain) và mã hóa bảo mật SSL/HTTPS với Let's Encrypt
+
+#### 1. Mục tiêu bài học
+
+* **Cấu hình liên kết** tên miền (Domain) với địa chỉ IP công khai của VPS.
+* **Triển khai cấp phát** chứng chỉ SSL miễn phí từ Let's Encrypt bằng công cụ Certbot.
+* **Thiết lập tự động chuyển hướng** (Redirect) toàn bộ traffic từ HTTP sang HTTPS bảo mật.
+
+#### 2. Bối cảnh hệ thống
+
+* **Trạng thái:** STATE 3 — Production Cloud Infrastructure.
+* **Vấn đề:** Gọi API qua địa chỉ IP thô (`http://103.82.20.15/api/...`) rất thiếu chuyên nghiệp và không bảo mật vì dữ liệu truyền đi dạng văn bản thô (Plain text), dễ bị đánh cắp thông tin đăng nhập hoặc JWT Token trên đường truyền. Hệ thống bắt buộc phải được bọc trong giao thức mã hóa HTTPS bảo mật cổng 443 thông qua tên miền chính thức của QuickBite (ví dụ: `api.quickbite.com`).
+
+#### 3. Nội dung trọng tâm
+
+* **Bản ghi DNS A (Address Record):** Trỏ tên miền đại diện về đúng IP công khai của máy chủ VPS.
+* **Giao thức SSL/HTTPS:** Cơ chế thiết lập kênh truyền tin được mã hóa bảo mật giữa Client (Trình duyệt) và Nginx (Server) qua cổng 443.
+* **Certbot và Let's Encrypt:** Certbot là agent tự động hóa việc xác thực quyền sở hữu tên miền và tải xuống chứng chỉ SSL miễn phí từ tổ chức CA Let's Encrypt.
+* **Redirect HTTP to HTTPS:** Sử dụng mã trạng thái HTTP `301 Moved Permanently` để bắt buộc mọi kết nối HTTP cổng 80 phải chuyển hướng lên HTTPS cổng 443.
+
+#### 4. Demo và thực hành
+
+* **Mục tiêu demo:** Trỏ tên miền, cài đặt Certbot, chạy xin chứng chỉ và kiểm chứng ổ khóa xanh bảo mật trên trình duyệt.
+* **Cài đặt Certbot trên Ubuntu 24.04 LTS:**
+  ```bash
+  sudo apt update
+  sudo apt install certbot python3-certbot-nginx -y
+  ```
+* **Chạy lệnh cấu hình tự động SSL cho Nginx:**
+  ```bash
+  sudo certbot --nginx -d api.quickbite.com
+  ```
+  *(Giải thích): Certbot sẽ tự động đọc file cấu hình Nginx, tìm server block chứa tên miền `api.quickbite.com`, xác thực và tự động chèn thêm cấu hình SSL cổng 443 cùng cơ chế redirect vào file config của bạn.*
+* **Nạp cấu hình và kiểm chứng:**
+  ```bash
+  sudo systemctl reload nginx
+  ```
+* **Kết quả mong đợi:** Truy cập `https://api.quickbite.com/api/v1/users` thành công, trình duyệt hiển thị biểu tượng ổ khóa xanh bảo mật. Mọi truy cập bằng đầu `http://` tự động chuyển sang `https://`.
+
+#### 5. Điểm cần nhấn mạnh
+* Chứng chỉ Let's Encrypt chỉ có thời hạn 90 ngày. Certbot tự động tạo một cron job hoặc systemd timer trong hệ thống để tự động gia hạn chứng chỉ trước khi hết hạn, DevOps không cần gia hạn thủ công.
+
+#### 6. Hiểu lầm thường gặp
+* **Hiểu sai:** Nghĩ rằng chỉ cần cài đặt HTTPS trên Nginx là toàn bộ các container backend Spring Boot bên trong cũng bắt buộc phải cài cấu hình HTTPS.
+* **Đính chính:** Chỉ cần cấu hình HTTPS ở Nginx Reverse Proxy (giai đoạn SSL Termination). Lưu lượng truyền tin nội bộ giữa Nginx và API Gateway trên localhost vẫn đi qua HTTP thông thường để tối ưu tài nguyên tính toán của CPU cho việc giải mã.
 
 ---
 
