@@ -10,7 +10,7 @@
 ## 2. PARTITION INSTRUCTIONS
 * **Số lượng slide khuyến nghị:** 15 - 18 slides.
 * **Nguyên tắc phân bổ nội dung:**
-  * **LESSON 01 (Thiết lập kết nối):** Giới thiệu VPS, so sánh hạ tầng, kết nối qua Terminal, chỉ ra các Pain Points, hướng dẫn sử dụng Bitvise SSH Client lưu profile `.tpl` và nâng cấp hệ thống (`apt update && apt upgrade`).
+  * **LESSON 01 (Thiết lập kết nối):** Giới thiệu VPS, so sánh hạ tầng, kết nối qua Terminal, chỉ ra các Pain Points, hướng dẫn sử dụng Bitvise SSH Client lưu profile `.tlp` và nâng cấp hệ thống (`apt update && apt upgrade`).
   * **LESSON 02 (Bảo mật SSH):** Tấn công Brute-force, SSH Hardening, tạo user `deployer` với đặc quyền `sudo`, sinh khóa Ed25519, tắt root/password đăng nhập, lỗi StrictModes do phân quyền sai.
   * **LESSON 03 (Tường lửa & Docker):** Cài đặt Docker Engine từ repo chính thức, phân quyền group `docker`, cấu hình UFW (Default Deny Incoming), lỗi cấm cổng SSH khi bật UFW, và hiện tượng Docker bypass UFW qua iptables.
   * **LESSON 04 (Vận hành Microservices):** Phân biệt 2 loại SSH Key, nạp SSH Key vào tài khoản GitHub, clone Private Repo, thiết lập `.env` cho Production, chạy Docker Compose Up và các lệnh giám sát (`ps`, `logs`, `stats`).
@@ -50,11 +50,11 @@
   * *Port:* `22` (mặc định).
   * *Username / Password:* Tài khoản root và mật khẩu tương ứng.
 * **Lưu Profile tiện lợi:**
-  * Nhấn nút **Save Profile As** ở bảng bên trái để xuất cấu hình ra tệp tin `.tpl` (Ví dụ: `quickbite_root.tpl`). Lần sau chỉ cần nạp lại file `.tpl` để kết nối lập tức.
+  * Nhấn nút **Save Profile As** ở bảng bên trái để xuất cấu hình ra tệp tin `.tlp` (Ví dụ: `quickbite_root.tlp`). Lần sau chỉ cần nạp lại file `.tlp` để kết nối lập tức.
 * **Giao diện làm việc Bitvise (Menu bên trái):**
   * *New terminal console:* Mở màn hình dòng lệnh CLI của VPS.
   * *New SFTP window:* Mở trình duyệt tệp tin đồ họa 2 cột để kéo thả file dễ dàng giữa máy local và VPS.
-* **Speaker Notes:** *Bitvise SSH Client là một công cụ đắc lực trên Windows. Chúng ta lưu lại cấu hình dưới dạng file `.tpl`. Sau đó, ta chỉ cần bấm "New terminal console" để gõ lệnh và "New SFTP window" để duyệt tệp tin theo kiểu kéo thả trực quan. Điều này giúp đẩy nhanh tốc độ vận hành và giảm thiểu sai sót gõ nhầm IP.*
+* **Speaker Notes:** *Bitvise SSH Client là một công cụ đắc lực trên Windows. Chúng ta lưu lại cấu hình dưới dạng file `.tlp`. Sau đó, ta chỉ cần bấm "New terminal console" để gõ lệnh và "New SFTP window" để duyệt tệp tin theo kiểu kéo thả trực quan. Điều này giúp đẩy nhanh tốc độ vận hành và giảm thiểu sai sót gõ nhầm IP.*
 
 #### Slide 4: Thực hành: Cập nhật hệ thống VPS đầu tiên
 * **Lệnh thực thi bắt buộc:**

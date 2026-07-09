@@ -70,7 +70,7 @@ Mặc dù Terminal mặc định rất nhẹ, nhưng việc vận hành lâu dà
    * **Username:** `root`.
    * **Initial Method:** Chọn `password`.
    * **Password:** Nhập mật khẩu root của VPS.
-3. Nhấn nút **Save Profile As** ở bảng bên trái để lưu lại cấu hình dưới dạng tệp tin profile (Ví dụ: `quickbite_vps_root.tpl`). Lần sau, bạn chỉ cần nạp lại file `.tpl` này là có thể kết nối ngay lập tức mà không cần nhập lại IP hay mật khẩu.
+3. Nhấn nút **Save Profile As** ở bảng bên trái để lưu lại cấu hình dưới dạng tệp tin profile (Ví dụ: `quickbite_vps_root.tlp`). Lần sau, bạn chỉ cần nạp lại file `.tlp` này là có thể kết nối ngay lập tức mà không cần nhập lại IP hay mật khẩu.
 4. Nhấn **Log in** để thực hiện kết nối.
 
 #### 3.2 Giao diện làm việc của Bitvise
@@ -109,8 +109,8 @@ Tại sao chúng ta nên ưu tiên lựa chọn hệ điều hành Ubuntu Server
 * *Gợi ý:* Các phiên bản LTS được cam kết hỗ trợ và vá lỗi bảo mật lâu dài (5 năm), mang lại sự ổn định và nhất quán cao cho hệ thống Production. Ngược lại, các bản non-LTS có vòng đời rất ngắn (9 tháng) và dễ gặp lỗi tương thích phần mềm, không phù hợp cho môi trường vận hành ổn định lâu dài.
 
 #### Câu 2 (Phân tích)
-Hãy phân tích các bất tiện (Pain Points) chính khi sử dụng Terminal mặc định của hệ điều hành (như CMD/PowerShell) để quản trị VPS và chỉ ra cách Bitvise SSH Client giải quyết các nhược điểm này thông qua tính năng lưu profile `.tpl` và các nút chức năng trên giao diện.
-* *Gợi ý:* Terminal mặc định bắt buộc người dùng nhớ IP/port và nhập mật khẩu thủ công mỗi lần kết nối, rất dễ nhầm lẫn; đồng thời không có sẵn giao diện trực quan để quản lý tập tin. Bitvise cho phép nạp profile `.tpl` đã lưu để kết nối nhanh bằng 1-click; đồng thời cung cấp nút **New SFTP window** hiển thị giao diện 2 cột giúp kéo thả file trực quan và nút **New terminal console** độc lập để gõ lệnh thuận tiện.
+Hãy phân tích các bất tiện (Pain Points) chính khi sử dụng Terminal mặc định của hệ điều hành (như CMD/PowerShell) để quản trị VPS và chỉ ra cách Bitvise SSH Client giải quyết các nhược điểm này thông qua tính năng lưu profile `.tlp` và các nút chức năng trên giao diện.
+* *Gợi ý:* Terminal mặc định bắt buộc người dùng nhớ IP/port và nhập mật khẩu thủ công mỗi lần kết nối, rất dễ nhầm lẫn; đồng thời không có sẵn giao diện trực quan để quản lý tập tin. Bitvise cho phép nạp profile `.tlp` đã lưu để kết nối nhanh bằng 1-click; đồng thời cung cấp nút **New SFTP window** hiển thị giao diện 2 cột giúp kéo thả file trực quan và nút **New terminal console** độc lập để gõ lệnh thuận tiện.
 
 #### Câu 3 (Nâng cao)
 Một máy chủ VPS Ubuntu 24.04 LTS mới tinh vừa được nhà cung cấp khởi tạo và bàn giao. Nếu bạn không chạy lệnh `sudo apt update && sudo apt upgrade -y` ngay mà trực tiếp thực hiện cài đặt Docker và chạy ứng dụng Spring Boot, hãy phân tích những rủi ro về mặt bảo mật và lỗi cài đặt hệ thống có thể xảy ra.

@@ -59,9 +59,9 @@ Tệp tin cấu hình lưu thông tin phiên có đuôi `.bjp`
 [EXP]
 Sai. Đuôi `.bjp` không phải định dạng tệp tin profile của ứng dụng Bitvise SSH Client.
 [B]
-Tệp tin cấu hình lưu thông tin phiên có đuôi `.tpl`
+Tệp tin cấu hình lưu thông tin phiên có đuôi `.tlp`
 [EXP]
-Chính xác. Bitvise SSH Client xuất và nạp các profile cấu hình kết nối dưới dạng tệp tin `.tpl`.
+Chính xác. Bitvise SSH Client xuất và nạp các profile cấu hình kết nối dưới dạng tệp tin `.tlp`.
 [C]
 Tệp tin cấu hình lưu thông tin phiên có đuôi `.ssh`
 [EXP]

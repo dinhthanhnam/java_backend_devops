@@ -29,7 +29,7 @@ Tuy nhiên, nếu cứ dùng Terminal mặc định này để quản lý hệ t
 **[Slide 3: Giải pháp: Lưu Session trên Bitvise SSH Client]**
 Để giải quyết tất cả các pain points trên, chúng ta sử dụng công cụ **Bitvise SSH Client** trên Windows. 
 * Tại tab **Login**, chúng ta điền IP của VPS, cổng `22`, user `root` và mật khẩu.
-* Đặc biệt, các bạn hãy nhấn nút **Save Profile As** ở menu bên trái để xuất cấu hình thành tệp tin có phần mở rộng là **`.tpl`** (ví dụ: `quickbite_root.tpl`). Lần sau làm việc, chỉ cần nạp lại file `.tpl` này là kết nối thành công chỉ bằng một click chuột.
+* Đặc biệt, các bạn hãy nhấn nút **Save Profile As** ở menu bên trái để xuất cấu hình thành tệp tin có phần mở rộng là **`.tlp`** (ví dụ: `quickbite_root.tlp`). Lần sau làm việc, chỉ cần nạp lại file `.tlp` này là kết nối thành công chỉ bằng một click chuột.
 * Sau khi đăng nhập thành công, Bitvise không tự động mở các cửa sổ mà cung cấp hai biểu tượng trực quan ở menu bên trái để bạn tự mở khi cần: **New terminal console** (để gõ lệnh CLI) và **New SFTP window** (hiển thị giao diện 2 cột giúp bạn kéo thả truyền file giữa máy local và VPS cực kỳ nhanh chóng).
 
 ---
@@ -41,7 +41,7 @@ Bây giờ, thầy sẽ thao tác trực tiếp các bước kết nối đầu 
 
 *(Thao tác trên Bitvise Client và Terminal)*:
 - *Bước 1: Điền thông tin Host, Port, Username, Password vào tab Login của Bitvise.*
-- *Bước 2: Bấm Save Profile As để lưu lại file `quickbite_root.tpl` ra màn hình Desktop.*
+- *Bước 2: Bấm Save Profile As để lưu lại file `quickbite_root.tlp` ra màn hình Desktop.*
 - *Bước 3: Bấm Login để kết nối. Chấp nhận Host Key khi được hỏi.*
 - *Bước 4: Nhấp chọn nút **New terminal console** ở menu bên trái để mở cửa sổ dòng lệnh đen.*
 - *Bước 5: Trên terminal của VPS, chạy lệnh cập nhật danh sách gói và tiến hành nâng cấp toàn bộ hệ thống lên phiên bản mới nhất:*
