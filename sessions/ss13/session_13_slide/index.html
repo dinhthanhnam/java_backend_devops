@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Session 13: Giám sát hệ thống với Prometheus | Rikkei Education</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hssf-slides@0.3.0/dist/hssf.min.css" />
+  <link rel="stylesheet" href="./styles/deck.css" />
+</head>
+
+<body class="hssf-body">
+  <div class="hssf-canvas" data-hssf-canvas id="deck" tabindex="0" role="region" aria-roledescription="slide deck"
+    aria-label="Session 13 — Giám sát hệ thống với Prometheus">
+    <div class="hssf-progress" data-hssf-progress aria-hidden="true">
+      <div class="hssf-progress__bar" data-hssf-progress-bar></div>
+    </div>
+    <div class="hssf-live hssf-sr-only" data-hssf-live aria-live="polite" aria-atomic="true"></div>
+
+    <div class="hssf-stage-wrap">
+      <div class="hssf-stage" data-hssf-stage>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 1: Title                                                -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--title is-active" data-hssf-slide data-hssf-label="Title"
+          aria-hidden="false">
+          <div class="hssf-slide__inner">
+            <div class="hssf-title-block hssf-title-block--center">
+              <div class="hssf-accent hssf-accent--bar-left" aria-hidden="true"></div>
+              <p class="hssf-title-block__eyebrow">SESSION 13 · DEVOPS IN ACTION</p>
+              <h1 class="hssf-title-block__title">Giám sát hệ thống với Prometheus</h1>
+              <p class="hssf-title-block__meta">Rikkei Academy · Bộ môn DevOps</p>
+            </div>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 2: Agenda                                               -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Agenda" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Nội dung bài học</h2>
+              <p class="hssf-header__subtitle">4 phần trọng tâm giám sát hệ thống</p>
+            </header>
+            <ol class="hssf-agenda">
+              <li class="hssf-agenda__item">
+                <span class="hssf-agenda__num">01</span>
+                <p class="hssf-agenda__text">Khái niệm giám sát, Metrics &amp; kiến trúc Pull-based của Prometheus</p>
+              </li>
+              <li class="hssf-agenda__item" data-hssf-fragment>
+                <span class="hssf-agenda__num">02</span>
+                <p class="hssf-agenda__text">Tích hợp Spring Boot Actuator xuất metrics cho Prometheus</p>
+              </li>
+              <li class="hssf-agenda__item" data-hssf-fragment>
+                <span class="hssf-agenda__num">03</span>
+                <p class="hssf-agenda__text">Triển khai Prometheus Server bằng Docker Compose</p>
+              </li>
+              <li class="hssf-agenda__item" data-hssf-fragment>
+                <span class="hssf-agenda__num">04</span>
+                <p class="hssf-agenda__text">Node Exporter — giám sát tài nguyên phần cứng VPS</p>
+              </li>
+            </ol>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 3: Section 01 Divider                                   -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--section" data-hssf-slide data-hssf-label="Sec-01" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <div class="hssf-section-block">
+              <span class="hssf-section-block__num">01</span>
+              <h2 class="hssf-section-block__title">Monitoring, Metrics &amp; Kiến trúc Prometheus</h2>
+            </div>
+          </div>
+          <footer class="hssf-footer hssf-footer--light">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 4: Pain-Blackbox                                        -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Pain-Blackbox"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Production = Hộp đen?</h2>
+              <p class="hssf-header__subtitle">Không có metrics = không có tầm nhìn</p>
+            </header>
+            <div class="hssf-compare">
+              <div class="hssf-compare__col hssf-compare__col--cons">
+                <h3 class="hssf-compare__title">Không có giám sát</h3>
+                <ul class="hssf-list">
+                  <li>CPU VPS quá tải? — Không biết</li>
+                  <li data-hssf-fragment>RAM JVM cạn kiệt? — Không biết</li>
+                  <li data-hssf-fragment>API nào bị request đổ dồn? — Không biết</li>
+                </ul>
+              </div>
+              <div class="hssf-compare__col hssf-compare__col--pros">
+                <h3 class="hssf-compare__title">Có Prometheus</h3>
+                <ul class="hssf-list">
+                  <li>Metrics liên tục theo thời gian (Time-series)</li>
+                  <li data-hssf-fragment>Tự động phát hiện target DOWN</li>
+                  <li data-hssf-fragment>Dashboard trực quan + cảnh báo</li>
+                </ul>
+              </div>
+            </div>
+            <aside class="hssf-callout hssf-callout--danger">
+              <p class="hssf-callout__label">Lưu ý</p>
+              <p class="hssf-callout__body">Vận hành mà không có Monitoring giống lái xe bịt mắt — chỉ biết sự cố khi
+                đã va chạm.</p>
+            </aside>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 5: Concept-Metrics — 4 loại Metrics                     -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Concept-Metrics"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">4 loại Metrics cốt lõi</h2>
+              <p class="hssf-header__subtitle">Phân loại dữ liệu đo đạc trong Prometheus</p>
+            </header>
+            <div class="hssf-grid hssf-grid--2 hssf-grid--loose">
+              <article class="hssf-card hssf-card--outline">
+                <div class="hssf-card__icon">
+                  <div class="hssf-icon-circle hssf-icon-circle--lg hssf-icon-circle--primary">📈</div>
+                </div>
+                <h3 class="hssf-card__title">Counter</h3>
+                <div class="hssf-card__body">Chỉ tăng / reset 0. VD: <code>http_requests_total</code></div>
+              </article>
+              <article class="hssf-card hssf-card--outline" data-hssf-fragment>
+                <div class="hssf-card__icon">
+                  <div class="hssf-icon-circle hssf-icon-circle--lg hssf-icon-circle--soft">🌡️</div>
+                </div>
+                <h3 class="hssf-card__title">Gauge</h3>
+                <div class="hssf-card__body">Tăng/giảm tự do. VD: <code>jvm_memory_used_bytes</code></div>
+              </article>
+              <article class="hssf-card hssf-card--outline" data-hssf-fragment>
+                <div class="hssf-card__icon">
+                  <div class="hssf-icon-circle hssf-icon-circle--lg hssf-icon-circle--primary">📊</div>
+                </div>
+                <h3 class="hssf-card__title">Histogram</h3>
+                <div class="hssf-card__body">Phân phối vào buckets phía server. VD: Latency API</div>
+              </article>
+              <article class="hssf-card hssf-card--outline" data-hssf-fragment>
+                <div class="hssf-card__icon">
+                  <div class="hssf-icon-circle hssf-icon-circle--lg hssf-icon-circle--soft">🎯</div>
+                </div>
+                <h3 class="hssf-card__title">Summary</h3>
+                <div class="hssf-card__body">Tính quantile phía client. VD: p99 response time</div>
+              </article>
+            </div>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 6: Pull-Push                                            -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Pull-Push" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Pull-based vs Push-based</h2>
+            </header>
+            <div class="hssf-compare">
+              <div class="hssf-compare__col hssf-compare__col--pros">
+                <h3 class="hssf-compare__title">Pull-based (Prometheus)</h3>
+                <ul class="hssf-list">
+                  <li>Server chủ động kéo dữ liệu định kỳ (HTTP GET)</li>
+                  <li data-hssf-fragment>Không bị DDoS từ client tải cao</li>
+                  <li data-hssf-fragment>Dễ phát hiện target DOWN</li>
+                  <li data-hssf-fragment>Phù hợp long-running services</li>
+                </ul>
+              </div>
+              <div class="hssf-compare__col hssf-compare__col--cons">
+                <h3 class="hssf-compare__title">Push-based (InfluxDB, Jaeger…)</h3>
+                <ul class="hssf-list">
+                  <li>Client đẩy dữ liệu về Server</li>
+                  <li data-hssf-fragment>Phù hợp short-lived jobs / Serverless</li>
+                  <li data-hssf-fragment>Server dễ bị quá tải khi ngàn client gửi dồn</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 7: Diagram-Scrape                                       -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Diagram-Scrape"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Kiến trúc Prometheus Scraping</h2>
+              <p class="hssf-header__subtitle">Luồng kéo metrics trên Production VPS</p>
+            </header>
+            <div class="hssf-columns hssf-columns--2 hssf-columns--loose hssf-fill hssf-columns--center">
+              <div class="hssf-columns__col hssf-stack hssf-stack--center"
+                style="align-items: center; justify-content: center;">
+                <div class="hssf-flow hssf-flow--col hssf-flow--loose" style="width: 320px; margin: 0 auto;">
+                  <div class="hssf-flow__node hssf-flow__node--primary" style="text-align: center; padding: 1rem;">
+                    <div class="hssf-icon-circle hssf-icon-circle--sm hssf-icon-circle--primary"
+                      style="margin: 0 auto 0.5rem; background: rgba(255,255,255,0.2);">🔍</div>
+                    <strong>Prometheus Server</strong>
+                    <div class="hssf-flow__node-sub" style="color: rgba(255,255,255,0.8);">Scrape mỗi 15s (HTTP GET)
+                    </div>
+                  </div>
+                  <span class="hssf-flow__edge" aria-hidden="true">
+                    <span class="hssf-flow__line"></span>
+                    <span class="hssf-arrow hssf-arrow--down"></span>
+                  </span>
+                  <div class="hssf-flow__node hssf-flow__node--outline" style="text-align: center; padding: 1rem;">
+                    <div class="hssf-icon-circle hssf-icon-circle--sm hssf-icon-circle--soft"
+                      style="margin: 0 auto 0.5rem;">🌐</div>
+                    <strong>Docker Network</strong>
+                    <div class="hssf-flow__node-sub">Phân giải DNS nội bộ</div>
+                  </div>
+                </div>
+              </div>
+              <div class="hssf-columns__col hssf-stack">
+                <div class="hssf-heading">
+                  <p class="hssf-heading__kicker">Các Targets giám sát</p>
+                  <h2 class="hssf-heading__title">Danh sách Endpoint xuất Metrics</h2>
+                </div>
+                <div class="hssf-stack hssf-stack--tight">
+                  <article class="hssf-card hssf-card--soft hssf-card--row hssf-card--compact">
+                    <div class="hssf-icon-circle hssf-icon-circle--sm hssf-icon-circle--primary">☕</div>
+                    <div>
+                      <h4 class="hssf-card__title">user-service:8081</h4>
+                      <p class="hssf-card__body"><code>/actuator/prometheus</code></p>
+                    </div>
+                  </article>
+                  <article class="hssf-card hssf-card--soft hssf-card--row hssf-card--compact">
+                    <div class="hssf-icon-circle hssf-icon-circle--sm hssf-icon-circle--primary">☕</div>
+                    <div>
+                      <h4 class="hssf-card__title">order-service:8083</h4>
+                      <p class="hssf-card__body"><code>/actuator/prometheus</code></p>
+                    </div>
+                  </article>
+                  <article class="hssf-card hssf-card--outline hssf-card--row hssf-card--compact">
+                    <div class="hssf-icon-circle hssf-icon-circle--sm hssf-icon-circle--soft">🐧</div>
+                    <div>
+                      <h4 class="hssf-card__title">node-exporter:9100</h4>
+                      <p class="hssf-card__body"><code>/metrics</code> (Giám sát VPS OS)</p>
+                    </div>
+                  </article>
+                </div>
+              </div>
+            </div>
+            <aside class="hssf-callout hssf-callout--info">
+              <p class="hssf-callout__label">Nguyên tắc</p>
+              <p class="hssf-callout__body">Tất cả target nằm chung mạng Docker <code>quickbite-net</code>. Prometheus
+                gọi qua DNS nội bộ.</p>
+            </aside>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 8: Section 02 Divider                                   -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--section" data-hssf-slide data-hssf-label="Sec-02" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <div class="hssf-section-block">
+              <span class="hssf-section-block__num">02</span>
+              <h2 class="hssf-section-block__title">Spring Boot Actuator &amp; Micrometer</h2>
+            </div>
+          </div>
+          <footer class="hssf-footer hssf-footer--light">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 9: Actuator-Role                                        -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Actuator-Role"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Spring Boot Actuator + Micrometer</h2>
+            </header>
+            <div class="hssf-columns hssf-columns--2">
+              <div class="hssf-columns__col hssf-stack">
+                <div class="hssf-defs">
+                  <div class="hssf-defs__row" data-hssf-fragment>
+                    <dt>Actuator</dt>
+                    <dd>Module sẵn có: <code>/actuator/health</code>, <code>/actuator/metrics</code></dd>
+                  </div>
+                  <div class="hssf-defs__row" data-hssf-fragment>
+                    <dt>Micrometer</dt>
+                    <dd>Lớp trung gian dịch metrics → định dạng Prometheus</dd>
+                  </div>
+                  <div class="hssf-defs__row" data-hssf-fragment>
+                    <dt>Endpoint</dt>
+                    <dd><code>/actuator/prometheus</code> → Plain text chuẩn hóa</dd>
+                  </div>
+                </div>
+              </div>
+              <div class="hssf-columns__col">
+                <div class="hssf-flow hssf-flow--col">
+                  <div class="hssf-flow__node hssf-flow__node--sm">JVM Metrics</div>
+                  <span class="hssf-flow__edge" aria-hidden="true">
+                    <span class="hssf-flow__line"></span>
+                    <span class="hssf-arrow hssf-arrow--down"></span>
+                  </span>
+                  <div class="hssf-flow__node hssf-flow__node--soft hssf-flow__node--sm">Actuator</div>
+                  <span class="hssf-flow__edge" aria-hidden="true">
+                    <span class="hssf-flow__line"></span>
+                    <span class="hssf-arrow hssf-arrow--down"></span>
+                  </span>
+                  <div class="hssf-flow__node hssf-flow__node--soft hssf-flow__node--sm">Micrometer</div>
+                  <span class="hssf-flow__edge" aria-hidden="true">
+                    <span class="hssf-flow__line"></span>
+                    <span class="hssf-arrow hssf-arrow--down"></span>
+                  </span>
+                  <div class="hssf-flow__node hssf-flow__node--primary hssf-flow__node--sm">/actuator/prometheus</div>
+                </div>
+              </div>
+            </div>
+            <aside class="hssf-callout hssf-callout--info" data-hssf-fragment>
+              <p class="hssf-callout__label">Ghi nhớ</p>
+              <p class="hssf-callout__body">Micrometer = SLF4J cho metrics — lớp trừu tượng đo đạc trung gian.</p>
+            </aside>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 10: Code-Gradle                                         -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Code-Gradle"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Cấu hình mã nguồn</h2>
+              <p class="hssf-header__subtitle">build.gradle &amp; application.yml</p>
+            </header>
+            <div class="hssf-columns hssf-columns--2">
+              <div class="hssf-columns__col">
+                <div class="hssf-code">
+                  <div class="hssf-code__header">
+                    <span class="hssf-code__filename">build.gradle</span>
+                    <span class="hssf-code__lang">groovy</span>
+                  </div>
+                  <pre class="hssf-code__pre"><code class="hssf-code__code language-groovy">dependencies {
+    // Actuator thu thập thông số JVM
+    implementation 'org.springframework.boot:
+        spring-boot-starter-actuator'
+
+    // Dịch metrics sang Prometheus
+    implementation 'io.micrometer:
+        micrometer-registry-prometheus'
+}</code></pre>
+                </div>
+              </div>
+              <div class="hssf-columns__col">
+                <div class="hssf-code">
+                  <div class="hssf-code__header">
+                    <span class="hssf-code__filename">application.yml</span>
+                    <span class="hssf-code__lang">yaml</span>
+                  </div>
+                  <pre class="hssf-code__pre"><code class="hssf-code__code language-yaml">management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+  metrics:
+    tags:
+      application:
+        ${spring.application.name}</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 11: Security-Endpoint                                   -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Security-Endpoint"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Bảo mật Endpoint Actuator trên Production</h2>
+            </header>
+            <div class="hssf-compare">
+              <div class="hssf-compare__col hssf-compare__col--cons">
+                <h3 class="hssf-compare__title">SAI — Mở toang</h3>
+                <ul class="hssf-list">
+                  <li><code>include: "*"</code> → Expose hết endpoint</li>
+                  <li data-hssf-fragment><code>/actuator/env</code> → Lộ password DB, JWT Secret</li>
+                  <li data-hssf-fragment><code>/actuator/shutdown</code> → Tắt app từ xa</li>
+                </ul>
+              </div>
+              <div class="hssf-compare__col hssf-compare__col--pros">
+                <h3 class="hssf-compare__title">ĐÚNG — Chọn lọc</h3>
+                <ul class="hssf-list">
+                  <li>Chỉ mở <code>health, prometheus</code></li>
+                  <li data-hssf-fragment>Chặn port 8081/8083 bằng UFW</li>
+                  <li data-hssf-fragment>Chỉ Prometheus container nội bộ mới kéo được</li>
+                </ul>
+              </div>
+            </div>
+            <aside class="hssf-callout hssf-callout--danger" data-hssf-fragment>
+              <p class="hssf-callout__label">Lưu ý</p>
+              <p class="hssf-callout__body">Expose <code>include: "*"</code> trên Production = Phơi bày toàn bộ sơ đồ
+                kiến trúc cho hacker.</p>
+            </aside>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 12: Section 03 Divider                                  -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--section" data-hssf-slide data-hssf-label="Sec-03" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <div class="hssf-section-block">
+              <span class="hssf-section-block__num">03</span>
+              <h2 class="hssf-section-block__title">Triển khai Prometheus bằng Docker Compose</h2>
+            </div>
+          </div>
+          <footer class="hssf-footer hssf-footer--light">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 13: Config-Prom                                         -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Config-Prom"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Cấu trúc <code>prometheus.yml</code></h2>
+            </header>
+            <div class="hssf-columns hssf-columns--1-2">
+              <div class="hssf-columns__col hssf-stack">
+                <div class="hssf-defs">
+                  <div class="hssf-defs__row">
+                    <dt><code>scrape_interval</code></dt>
+                    <dd>Chu kỳ kéo metrics (15s)</dd>
+                  </div>
+                  <div class="hssf-defs__row" data-hssf-fragment>
+                    <dt><code>job_name</code></dt>
+                    <dd>Tên nhóm target</dd>
+                  </div>
+                  <div class="hssf-defs__row" data-hssf-fragment>
+                    <dt><code>metrics_path</code></dt>
+                    <dd>Đường dẫn endpoint</dd>
+                  </div>
+                  <div class="hssf-defs__row" data-hssf-fragment>
+                    <dt><code>targets</code></dt>
+                    <dd>Danh sách DNS:Port</dd>
+                  </div>
+                </div>
+              </div>
+              <div class="hssf-columns__col">
+                <div class="hssf-code">
+                  <div class="hssf-code__header">
+                    <span class="hssf-code__filename">prometheus.yml</span>
+                    <span class="hssf-code__lang">yaml</span>
+                  </div>
+                  <pre class="hssf-code__pre"><code class="hssf-code__code language-yaml">global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'quickbite-backend'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets:
+          - 'user-service:8081'
+          - 'order-service:8083'</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 14: Code-Compose                                        -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Code-Compose"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Docker Compose cho Prometheus</h2>
+              <p class="hssf-header__subtitle">Volume + Network, không expose port 9090</p>
+            </header>
+            <div class="hssf-code">
+              <div class="hssf-code__header">
+                <span class="hssf-code__filename">docker-compose.yml</span>
+                <span class="hssf-code__lang">yaml</span>
+              </div>
+              <pre class="hssf-code__pre"><code class="hssf-code__code language-yaml">prometheus:
+  image: prom/prometheus:v2.45.0
+  container_name: quickbite-prometheus
+  volumes:
+    - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    - prometheus-data:/prometheus
+  command:
+    - '--config.file=/etc/prometheus/prometheus.yml'
+    - '--storage.tsdb.path=/prometheus'
+  networks:
+    - quickbite-net
+  # KHÔNG expose 9090 ra ngoài host</code></pre>
+            </div>
+            <aside class="hssf-callout hssf-callout--warning">
+              <p class="hssf-callout__label">Cảnh báo</p>
+              <p class="hssf-callout__body">Giao diện web Prometheus <strong>KHÔNG có authentication</strong>. Expose
+                port 9090 = bất kỳ ai cũng truy cập và xóa dữ liệu.</p>
+            </aside>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 15: Section 04 Divider                                  -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--section" data-hssf-slide data-hssf-label="Sec-04" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <div class="hssf-section-block">
+              <span class="hssf-section-block__num">04</span>
+              <h2 class="hssf-section-block__title">Node Exporter — Giám sát phần cứng VPS</h2>
+            </div>
+          </div>
+          <footer class="hssf-footer hssf-footer--light">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 16: What-NodeExp                                        -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="What-NodeExp"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Node Exporter là gì?</h2>
+              <p class="hssf-header__subtitle">Agent giám sát cấp hệ điều hành</p>
+            </header>
+            <div class="hssf-columns hssf-columns--2">
+              <div class="hssf-columns__col hssf-stack">
+                <ul class="hssf-list">
+                  <li>Agent chính thức Prometheus cho Linux</li>
+                  <li data-hssf-fragment>Đo: CPU load, RAM, Disk I/O, Network</li>
+                  <li data-hssf-fragment>Cổng <code>9100</code>, endpoint <code>/metrics</code></li>
+                </ul>
+              </div>
+              <div class="hssf-columns__col hssf-stack">
+                <div class="hssf-heading">
+                  <p class="hssf-heading__kicker">Cơ chế</p>
+                  <h2 class="hssf-heading__title">Mount Read-Only</h2>
+                </div>
+                <ul class="hssf-list">
+                  <li><code>/proc → /host/proc:ro</code> — Tiến trình &amp; RAM</li>
+                  <li data-hssf-fragment><code>/sys → /host/sys:ro</code> — Phần cứng kernel</li>
+                  <li data-hssf-fragment><code>/ → /rootfs:ro</code> — Dung lượng ổ đĩa</li>
+                </ul>
+              </div>
+            </div>
+            <aside class="hssf-callout hssf-callout--info">
+              <p class="hssf-callout__label">Ghi nhớ</p>
+              <p class="hssf-callout__body">Bắt buộc mount <code>:ro</code> (Read-Only). Container chỉ đọc thông số,
+                không can thiệp hệ thống host.</p>
+            </aside>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 17: Table-Compare                                       -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Table-Compare"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <div class="hssf-heading">
+              <p class="hssf-heading__kicker">So sánh</p>
+              <h2 class="hssf-heading__title">Node Exporter vs Spring Boot Actuator</h2>
+            </div>
+            <table class="hssf-table hssf-table--striped">
+              <thead>
+                <tr>
+                  <th>Tiêu chí</th>
+                  <th>Node Exporter</th>
+                  <th>Actuator</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Phạm vi</td>
+                  <td>Hệ điều hành VPS</td>
+                  <td>Máy ảo JVM</td>
+                </tr>
+                <tr data-hssf-fragment>
+                  <td>Chỉ số</td>
+                  <td>CPU, RAM vật lý, Disk, Network</td>
+                  <td>Heap, GC Pauses, HTTP Requests</td>
+                </tr>
+                <tr data-hssf-fragment>
+                  <td>Cài đặt</td>
+                  <td>1 instance / VPS</td>
+                  <td>Tích hợp vào từng microservice</td>
+                </tr>
+                <tr data-hssf-fragment>
+                  <td>Endpoint</td>
+                  <td><code>:9100/metrics</code></td>
+                  <td><code>:PORT/actuator/prometheus</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 18: Code-NodeExp                                        -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Code-NodeExp"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Tích hợp Node Exporter</h2>
+            </header>
+            <div class="hssf-columns hssf-columns--2">
+              <div class="hssf-columns__col">
+                <div class="hssf-code">
+                  <div class="hssf-code__header">
+                    <span class="hssf-code__filename">docker-compose.yml</span>
+                    <span class="hssf-code__lang">yaml</span>
+                  </div>
+                  <pre class="hssf-code__pre"><code class="hssf-code__code language-yaml">node-exporter:
+  image: prom/node-exporter:v1.6.0
+  volumes:
+    - /proc:/host/proc:ro
+    - /sys:/host/sys:ro
+    - /:/rootfs:ro
+  command:
+    - '--path.procfs=/host/proc'
+    - '--path.sysfs=/host/sys'
+  networks:
+    - quickbite-net</code></pre>
+                </div>
+              </div>
+              <div class="hssf-columns__col">
+                <div class="hssf-code">
+                  <div class="hssf-code__header">
+                    <span class="hssf-code__filename">prometheus.yml</span>
+                    <span class="hssf-code__lang">yaml</span>
+                  </div>
+                  <pre class="hssf-code__pre"><code class="hssf-code__code language-yaml">- job_name: 'vps-hardware'
+  metrics_path: '/metrics'
+  static_configs:
+    - targets:
+        - 'node-exporter:9100'</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 19: Summary                                             -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Summary" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Tổng kết Session 13</h2>
+              <p class="hssf-header__subtitle">Hệ thống giám sát Prometheus hoàn chỉnh</p>
+            </header>
+            <ul class="hssf-list">
+              <li>Prometheus Pull-based — chủ động kéo metrics, phát hiện target DOWN</li>
+              <li data-hssf-fragment>Actuator + Micrometer → endpoint <code>/actuator/prometheus</code> chuẩn hóa</li>
+              <li data-hssf-fragment><code>prometheus.yml</code> dùng DNS nội bộ Docker, không dùng IP cứng</li>
+              <li data-hssf-fragment>Node Exporter mount Read-Only — giám sát CPU/RAM/Disk VPS</li>
+              <li data-hssf-fragment>Không expose port 9090 / không mở <code>include: "*"</code> trên Production</li>
+            </ul>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 20: End                                                 -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--section" data-hssf-slide data-hssf-label="End" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <div class="hssf-brand-end">
+              <p class="hssf-brand-end__kicker">DEVOPS IN ACTION</p>
+              <h2 class="hssf-brand-end__title">HỌC VIỆN ĐÀO TẠO LẬP TRÌNH CHẤT LƯỢNG NHẬT BẢN</h2>
+              <p class="hssf-brand-end__org">Rikkei Education</p>
+            </div>
+          </div>
+          <footer class="hssf-footer hssf-footer--light hssf-footer--nopage">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+      </div>
+    </div>
+
+    <nav class="hssf-nav" data-hssf-nav aria-label="Slide navigation">
+      <button type="button" class="hssf-nav__btn" data-hssf-prev aria-label="Previous">
+        ‹
+      </button>
+      <span class="hssf-nav__counter" data-hssf-counter>1 / 20</span>
+      <button type="button" class="hssf-nav__btn" data-hssf-next aria-label="Next">
+        ›
+      </button>
+      <button type="button" class="hssf-nav__btn" data-hssf-fullscreen aria-label="Fullscreen">
+        ⛶
+      </button>
+    </nav>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hssf-slides@0.3.0/dist/hssf.min.js" defer></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      window.HSSF.init(document.querySelector("[data-hssf-canvas]"));
+    });
+  </script>
+</body>
+
+</html>

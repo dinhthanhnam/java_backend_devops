@@ -69,11 +69,10 @@ Session 12    Hệ thống kiến thức Session 10,11
 
 Session 13    Giám sát hệ thống với Prometheus    
 
-Lesson 01    Khái niệm giám sát hệ thống và metrics
-Lesson 02    Kiến trúc và cơ chế hoạt động của Prometheus
-Lesson 03    Triển khai Prometheus bằng Docker Compose
-Lesson 04    Spring Boot Actuator và endpoint metrics
-Lesson 05    Node Exporter để giám sát VPS
+Lesson 01    Khái niệm giám sát hệ thống (metrics) và Kiến trúc và cơ chế hoạt động của Prometheus
+Lesson 02    Tích hợp Spring Boot Actuator và cấu hình xuất chỉ số (Metrics Exposure)
+Lesson 03    Triển khai Prometheus bằng Docker Compose thu thập chỉ số Backend
+Lesson 04    Triển khai Node Exporter giám sát tài nguyên VPS
 
 Session 14    Tạo dashboard với Grafana
 
