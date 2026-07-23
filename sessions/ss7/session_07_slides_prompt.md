@@ -265,3 +265,11 @@ jobs:
   ```
 * **Bản chất lỗi:** Việc biên dịch lớp đã hoàn tất nhưng giá trị khẳng định logic (Assertion) trong file test bị sai lệch, cơ chế Gradle kích hoạt "Fail-fast" để hủy bỏ việc tạo tệp JAR bị lỗi.
 * **Cách khắc phục:** Rà soát lại logic nghiệp vụ hoặc sửa lại assertion trong file test cho đúng thiết kế.
+
+#### Slide 18: Tổng kết bài học
+* **Tự động hóa CI/CD:** Thay thế quy trình đóng gói và kiểm tra thủ công tại máy local bằng quy trình tự động hóa tập trung trên máy chủ CI.
+* **Kiến trúc Server - Runner:** Giao tiếp qua giao thức Long-polling an toàn, Runner chủ động kéo job về chạy và trả log mà không cần mở cổng inbound.
+* **Cấu trúc kịch bản YAML:** Lưu trữ bắt buộc tại thư mục `.github/workflows/`, chú ý phân cấp thụt lề bằng khoảng trắng và cấm sử dụng phím Tab.
+* **Điều phối Jobs:** Mặc định chạy song song, sử dụng từ khóa `needs` để ràng buộc tuần tự và tận dụng cơ chế cô lập Job (Job Isolation).
+* **Đóng gói Spring Boot:** Sử dụng Gradle Wrapper (`gradlew`) thống nhất phiên bản và lưu trữ tệp JAR thành phẩm qua Action Upload-Artifact.
+* **Chẩn đoán log console:** Tìm đúng step lỗi có dấu X đỏ, kiểm tra Exit Code (ví dụ: 126 là thiếu quyền thực thi) và Error Trace để sửa lỗi.
