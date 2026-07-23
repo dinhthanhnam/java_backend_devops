@@ -1,378 +1,267 @@
-# HƯỚNG DẪN CẤU TRÚC VÀ NỘI DUNG SLIDE (HSSF) - SESSION 07
-## CHỦ ĐỀ: TỰ ĐỘNG HÓA QUY TRÌNH CI/CD VỚI GITHUB ACTIONS
+# PROMPT CHO GAMMA: AUTOMATION CI/CD WITH GITHUB ACTIONS (SESSION 7)
 
-Tài liệu này cung cấp thiết kế chi tiết từng slide theo chuẩn **HSSF (HTML Slide System Framework)** của Rikkei Education. Mỗi slide được định nghĩa rõ ràng về nhãn (`data-hssf-label`), cấu trúc layout component, nội dung hiển thị (tiếng Việt), các đoạn mã (code) và nội dung thuyết trình (Speaker Notes).
-
----
-
-## I. BẢN ĐỒ SLIDE (SLIDE MAP)
-
-| # | `data-hssf-label` | Chủ đề Slide (Focus) | HSSF Components chính |
-|---|-------------------|----------------------|-----------------------|
-| 1 | Title | Tiêu đề chính | `hssf-slide--title`, `hssf-title-block` |
-| 2 | Agenda | Lộ trình buổi học | `hssf-header`, `hssf-agenda` |
-| 3 | Sec-01 | Phân đoạn 01: Giới thiệu GitHub Actions | `hssf-slide--section`, `hssf-section-block` |
-| 4 | Pain-Manual | Hạn chế của việc build & kiểm thử thủ công | `hssf-compare`, `hssf-callout--danger` |
-| 5 | Concept-CICD | CI/CD là gì? | `hssf-grid`, `hssf-card` |
-| 6 | Flow-Architecture | Kiến trúc điều phối Server - Runner | `hssf-columns--2`, `hssf-flow` |
-| 7 | Runner-Types | Phân loại Runner: Hosted vs Self-hosted | `hssf-compare`, `hssf-callout--info` |
-| 8 | Sec-02 | Phân đoạn 02: Cấu trúc Workflow | `hssf-slide--section`, `hssf-section-block` |
-| 9 | Workflow-Syntax | Cấu trúc file yaml của Workflow | `hssf-columns`, `hssf-code`, `hssf-defs` |
-| 10 | Workflow-Demo | File YAML Workflow cơ bản đầu tiên | `hssf-code`, `hssf-callout--success` |
-| 11 | Sec-03 | Phân đoạn 03: Điều phối và Phân tách Jobs | `hssf-slide--section`, `hssf-section-block` |
-| 12 | Job-Dependency | Cơ chế phụ thuộc giữa các Jobs (needs) | `hssf-columns`, `hssf-flow` |
-| 13 | Matrix-Strategy | Cấu hình Matrix Strategy | `hssf-columns`, `hssf-code`, `hssf-list` |
-| 14 | Sec-04 | Phân đoạn 04: Biên dịch tự động Spring Boot | `hssf-slide--section`, `hssf-section-block` |
-| 15 | Gradle-Build | Workflow biên dịch Spring Boot với Gradle | `hssf-code`, `hssf-callout--warning` |
-| 16 | Cache-Gradle | Cơ chế Cache Dependency trong CI/CD | `hssf-compare`, `hssf-callout--tip` |
-| 17 | Sec-05 | Phân đoạn 05: Debug và Quản trị Log | `hssf-slide--section`, `hssf-section-block` |
-| 18 | Debug-Log | Chẩn đoán sự cố & Debug log trong CI/CD | `hssf-steps`, `hssf-list` |
-| 19 | Summary | Tổng kết bài học | `hssf-header`, `hssf-list` |
-| 20 | End | Kết thúc slide | `hssf-brand-end` |
+## 1. CONTEXT & ROLE
+* **Role:** DevOps Architect kiêm Giảng viên cao cấp. Giọng điệu chuyên nghiệp, trực diện, đi thẳng vào bản chất kỹ thuật và thực tiễn vận hành hệ thống.
+* **Target Audience:** Kỹ sư phần mềm, học viên đang học cách tự động hóa quy trình tích hợp mã nguồn (CI) cho hệ thống Spring Boot Microservices (dự án QuickBite).
+* **Objective:** Giải thích bản chất CI/CD, kiến trúc phân tán giữa GitHub Server và Runner (giao tiếp REST API / Long-polling), Hosted vs Self-hosted runner, cấu trúc thư mục và cú pháp tệp YAML, cơ chế chạy song song (Parallel) mặc định và cách chuyển sang chạy tuần tự (Sequential) bằng từ khóa `needs`, cơ chế cô lập Job (Job Isolation), quy trình đóng gói Spring Boot bằng Gradle Wrapper (`gradlew`), và quy trình 4 bước chẩn đoán lỗi console qua các kịch bản thực tế (Permission denied, Compilation failed, Test failed).
 
 ---
 
-## II. CHI TIẾT CẤU TRÚC VÀ NỘI DUNG TỪNG SLIDE
-
-### SLIDE 1: Title
-* **HSSF Classes:** `hssf-slide hssf-slide--title`
-* **Layout / Components:**
-  * `hssf-title-block` có `hssf-accent--bar-left`
-  * Eyebrow: `SESSION 07 · DEVOPS IN ACTION`
-  * Title: `Tự động hóa quy trình CI/CD với GitHub Actions`
-  * Meta: `Rikkei Academy · Bộ môn DevOps`
-* **Speaker Notes:** Chào các bạn học viên. Hôm nay chúng ta bước sang Session 07 để nghiên cứu một chủ đề cực kỳ quan trọng trong DevOps: tự động hóa quy trình kiểm thử và biên dịch (CI) sử dụng công cụ GitHub Actions.
-
----
-
-### SLIDE 2: Agenda
-* **HSSF Classes:** `hssf-slide hssf-slide--content`
-* **Layout / Components:**
-  * `hssf-header` (Title: "Nội dung bài học", Subtitle: "5 phần trọng tâm về CI/CD")
-  * `hssf-agenda`:
-    * Lộ trình 1: Tổng quan về CI/CD và kiến trúc Runner
-    * Lộ trình 2: Xây dựng cấu trúc Workflow CI/CD cơ bản (YAML)
-    * Lộ trình 3: Cơ chế điều phối và phân tách Jobs
-    * Lộ trình 4: Thực hành: Tự động biên dịch Spring Boot bằng Gradle
-    * Lộ trình 5: Chẩn đoán sự cố và quản trị log hệ thống CI/CD
-* **Speaker Notes:** Lộ trình bài học gồm 5 phần. Chúng ta đi từ lý thuyết tổng quan, cấu pháp file cấu hình, cách chia nhỏ job, biên dịch thực tế app Spring Boot, và cuối cùng là kỹ năng debug pipeline.
+## 2. PARTITION INSTRUCTIONS
+* **Số lượng slide khuyến nghị:** 15 - 18 slides.
+* **Nguyên tắc phân bổ nội dung:**
+  * **LESSON 01 (Tổng quan & Runner):** Hạn chế của việc build thủ công, định nghĩa CI/CD, kiến trúc điều phối Server - Runner (Long-polling) và so sánh Hosted vs Self-hosted runner.
+  * **LESSON 02 (Workflow YAML):** Thư mục ẩn bắt buộc `.github/workflows/`, cú pháp YAML cơ bản (thụt lề khoảng trắng, cấm dùng Tab), các từ khóa nền tảng (`name`, `on`, `env`, `jobs`, `runs-on`, `steps`, `uses`, `run`), và viết file workflow in thông tin môi trường.
+  * **LESSON 03 (Job Coordination & Isolation):** Luồng chạy song song mặc định của các jobs, từ khóa `needs` để thiết lập luồng tuần tự, cơ chế cô lập job (Job Isolation), và viết workflow 3 jobs mô phỏng (2 job song song thu thập thông tin, 1 job in kết quả).
+  * **LESSON 04 (Biên dịch Spring Boot với Gradle):** Giới hạn tài nguyên Hosted runner, tối ưu hóa pipeline dưới 1.5 phút bằng cách bỏ qua test (`bootJar`), cấp quyền thực thi `chmod +x ./gradlew`, fallback cấu hình database trong `application.yml`, và lưu trữ thành phẩm bằng `actions/upload-artifact@v4`.
+  * **LESSON 05 (Chẩn đoán sự cố & Log):** Vị trí đọc log console, quy trình 4 bước rà soát lỗi hệ thống, chẩn đoán 3 kịch bản lỗi thực tế (Permission denied - exit code 126, compile FAILED - exit code 1, test FAILED - exit code 1).
+  * **Độ thoáng đãng:** Trình bày ngắn gọn, súc tích, đi thẳng vào bản chất kỹ thuật. Loại bỏ hoàn toàn các câu từ suồng sã.
 
 ---
 
-### SLIDE 3: Sec-01 (Divider)
-* **HSSF Classes:** `hssf-slide hssf-slide--section`
-* **Layout / Components:**
-  * `hssf-section-block`
-  * Big Number: `01`
-  * Title: `Tổng quan GitHub Actions & Kiến trúc Runner`
-* **Speaker Notes:** Phần 1: Tìm hiểu khái niệm CI/CD và cách GitHub Actions phân tách nhiệm vụ giữa máy chủ điều phối và máy chủ thực thi (Runner).
+## 3. HIERARCHICAL OUTLINE (DÀN Ý CHI TIẾT)
+
+### LESSON 01: Tổng quan GitHub Actions và Kiến trúc Runner
+
+#### Slide 1: Sự bế tắc của việc biên dịch và kiểm thử thủ công
+* **Vấn đề thực tế trong dự án QuickBite:**
+  * Mỗi khi cập nhật mã nguồn (ví dụ: sửa đổi logic trong `user-service`), lập trình viên phải chạy unit test cục bộ, biên dịch thủ công ra file JAR (`./gradlew bootJar`) trước khi push lên Git.
+  * **Thách thức:** Lập trình viên thường bỏ qua các bước kiểm tra, trực tiếp push code lỗi lên Git khiến code gãy biên dịch vẫn được merge vào nhánh chính.
+  * Môi trường không nhất quán: "Chạy tốt trên máy tôi" nhưng sập trên máy người khác do lệch phiên bản JDK (17 vs 21).
+* **Giải pháp:** Thiết lập hệ thống kiểm thử và biên dịch tự động, tập trung hóa trên một máy chủ độc lập (CI/CD).
+
+#### Slide 2: Khái niệm cốt lõi CI/CD
+* **Continuous Integration (CI - Tích hợp liên tục):**
+  * Tự động hóa khâu kéo code mới, kiểm tra chất lượng cú pháp (Linter), biên dịch ứng dụng và chạy bộ Unit/Integration tests.
+  * Mục tiêu: Đảm bảo code mới tích hợp vào kho lưu trữ luôn ở trạng thái biên dịch thành công.
+* **Continuous Delivery / Deployment (CD - Chuyển giao/Triển khai liên tục):**
+  * Delivery: Tự động đóng gói (JAR, Docker image) và đẩy lên registry. Deploy lên môi trường Staging/Production cần xác nhận thủ công.
+  * Deployment: Tự động hóa hoàn toàn khâu triển khai lên Production không qua can thiệp vật lý.
+
+#### Slide 3: Kiến trúc điều phối Server - Runner
+* **Sơ đồ luồng giao tiếp:**
+  ```text
+  [ GitHub Server (Web UI/Repo) ] <─── ( REST API via Long-Polling ) ───> [ Actions Runner (Agent VM/OS) ]
+                                                                                   │
+                                                                           (Thực thi Jobs)
+                                                                                   ▼
+                                                                           [ Môi trường Host ]
+  ```
+* **Thành phần điều phối:**
+  * **GitHub Server:** Nơi lưu trữ mã nguồn, phát hiện Git events (push, pull request) và điều phối công việc.
+  * **GitHub Actions Runner (Agent):** Tiến trình độc lập chạy trên máy chủ. Nó chủ động gửi request kéo job (long-polling) để thực thi.
+  * *Ưu điểm:* Không cần mở bất kỳ cổng inbound (đầu vào) nào trên máy chủ Runner, chống nguy cơ tấn công mạng.
+
+#### Slide 4: Phân loại Runner: Hosted vs Self-hosted
+* **So sánh đặc thù tài nguyên:**
+  * **GitHub-hosted runner:**
+    * Do GitHub quản lý, khởi tạo máy ảo mới tinh sạch sẽ cho mỗi job (Linux, Windows hoặc macOS).
+    * Bị giới hạn cấu hình phần cứng (thường 2 vCPU, 7GB RAM) và giới hạn thời gian chạy miễn phí.
+  * **Self-hosted runner:**
+    * Máy ảo/VPS hoặc máy vật lý do người dùng tự cài đặt ứng dụng Runner và đăng ký vào GitHub repository.
+    * Quyền kiểm soát hoàn toàn về phần cứng, giữ được cache cục bộ giúp build nhanh hơn, không bị tính phí thời gian chạy.
 
 ---
 
-### SLIDE 4: Pain-Manual (Hạn chế build thủ công)
-* **HSSF Classes:** `hssf-slide hssf-slide--content`
-* **Layout / Components:**
-  * `hssf-header` (Title: "Vấn đề của quy trình thủ công", Subtitle: "Tại sao không nên tự build & test ở local?")
-  * `hssf-compare` chia 2 cột:
-    * Cột Trái (Quy trình thủ công & rủi ro):
-      * Lập trình viên quên chạy test hoặc build thử trước khi push.
-      * Code lỗi biên dịch vẫn được merge vào nhánh chính.
-      * "Chạy tốt trên máy tôi" — Xung đột phiên bản JDK giữa các máy.
-    * Cột Phải (Hệ thống CI/CD tự động):
-      * Tự động chạy test & build tập trung mỗi khi push code mới.
-      * Chặn merge code nếu build lỗi.
-      * Đảm bảo môi trường biên dịch đồng nhất (Docker/VM chuẩn).
-  * `hssf-callout--danger` ở chân slide: "Hệ thống CI/CD giúp loại bỏ hoàn toàn yếu tố chủ quan của con người trong khâu kiểm soát chất lượng code."
-* **Speaker Notes:** Rủi ro lớn nhất của build thủ công là dev quên chạy test hoặc môi trường của dev khác với production. CI/CD giải quyết việc này bằng cách tự động chạy test tập trung trên server sạch.
+### LESSON 02: Xây dựng cấu trúc Workflow CI/CD cơ bản
+
+#### Slide 5: Quy định cấu trúc thư mục và cú pháp YAML
+* **Thư mục workflows bắt buộc:**
+  * GitHub Actions yêu cầu tất cả các tệp tin cấu hình Workflow (ví dụ: `ci.yml`) phải được đặt trong thư mục ẩn có đường dẫn chuẩn xác là `.github/workflows/` tính từ thư mục gốc của repository.
+* **Quy tắc cú pháp YAML cơ bản:**
+  * Định nghĩa dữ liệu theo cặp `key: value` (bắt buộc có khoảng trắng sau dấu `:`).
+  * Phân cấp cấu trúc bằng **thụt lề bằng khoảng trắng (spaces)**.
+  * *Cảnh báo:* Nghiêm cấm sử dụng phím Tab để thụt lề (gây lỗi cú pháp YAML syntax error). Sử dụng dấu gạch ngang `-` kèm khoảng trắng để biểu diễn mảng (danh sách).
+
+#### Slide 6: Phân cấp cấu trúc Workflow
+* **Cây phân cấp của luồng thực thi:**
+  * **Workflow:** Toàn bộ kịch bản tích hợp tự động hóa (lưu tại `.github/workflows/`).
+  * **Jobs:** Tập hợp các công việc. Các job mặc định chạy song song và độc lập trên các Runner khác nhau.
+  * **Steps:** Các bước chạy tuần tự trong 1 Job. Tất cả step của 1 job chạy trên cùng 1 Runner và chia sẻ chung thư mục làm việc.
+  * **Actions:** Các khối lệnh viết sẵn được đóng gói lại (gọi qua từ khóa `uses`), ví dụ clone mã nguồn, cài JDK.
+  * **Run:** Thực thi các lệnh shell command thông thường (ví dụ: `run: java -version`).
+
+#### Slide 7: Các từ khóa cú pháp nền tảng
+* **Từ khóa điều phối:**
+  * `name`: Tên của workflow hiển thị trên giao diện GitHub Actions.
+  * `on`: Định nghĩa các sự kiện kích hoạt (ví dụ: `push` hoặc `pull_request` lọc theo nhánh).
+  * `env`: Khai báo biến môi trường dùng chung trong workflow.
+* **Định nghĩa Jobs và Steps:**
+  * `jobs`: Chứa một hoặc nhiều công việc chạy song song.
+  * `runs-on`: Hệ điều hành hoặc nhãn (label) của Runner thực thi (ví dụ: `[self-hosted, quickbite]`).
+  * `steps`: Các bước chạy tuần tự trong job. Sử dụng `uses` để gọi action đóng gói sẵn (như `actions/checkout@v5` để clone code, `actions/setup-java@v5` để cài JDK), hoặc `run` để thực thi shell script.
+
+#### Slide 8: Thực hành viết file Workflow in thông tin môi trường
+* Mã nguồn tệp `.github/workflows/ci.yml` của dự án `user-service`:
+```yaml
+name: Print Environment Info
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_NAME: "QuickBite-User-Service"
+
+jobs:
+  print_env_job:
+    runs-on: [self-hosted, quickbite]
+    steps:
+      - name: Lấy mã nguồn về máy Runner
+        uses: actions/checkout@v5
+        
+      - name: Thiết lập môi trường Java 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          
+      - name: In thông tin môi trường
+        run: |
+          echo "Chuẩn bị in thông tin môi trường cho dự án ${PROJECT_NAME}..."
+          java -version
+          echo "Nhánh Git đang chạy workflow là ${GITHUB_REF_NAME}"
+```
+* **Biến môi trường mặc định:** `GITHUB_REF_NAME` là biến do hệ thống tự động tiêm vào môi trường của Runner, không cần khai báo trong khối `env`.
 
 ---
 
-### SLIDE 5: Concept-CICD (Khái niệm CI/CD)
-* **HSSF Classes:** `hssf-slide hssf-slide--content`
-* **Layout / Components:**
-  * `hssf-header` (Title: "Khái niệm CI/CD", Subtitle: "Trái tim của quy trình vận hành DevOps")
-  * `hssf-grid--2` chứa 4 card `hssf-card--outline`:
-    * Card 1: Icon `🔄` | Title: Continuous Integration (CI) | Body: Tự động hợp nhất code mới, chạy lint, biên dịch (compile) và chạy unit tests.
-    * Card 2: Icon `📦` | Title: Continuous Delivery (CD) | Body: Đóng gói sản phẩm (JAR, Docker image) và sẵn sàng để deploy lên môi trường staging/production.
-    * Card 3: Icon `🚀` | Title: Continuous Deployment | Body: Tự động triển khai code mới lên thẳng production mà không cần phê duyệt thủ công.
-    * Card 4: Icon `🛠️` | Title: Automation Tool | Body: GitHub Actions tích hợp sâu vào GitHub repository, giúp kích hoạt pipeline từ các event của Git.
-* **Speaker Notes:** CI là tích hợp liên tục (tập trung vào build/test). CD có hai nhánh: Continuous Delivery (sẵn sàng deploy) và Continuous Deployment (tự động triển khai lên Production).
+### LESSON 03: Cơ chế điều phối và phân tách Jobs trong luồng CI/CD
+
+#### Slide 9: Chạy song song mặc định và Chuyển đổi tuần tự bằng `needs`
+* **Hành vi song song (Parallel):**
+  * Các job ngang hàng được khai báo trong workflow sẽ tự động chạy song song cùng lúc nhằm tăng tốc độ xử lý của chu trình CI/CD.
+* **Luồng tuần tự với `needs`:**
+  * Sử dụng từ khóa `needs` để thiết lập sự phụ thuộc giữa các job.
+  * Ví dụ: Job B khai báo `needs: [Job A]`. Job B sẽ bị khóa ở trạng thái pending cho đến khi Job A hoàn thành thành công.
+  * *Chốt chặn bảo mật:* Nếu Job A bị lỗi (Failed), các job phụ thuộc phía sau (Job B) sẽ tự động bị bỏ qua (Skipped) để bảo vệ hệ thống khỏi việc tiếp tục sử dụng code lỗi.
+
+#### Slide 10: Cơ chế cô lập công việc (Job Isolation)
+* **Nguyên lý cô lập:**
+  * Mỗi một job chạy trong một không gian riêng biệt, sạch sẽ.
+  * File và dữ liệu sinh ra tại thư mục cục bộ của Job A sẽ **không** được tự động chia sẻ hay dùng chung bởi Job B.
+  * Để Job B có mã nguồn, bạn bắt buộc phải khai báo lại lệnh `actions/checkout@v5` ở bước thực thi đầu tiên của Job B (lệnh checkout ở Job A không có tác dụng với Job B).
+  * Nếu muốn chia sẻ tệp tin giữa các Job, bắt buộc phải dùng các hành động upload/download artifacts trung gian.
+
+#### Slide 11: Thực hành cấu hình luồng 3 Jobs phụ thuộc
+* Cấu hình workflow gồm `job_info_1` và `job_info_2` chạy song song, sau đó `job_print` phụ thuộc chạy cuối cùng:
+```yaml
+jobs:
+  job_info_1:
+    runs-on: [self-hosted, quickbite]
+    steps:
+      - name: Thu thập thông tin OS
+        run: uname -a
+
+  job_info_2:
+    runs-on: [self-hosted, quickbite]
+    steps:
+      - name: Thu thập thông tin User
+        run: whoami
+
+  job_print:
+    needs: [job_info_1, job_info_2]
+    runs-on: [self-hosted, quickbite]
+    steps:
+      - name: In kết quả
+        run: echo "Chỉ chạy sau khi job_info_1 và job_info_2 thành công."
+```
 
 ---
 
-### SLIDE 6: Flow-Architecture (Kiến trúc Runner)
-* **HSSF Classes:** `hssf-slide hssf-slide--content`
-* **Layout / Components:**
-  * `hssf-header` (Title: "Kiến trúc GitHub Actions Runner")
-  * `hssf-columns hssf-columns--2 hssf-columns--loose hssf-fill hssf-columns--center`:
-    * Cột 1 (Luồng dọc): `hssf-flow hssf-flow--col`
-      * Node 1 (Primary): `GitHub Server (Web/Git)` (sub: Nhận diện git push event)
-      * Edge (labeled: Long-polling / REST) →
-      * Node 2 (Soft): `GitHub Actions Runner` (sub: Máy chủ thực thi công việc)
-      * Edge (labeled: Execute Job) →
-      * Node 3 (Outline): `Môi trường Host OS` (sub: Biên dịch ứng dụng)
-    * Cột 2: `hssf-stack`
-      * Giải thích cơ chế giao tiếp:
-        * **1. Không mở cổng:** Runner chủ động gửi request kéo công việc về (Long-polling), giúp máy chủ build không cần mở cổng SSH ra Internet.
-        * **2. Cô lập:** Runner tải mã nguồn về môi trường riêng để biên dịch rồi gửi log kết quả về cho GitHub Server hiển thị.
-* **Speaker Notes:** Kiến trúc cực kỳ thông minh. Runner liên tục gửi request đến GitHub qua giao thức polling để nhận job. Nhờ vậy, máy chủ Runner nằm trong mạng nội bộ vẫn hoạt động tốt mà không cần mở cổng inbound.
+### LESSON 04: Ứng dụng CI/CD: Biên dịch tự động Spring Boot với Gradle
+
+#### Slide 12: Chuyển dịch quy trình đóng gói JAR từ Local lên CI
+* **Quy trình thủ công trước đây (Local Build):**
+  * Nhà phát triển phải tự cài đặt JDK phù hợp trên máy cá nhân.
+  * Tự chạy lệnh `./gradlew bootJar` ở máy local để biên dịch ra file JAR rồi mới upload thủ công lên máy chủ.
+  * Nhược điểm: Phụ thuộc vào môi trường máy cá nhân, dễ xảy ra lỗi lệch phiên bản JDK.
+* **Quy trình tự động hóa mới (CI Build):**
+  * Đưa toàn bộ quy trình biên dịch và đóng gói JAR vào chạy tự động trên GitHub Actions Server.
+  * Runner tự động chuẩn bị môi trường sạch, cài đặt JDK chuẩn thông qua Action và chạy đóng gói JAR tự động mỗi khi push code.
+  * Để tối ưu tài nguyên trên môi trường Hosted Runner, kịch bản CI sẽ chạy tác vụ `bootJar` (chỉ tập trung đóng gói file JAR thành phẩm) thay vì chạy toàn bộ vòng đời `build` kèm test.
+
+#### Slide 13: Thực hành Workflow biên dịch và lưu trữ Artifact
+* Kịch bản đóng gói ứng dụng `user-service` và tải thành phẩm lên không gian lưu trữ của GitHub:
+```yaml
+name: Build Spring Boot App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_executable_jar:
+    runs-on: [self-hosted, quickbite]
+    steps:
+      - name: Checkout mã nguồn
+        uses: actions/checkout@v5
+        
+      - name: Cài đặt môi trường JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          
+      - name: Cấp quyền thực thi cho Gradle Wrapper
+        run: chmod +x ./gradlew
+        
+      - name: Biên dịch và đóng gói tệp JAR
+        run: ./gradlew bootJar
+        
+      - name: Lưu trữ sản phẩm (Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-service-jar
+          path: build/libs/*.jar
+          retention-days: 3
+```
+* *Đồng bộ JDK:* Nếu là `restaurant-service`, thay đổi tham số `java-version` thành `'21'`.
 
 ---
 
-### SLIDE 7: Runner-Types (Phân loại Runner)
-* **HSSF Classes:** `hssf-slide hssf-slide--content`
-* **Layout / Components:**
-  * `hssf-header` (Title: "Hosted Runner vs Self-hosted Runner")
-  * `hssf-compare`:
-    * Cột Trái (GitHub-hosted Runner):
-      * Do GitHub quản lý hoàn toàn dưới dạng máy ảo (VM).
-      * Máy ảo luôn sạch sẽ (khởi tạo mới tinh cho mỗi job).
-      * Giới hạn cấu hình phần cứng (thường 2 vCPU, 7GB RAM).
-      * Bị tính phí thời gian chạy (sau khi hết quota miễn phí).
-    * Cột Phải (Self-hosted Runner):
-      * Người dùng tự thiết lập trên máy ảo (VM)/VPS hoặc máy vật lý riêng.
-      * Giữ được bộ nhớ đệm (cache) giữa các lần build giúp build nhanh hơn.
-      * Tùy biến cấu hình không giới hạn và hoàn toàn miễn phí thời gian chạy.
-  * `hssf-callout--info`: "Đối với các ứng dụng Java Spring Boot đòi hỏi nhiều RAM khi biên dịch, sử dụng Self-hosted runner là giải pháp tối ưu chi phí."
-* **Speaker Notes:** Hosted runner sạch nhưng cấu hình yếu và giới hạn thời gian chạy. Self-hosted runner do mình tự quản lý, cấu hình mạnh hơn, giữ được cache giúp biên dịch Java nhanh chóng.
+### LESSON 05: Chẩn đoán sự cố và quản trị log hệ thống CI/CD
 
----
+#### Slide 14: Quy trình 4 bước chẩn đoán lỗi Console
+* **Các bước xử lý sự cố chuẩn:**
+  1. **Xác định Job lỗi:** Tìm job có biểu tượng dấu X đỏ trong tab Actions.
+  2. **Truy cập Console Log:** Bấm chọn job bị lỗi, mở rộng step bị sập để đọc log.
+  3. **Phân tích dòng log lỗi:** Cuộn xuống phần cuối log để kiểm tra mã thoát (Exit code) và lần ngược lên trên để đọc thông tin lỗi chi tiết (Error Trace).
+  4. **Sửa lỗi và kiểm chứng cục bộ:** Sửa mã nguồn/cấu hình, chạy kiểm tra cục bộ trước khi push commit mới lên Git.
 
-### SLIDE 8: Sec-02 (Divider)
-* **HSSF Classes:** `hssf-slide hssf-slide--section`
-* **Layout / Components:**
-  * `hssf-section-block`
-  * Big Number: `02`
-  * Title: `Xây dựng cấu trúc Workflow CI/CD cơ bản`
-* **Speaker Notes:** Phần 2: Tìm hiểu cấu trúc và cú pháp của tệp cấu hình YAML (`.github/workflows/*.yml`) để định nghĩa pipeline.
+#### Slide 15: Kịch bản lỗi 1 - Lỗi phân quyền Wrapper (Permission Denied)
+* **Dấu hiệu nhận biết trong log console:**
+  ```text
+  Run ./gradlew bootJar
+  /home/runner/work/_temp/...: line 2: ./gradlew: Permission denied
+  Error: Process completed with exit code 126.
+  ```
+* **Bản chất lỗi:** Tệp `./gradlew` bị mất thuộc tính quyền thực thi (execute bit) do được viết trên Windows và push lên môi trường máy chủ chạy Linux của Runner.
+* **Cách khắc phục:** Thêm bước chạy `run: chmod +x ./gradlew` trước lệnh biên dịch trong file YAML.
 
----
+#### Slide 16: Kịch bản lỗi 2 - Lỗi biên dịch mã nguồn (Compilation Failed)
+* **Dấu hiệu nhận biết trong log console:**
+  ```text
+  Run ./gradlew bootJar
+  > Task :compileJava FAILED
+  /home/runner/.../UserService.java:24: error: cannot find symbol
+          private UserReposotory userRepository;
+                  ^
+  Error: Process completed with exit code 1.
+  ```
+* **Bản chất lỗi:** Trình biên dịch Java Compiler từ chối tạo bytecode do lỗi cú pháp code Java hoặc import sai thư viện ở dòng cụ thể (dòng 24).
+* **Cách khắc phục:** Định vị file Java bị lỗi theo mô tả đường dẫn trong log, sửa lại cú pháp code Java chuẩn xác.
 
-### SLIDE 9: Workflow-Syntax (Cú pháp YAML)
-* **HSSF Classes:** `hssf-slide hssf-slide--content`
-* **Layout / Components:**
-  * `hssf-header` (Title: "Cấu trúc Workflow YAML")
-  * `hssf-columns hssf-columns--1-2 hssf-columns--loose hssf-fill hssf-columns--center`:
-    * Cột 1: `hssf-defs`
-      * `name`: Tên của workflow
-      * `on`: Sự kiện kích hoạt (push, pull_request)
-      * `jobs`: Tập hợp các công việc chạy song song
-      * `runs-on`: Loại Runner thực thi (ubuntu-latest, self-hosted)
-      * `steps`: Các bước chạy tuần tự trong job
-      * `uses`: Gọi các Actions có sẵn từ chợ (Marketplace)
-    * Cột 2: `hssf-code` (Cú pháp phân cấp của file YAML)
-      ```yaml
-      name: Basic CI
-      on: [push]
-      jobs:
-        build-job:
-          runs-on: ubuntu-latest
-          steps:
-            - name: Checkout Code
-              uses: actions/checkout@v3
-            - name: Run Script
-              run: echo "Hello World"
-      ```
-* **Speaker Notes:** File workflow được lưu dưới dạng tệp YAML. Chú ý cấu trúc phân cấp: 1 Workflow chứa nhiều Jobs, 1 Job chứa nhiều Steps chạy tuần tự trên 1 Runner.
-
----
-
-### SLIDE 10: Workflow-Demo (File Workflow đầu tiên)
-* **HSSF Classes:** `hssf-slide hssf-slide--content`
-* **Layout / Components:**
-  * `hssf-header` (Title: "Triển khai file Workflow hoàn chỉnh", Subtitle: "Lưu tại thư mục .github/workflows/ci.yml")
-  * `hssf-code` (ci.yml / yaml):
-    ```yaml
-    name: QuickBite CI Pipeline
-
-    on:
-      push:
-        branches: [ main, develop ]
-      pull_request:
-        branches: [ main ]
-
-    jobs:
-      test-code:
-        runs-on: ubuntu-latest
-        steps:
-          - name: Clone source code from Git
-            uses: actions/checkout@v3
-
-          - name: Execute Shell Script
-            run: |
-              echo "Starting test suite..."
-              echo "All tests passed successfully."
-    ```
-  * `hssf-callout--success`: "Chỉ cần đẩy tệp này lên nhánh main, GitHub Actions sẽ tự động phát hiện và kích hoạt pipeline ngay lập tức."
-* **Speaker Notes:** Đây là file workflow đơn giản. Event được cấu hình kích hoạt khi có push vào main/develop hoặc pull request vào main. Job chạy trên máy ubuntu-latest.
-
----
-
-### SLIDE 11: Sec-03 (Divider)
-* **HSSF Classes:** `hssf-slide hssf-slide--section`
-* **Layout / Components:**
-  * `hssf-section-block`
-  * Big Number: `03`
-  * Title: `Cơ chế điều phối và phân tách Jobs`
-* **Speaker Notes:** Phần 3: Cách tối ưu pipeline bằng cách chia nhỏ thành các Jobs chạy song song hoặc phụ thuộc tuần tự.
-
----
-
-### SLIDE 12: Job-Dependency (Sự phụ thuộc Jobs)
-* **HSSF Classes:** `hssf-slide hssf-slide--content`
-* **Layout / Components:**
-  * `hssf-header` (Title: "Cơ chế Jobs song song và phụ thuộc")
-  * `hssf-columns hssf-columns--2 hssf-columns--loose hssf-fill hssf-columns--center`:
-    * Cột 1 (Luồng dọc): `hssf-flow hssf-flow--col`
-      * Node 1 (Soft): `Job: Linter` (sub: Kiểm tra cú pháp)
-      * Node 2 (Soft): `Job: Unit Test` (sub: Chạy bộ kiểm thử)
-      * Edge (labeled: needs) →
-      * Node 3 (Primary): `Job: Build & Packaging` (sub: Chỉ chạy nếu Linter & Test đạt)
-    * Cột 2: `hssf-stack`
-      * Cấu hình từ khóa `needs` trong YAML:
-        * Mặc định: Các jobs chạy song song độc lập.
-        * Từ khóa `needs`: Tạo thứ tự phụ thuộc.
-      * `hssf-callout--info`: "Không chạy build nếu linter hoặc test bị lỗi để tiết kiệm tài nguyên hạ tầng."
-* **Speaker Notes:** Mặc định các job chạy song song. Bằng cách sử dụng từ khóa `needs`, ta bắt buộc Job Build chỉ chạy khi Job Linter và Job Test chạy thành công.
-
----
-
-### SLIDE 13: Matrix-Strategy (Chiến lược Matrix)
-* **HSSF Classes:** `hssf-slide hssf-slide--content`
-* **Layout / Components:**
-  * `hssf-header` (Title: "Chiến lược Matrix", Subtitle: "Chạy thử nghiệm trên nhiều phiên bản môi trường đồng thời")
-  * `hssf-columns hssf-columns--1-1 hssf-columns--loose hssf-fill`:
-    * Cột 1: `hssf-code` (Cú pháp matrix / yaml)
-      ```yaml
-      jobs:
-        test:
-          runs-on: ubuntu-latest
-          strategy:
-            matrix:
-              java-version: [17, 21]
-              os: [ubuntu-latest, windows-latest]
-          steps:
-            - uses: actions/setup-java@v3
-              with:
-                java-version: ${{ matrix.java-version }}
-      ```
-    * Cột 2: `hssf-stack`
-      * Ứng dụng thực tế:
-        * Chạy đồng thời 4 jobs kiểm thử:
-          * Java 17 chạy trên Ubuntu
-          * Java 17 chạy trên Windows
-          * Java 21 chạy trên Ubuntu
-          * Java 21 chạy trên Windows
-      * `hssf-list`:
-        * Tiết kiệm công sức viết code cấu hình lặp lại.
-        * Phát hiện sớm lỗi không tương thích phiên bản.
-* **Speaker Notes:** Matrix Strategy giúp chạy thử nghiệm trên nhiều tổ hợp cấu hình (hệ điều hành, phiên bản JDK) cùng lúc mà không cần viết lặp code workflow.
-
----
-
-### SLIDE 14: Sec-04 (Divider)
-* **HSSF Classes:** `hssf-slide hssf-slide--section`
-* **Layout / Components:**
-  * `hssf-section-block`
-  * Big Number: `04`
-  * Title: `Biên dịch tự động Spring Boot với Gradle`
-* **Speaker Notes:** Phần 4: Thực hành xây dựng pipeline hoàn chỉnh biên dịch ứng dụng Spring Boot thành tệp JAR bằng công cụ Gradle.
-
----
-
-### SLIDE 15: Gradle-Build (Workflow biên dịch Gradle)
-* **HSSF Classes:** `hssf-slide hssf-slide--content`
-* **Layout / Components:**
-  * `hssf-header` (Title: "Cấu hình build Spring Boot với Gradle")
-  * `hssf-code` (gradle_ci.yml / yaml):
-    ```yaml
-    jobs:
-      build-spring-app:
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v3
-
-          - name: Setup Java JDK 17
-            uses: actions/setup-java@v3
-            with:
-              java-version: '17'
-              distribution: 'temurin'
-
-          - name: Grant execute permission for gradlew
-            run: chmod +x gradlew
-
-          - name: Compile and Build JAR
-            run: ./gradlew bootJar
-    ```
-  * `hssf-callout--warning`: "Cần cấp quyền thực thi `chmod +x gradlew` trước khi chạy lệnh build, nếu không pipeline sẽ sập do lỗi Permission denied."
-* **Speaker Notes:** Các bước cơ bản: checkout code, cài đặt JDK 17 (dùng bản phân phối Temurin), cấp quyền thực thi cho file wrapper gradlew, cuối cùng chạy lệnh `./gradlew bootJar` để build.
-
----
-
-### SLIDE 16: Cache-Gradle (Tối ưu hóa Cache)
-* **HSSF Classes:** `hssf-slide hssf-slide--content`
-* **Layout / Components:**
-  * `hssf-header` (Title: "Tối ưu hóa thời gian build với Cache", Subtitle: "Tránh tải lại hàng trăm MB thư viện Gradle ở mỗi lần chạy")
-  * `hssf-compare`:
-    * Cột Trái (Không sử dụng Cache):
-      * Mỗi lần build, runner phải tải mới toàn bộ Spring dependencies từ Internet.
-      * Thời gian build kéo dài (3 - 5 phút).
-      * Tiêu tốn băng thông mạng vô ích.
-    * Cột Phải (Có sử dụng Cache):
-      * Tái sử dụng các thư viện đã tải từ các lần build trước.
-      * Chỉ tải thêm các thư viện mới phát sinh.
-      * Thời gian build giảm sâu (dưới 1 phút).
-  * `hssf-callout--tip` ở chân slide: "Sử dụng tính năng cache tích hợp sẵn của Action `setup-java` bằng cách cấu hình: `cache: 'gradle'`."
-* **Speaker Notes:** Build Java thường tốn nhiều thời gian tải thư viện dependency từ maven central. Hãy bật cache để giảm thời gian build từ vài phút xuống dưới 1 phút.
-
----
-
-### SLIDE 17: Sec-05 (Divider)
-* **HSSF Classes:** `hssf-slide hssf-slide--section`
-* **Layout / Components:**
-  * `hssf-section-block`
-  * Big Number: `05`
-  * Title: `Chẩn đoán sự cố & Quản trị Log hệ thống CI/CD`
-* **Speaker Notes:** Phần cuối: Cách đọc log lỗi của GitLab/GitHub Actions để phân tích nguyên nhân và sửa lỗi sập pipeline.
-
----
-
-### SLIDE 18: Debug-Log (Sửa lỗi Pipeline)
-* **HSSF Classes:** `hssf-slide hssf-slide--content`
-* **Layout / Components:**
-  * `hssf-header` (Title: "Quy trình chẩn đoán lỗi trong CI/CD")
-  * `hssf-steps`:
-    * Step 1: Xác định Job bị lỗi (có biểu tượng dấu X đỏ).
-    * Step 2: Tìm Step bị sập để đọc log chi tiết ở màn hình Console.
-    * Step 3: Phân loại lỗi phổ biến (Lỗi cú pháp YAML, Sai JDK, Thiếu file cấu hình DB).
-    * Step 4: Bật tùy chọn Debug log (`ACTIONS_RUNNER_DEBUG: true`) nếu cần xem chi tiết hành vi của Runner.
-  * `hssf-list` (Các lỗi kinh điển):
-    * *Permission denied:* Quên chmod +x cho file gradlew.
-    * *Out of memory:* Máy ảo Runner bị hết RAM vật lý khi build JVM.
-* **Speaker Notes:** Quy trình chẩn đoán gồm 4 bước. Hãy chú ý tìm đúng dấu X đỏ, đọc console. Các lỗi thường gặp gồm: phân cấp sai file YAML, quên chmod +x, hoặc lỗi RAM (OOM) của máy ảo.
-
----
-
-### SLIDE 19: Summary
-* **HSSF Classes:** `hssf-slide hssf-slide--content`
-* **Layout / Components:**
-  * `hssf-header` (Title: "Tổng kết Session 07", Subtitle: "Nền tảng tự động hóa CI/CD vững chắc")
-  * `hssf-list`:
-    * CI/CD giúp tích hợp và kiểm thử code tự động, loại bỏ rủi ro thủ công.
-    * Kiến trúc Runner phân tách: Server điều phối, Runner thực thi.
-    * File Workflow YAML lưu trong thư mục `.github/workflows/` của Repo.
-    * Tận dụng `needs` để thiết lập thứ tự và `matrix` để chạy đa môi trường.
-    * Tối ưu hóa pipeline biên dịch Spring Boot bằng cách bật cơ chế cache của Gradle.
-* **Speaker Notes:** Tóm lại, Session 07 cung cấp tư duy và công cụ tự động hóa khâu build/test. Bật cache và quản lý job thông minh sẽ nâng cao năng suất của toàn bộ dự án.
-
----
-
-### SLIDE 20: End
-* **HSSF Classes:** `hssf-slide hssf-slide--section`
-* **Layout / Components:**
-  * `hssf-brand-end`
-    * Kicker: `DEVOPS IN ACTION`
-    * Title: `HỌC VIỆN ĐÀO TẠO LẬP TRÌNH CHẤT LƯỢNG NHẬT BẢN`
-    * Org: `Rikkei Education`
-  * `hssf-footer--light hssf-footer--nopage`
-* **Speaker Notes:** Cảm ơn các bạn. Hẹn gặp lại các bạn trong Session 08: Đóng gói Docker Image và Đẩy lên Registry.
+#### Slide 17: Kịch bản lỗi 3 - Lỗi kiểm thử thất bại (Test Failed)
+* **Dấu hiệu nhận biết trong log console (khi chạy lệnh `./gradlew build`):**
+  ```text
+  UserServiceApplicationTests > testCreateUser() FAILED
+      org.opentest4j.AssertionFailedError at UserServiceApplicationTests.java:17
+  2 tests completed, 1 failed
+  > Task :test FAILED
+  Error: Process completed with exit code 1.
+  ```
+* **Bản chất lỗi:** Việc biên dịch lớp đã hoàn tất nhưng giá trị khẳng định logic (Assertion) trong file test bị sai lệch, cơ chế Gradle kích hoạt "Fail-fast" để hủy bỏ việc tạo tệp JAR bị lỗi.
+* **Cách khắc phục:** Rà soát lại logic nghiệp vụ hoặc sửa lại assertion trong file test cho đúng thiết kế.
