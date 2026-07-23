@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Session 07: Tự động hóa quy trình CI/CD với GitHub Actions | Rikkei Education</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hssf-slides@0.5.0/dist/hssf.min.css" />
+  <link rel="stylesheet" href="./styles/deck.css" />
+</head>
+
+<body class="hssf-body">
+  <div class="hssf-canvas" data-hssf-canvas id="deck" tabindex="0" role="region" aria-roledescription="slide deck"
+    aria-label="Session 07 — Tự động hóa quy trình CI/CD với GitHub Actions">
+    <div class="hssf-progress" data-hssf-progress aria-hidden="true">
+      <div class="hssf-progress__bar" data-hssf-progress-bar></div>
+    </div>
+    <div class="hssf-live hssf-sr-only" data-hssf-live aria-live="polite" aria-atomic="true"></div>
+
+    <div class="hssf-stage-wrap">
+      <div class="hssf-stage" data-hssf-stage>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 1: Title                                                -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--title is-active" data-hssf-slide data-hssf-label="Title"
+          aria-hidden="false">
+          <div class="hssf-slide__inner">
+            <div class="hssf-title-block hssf-title-block--center">
+              <div class="hssf-accent hssf-accent--bar-left" aria-hidden="true"></div>
+              <p class="hssf-title-block__eyebrow">SESSION 07 · DEVOPS IN ACTION</p>
+              <h1 class="hssf-title-block__title">Tự động hóa quy trình CI/CD với GitHub Actions</h1>
+              <p class="hssf-title-block__meta">Rikkei Academy · Bộ môn DevOps</p>
+            </div>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 2: Agenda                                               -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Agenda" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Nội dung bài học</h2>
+              <p class="hssf-header__subtitle">5 phần trọng tâm về CI/CD</p>
+            </header>
+            <ol class="hssf-agenda">
+              <li class="hssf-agenda__item">
+                <span class="hssf-agenda__num">01</span>
+                <p class="hssf-agenda__text">Tổng quan về CI/CD và kiến trúc Runner</p>
+              </li>
+              <li class="hssf-agenda__item" data-hssf-fragment>
+                <span class="hssf-agenda__num">02</span>
+                <p class="hssf-agenda__text">Xây dựng cấu trúc Workflow CI/CD cơ bản (YAML)</p>
+              </li>
+              <li class="hssf-agenda__item" data-hssf-fragment>
+                <span class="hssf-agenda__num">03</span>
+                <p class="hssf-agenda__text">Cơ chế điều phối và phân tách Jobs</p>
+              </li>
+              <li class="hssf-agenda__item" data-hssf-fragment>
+                <span class="hssf-agenda__num">04</span>
+                <p class="hssf-agenda__text">Thực hành: Tự động biên dịch Spring Boot bằng Gradle</p>
+              </li>
+              <li class="hssf-agenda__item" data-hssf-fragment>
+                <span class="hssf-agenda__num">05</span>
+                <p class="hssf-agenda__text">Chẩn đoán sự cố và quản trị log hệ thống CI/CD</p>
+              </li>
+            </ol>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 3: Sec-01                                               -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--section" data-hssf-slide data-hssf-label="Sec-01" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <div class="hssf-section-block">
+              <span class="hssf-section-block__num">01</span>
+              <h2 class="hssf-section-block__title">Tổng quan GitHub Actions &amp; Kiến trúc Runner</h2>
+            </div>
+          </div>
+          <footer class="hssf-footer hssf-footer--light">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 4: Pain-Manual                                          -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Pain-Manual"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Vấn đề của quy trình thủ công</h2>
+              <p class="hssf-header__subtitle">Tại sao không nên tự build &amp; test ở local?</p>
+            </header>
+            <div class="hssf-compare">
+              <div class="hssf-compare__col hssf-compare__col--cons">
+                <h3 class="hssf-compare__title">Quy trình thủ công &amp; rủi ro</h3>
+                <ul class="hssf-list">
+                  <li>Lập trình viên quên chạy test hoặc build thử trước khi push.</li>
+                  <li data-hssf-fragment>Code lỗi biên dịch vẫn được merge vào nhánh chính.</li>
+                  <li data-hssf-fragment>&ldquo;Chạy tốt trên máy tôi&rdquo; — xung đột phiên bản JDK giữa các máy.</li>
+                </ul>
+              </div>
+              <div class="hssf-compare__col hssf-compare__col--pros">
+                <h3 class="hssf-compare__title">Hệ thống CI/CD tự động</h3>
+                <ul class="hssf-list">
+                  <li>Tự động chạy test &amp; build tập trung mỗi khi push code mới.</li>
+                  <li data-hssf-fragment>Chặn merge code nếu build lỗi.</li>
+                  <li data-hssf-fragment>Đảm bảo môi trường biên dịch đồng nhất (Docker/VM chuẩn).</li>
+                </ul>
+              </div>
+            </div>
+            <aside class="hssf-callout hssf-callout--danger" data-hssf-fragment>
+              <p class="hssf-callout__label">Lưu ý</p>
+              <p class="hssf-callout__body">Hệ thống CI/CD giúp loại bỏ hoàn toàn yếu tố chủ quan của con người trong
+                khâu kiểm soát chất lượng code.</p>
+            </aside>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 5: Concept-CICD                                         -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Concept-CICD"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Khái niệm CI/CD</h2>
+              <p class="hssf-header__subtitle">Trái tim của quy trình vận hành DevOps</p>
+            </header>
+            <div class="hssf-grid hssf-grid--2 hssf-grid--loose">
+              <article class="hssf-card hssf-card--outline">
+                <div class="hssf-card__icon">
+                  <div class="hssf-icon-circle hssf-icon-circle--lg hssf-icon-circle--primary">🔄</div>
+                </div>
+                <h3 class="hssf-card__title">Continuous Integration (CI)</h3>
+                <div class="hssf-card__body">Tự động hợp nhất code mới, chạy lint, biên dịch (compile) và chạy unit
+                  tests.</div>
+              </article>
+              <article class="hssf-card hssf-card--outline" data-hssf-fragment="hold">
+                <div class="hssf-card__icon">
+                  <div class="hssf-icon-circle hssf-icon-circle--lg hssf-icon-circle--soft">📦</div>
+                </div>
+                <h3 class="hssf-card__title">Continuous Delivery (CD)</h3>
+                <div class="hssf-card__body">Đóng gói sản phẩm (JAR, Docker image) và sẵn sàng để deploy lên môi trường
+                  staging/production.</div>
+              </article>
+              <article class="hssf-card hssf-card--outline" data-hssf-fragment="hold">
+                <div class="hssf-card__icon">
+                  <div class="hssf-icon-circle hssf-icon-circle--lg hssf-icon-circle--primary">🚀</div>
+                </div>
+                <h3 class="hssf-card__title">Continuous Deployment</h3>
+                <div class="hssf-card__body">Tự động triển khai code mới lên thẳng production mà không cần phê duyệt thủ
+                  công.</div>
+              </article>
+              <article class="hssf-card hssf-card--outline" data-hssf-fragment="hold">
+                <div class="hssf-card__icon">
+                  <div class="hssf-icon-circle hssf-icon-circle--lg hssf-icon-circle--soft">🛠️</div>
+                </div>
+                <h3 class="hssf-card__title">Automation Tool</h3>
+                <div class="hssf-card__body">GitHub Actions tích hợp sâu vào GitHub repository, giúp kích hoạt pipeline
+                  từ các event của Git.</div>
+              </article>
+            </div>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 6: Flow-Architecture                                    -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Flow-Architecture"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Kiến trúc GitHub Actions Runner</h2>
+            </header>
+            <div class="hssf-columns hssf-columns--2 hssf-columns--loose hssf-fill hssf-columns--center">
+              <div class="hssf-columns__col hssf-stack hssf-stack--center"
+                style="align-items: center; justify-content: center;">
+                <div class="hssf-flow hssf-flow--col hssf-flow--loose" style="width: 340px; margin: 0 auto;">
+                  <div class="hssf-flow__node hssf-flow__node--primary" style="text-align: center; padding: 1rem;">
+                    <strong>GitHub Server (Web/Git)</strong>
+                    <div class="hssf-flow__node-sub">Nhận diện git push event</div>
+                  </div>
+                  <span class="hssf-flow__edge hssf-flow__edge--labeled" aria-hidden="true">
+                    <span class="hssf-flow__edge-label">Long-polling / REST</span>
+                    <span class="hssf-flow__line"></span>
+                    <span class="hssf-arrow hssf-arrow--down"></span>
+                  </span>
+                  <div class="hssf-flow__node hssf-flow__node--soft" style="text-align: center; padding: 1rem;">
+                    <strong>GitHub Actions Runner</strong>
+                    <div class="hssf-flow__node-sub">Máy chủ thực thi công việc</div>
+                  </div>
+                  <span class="hssf-flow__edge hssf-flow__edge--labeled" aria-hidden="true">
+                    <span class="hssf-flow__edge-label">Execute Job</span>
+                    <span class="hssf-flow__line"></span>
+                    <span class="hssf-arrow hssf-arrow--down"></span>
+                  </span>
+                  <div class="hssf-flow__node hssf-flow__node--outline" style="text-align: center; padding: 1rem;">
+                    <strong>Môi trường Host OS</strong>
+                    <div class="hssf-flow__node-sub">Biên dịch ứng dụng</div>
+                  </div>
+                </div>
+              </div>
+              <div class="hssf-columns__col hssf-stack">
+                <div class="hssf-heading">
+                  <p class="hssf-heading__kicker">Cơ chế giao tiếp</p>
+                  <h2 class="hssf-heading__title">Runner kéo job, không mở cổng</h2>
+                </div>
+                <ul class="hssf-list">
+                  <li><strong>1. Không mở cổng:</strong> Runner chủ động gửi request kéo công việc về (Long-polling),
+                    giúp máy chủ build không cần mở cổng SSH ra Internet.</li>
+                  <li data-hssf-fragment><strong>2. Cô lập:</strong> Runner tải mã nguồn về môi trường riêng để biên
+                    dịch rồi gửi log kết quả về cho GitHub Server hiển thị.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 7: Runner-Types                                         -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Runner-Types"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Hosted Runner vs Self-hosted Runner</h2>
+            </header>
+            <div class="hssf-compare">
+              <div class="hssf-compare__col hssf-compare__col--cons">
+                <h3 class="hssf-compare__title">GitHub-hosted Runner</h3>
+                <ul class="hssf-list">
+                  <li>Do GitHub quản lý hoàn toàn dưới dạng máy ảo (VM).</li>
+                  <li data-hssf-fragment>Máy ảo luôn sạch sẽ (khởi tạo mới tinh cho mỗi job).</li>
+                  <li data-hssf-fragment>Giới hạn cấu hình phần cứng (thường 2 vCPU, 7GB RAM).</li>
+                  <li data-hssf-fragment>Bị tính phí thời gian chạy (sau khi hết quota miễn phí).</li>
+                </ul>
+              </div>
+              <div class="hssf-compare__col hssf-compare__col--pros">
+                <h3 class="hssf-compare__title">Self-hosted Runner</h3>
+                <ul class="hssf-list">
+                  <li>Người dùng tự thiết lập trên VM/VPS hoặc máy vật lý riêng.</li>
+                  <li data-hssf-fragment>Giữ được bộ nhớ đệm (cache) giữa các lần build — build nhanh hơn.</li>
+                  <li data-hssf-fragment>Tùy biến cấu hình không giới hạn và miễn phí thời gian chạy.</li>
+                </ul>
+              </div>
+            </div>
+            <aside class="hssf-callout hssf-callout--info" data-hssf-fragment>
+              <p class="hssf-callout__label">Gợi ý</p>
+              <p class="hssf-callout__body">Đối với các ứng dụng Java Spring Boot đòi hỏi nhiều RAM khi biên dịch, sử
+                dụng Self-hosted runner là giải pháp tối ưu chi phí.</p>
+            </aside>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 8: Sec-02                                               -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--section" data-hssf-slide data-hssf-label="Sec-02" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <div class="hssf-section-block">
+              <span class="hssf-section-block__num">02</span>
+              <h2 class="hssf-section-block__title">Xây dựng cấu trúc Workflow CI/CD cơ bản</h2>
+            </div>
+          </div>
+          <footer class="hssf-footer hssf-footer--light">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 9: Workflow-Syntax                                      -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Workflow-Syntax"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Cấu trúc Workflow YAML</h2>
+            </header>
+            <div class="hssf-columns hssf-columns--1-2 hssf-columns--loose hssf-fill hssf-columns--center">
+              <div class="hssf-columns__col">
+                <div class="hssf-defs">
+                  <div class="hssf-defs__row">
+                    <dt>name</dt>
+                    <dd>Tên của workflow</dd>
+                  </div>
+                  <div class="hssf-defs__row">
+                    <dt>on</dt>
+                    <dd>Sự kiện kích hoạt (push, pull_request)</dd>
+                  </div>
+                  <div class="hssf-defs__row">
+                    <dt>jobs</dt>
+                    <dd>Tập hợp các công việc chạy song song</dd>
+                  </div>
+                  <div class="hssf-defs__row">
+                    <dt>runs-on</dt>
+                    <dd>Loại Runner thực thi (ubuntu-latest, self-hosted)</dd>
+                  </div>
+                  <div class="hssf-defs__row">
+                    <dt>steps</dt>
+                    <dd>Các bước chạy tuần tự trong job</dd>
+                  </div>
+                  <div class="hssf-defs__row">
+                    <dt>uses</dt>
+                    <dd>Gọi Actions có sẵn từ Marketplace</dd>
+                  </div>
+                </div>
+              </div>
+              <div class="hssf-columns__col">
+                <div class="hssf-code">
+                  <div class="hssf-code__header">
+                    <span class="hssf-code__filename">basic-ci.yml</span>
+                    <span class="hssf-code__lang">yaml</span>
+                  </div>
+                  <pre class="hssf-code__pre"><code class="hssf-code__code language-yaml">name: Basic CI
+on: [push]
+jobs:
+  build-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+      - name: Run Script
+        run: echo "Hello World"
+</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 10: Workflow-Demo                                       -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Workflow-Demo"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Triển khai file Workflow hoàn chỉnh</h2>
+              <p class="hssf-header__subtitle">Lưu tại thư mục .github/workflows/ci.yml</p>
+            </header>
+            <div class="hssf-code">
+              <div class="hssf-code__header">
+                <span class="hssf-code__filename">.github/workflows/ci.yml</span>
+                <span class="hssf-code__lang">yaml</span>
+              </div>
+              <pre class="hssf-code__pre"><code class="hssf-code__code language-yaml">name: QuickBite CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-code:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone source code from Git
+        uses: actions/checkout@v3
+
+      - name: Execute Shell Script
+        run: |
+          echo "Starting test suite..."
+          echo "All tests passed successfully."
+</code></pre>
+            </div>
+            <aside class="hssf-callout hssf-callout--success" data-hssf-fragment>
+              <p class="hssf-callout__label">Thành công</p>
+              <p class="hssf-callout__body">Chỉ cần đẩy tệp này lên nhánh main, GitHub Actions sẽ tự động phát hiện và
+                kích hoạt pipeline ngay lập tức.</p>
+            </aside>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 11: Sec-03                                              -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--section" data-hssf-slide data-hssf-label="Sec-03" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <div class="hssf-section-block">
+              <span class="hssf-section-block__num">03</span>
+              <h2 class="hssf-section-block__title">Cơ chế điều phối và phân tách Jobs</h2>
+            </div>
+          </div>
+          <footer class="hssf-footer hssf-footer--light">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 12: Job-Dependency                                      -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Job-Dependency"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Cơ chế Jobs song song và phụ thuộc</h2>
+            </header>
+            <div class="hssf-columns hssf-columns--2 hssf-columns--loose hssf-fill hssf-columns--center">
+              <div class="hssf-columns__col hssf-stack hssf-stack--center"
+                style="align-items: center; justify-content: center;">
+                <div class="hssf-flow hssf-flow--col hssf-flow--loose" style="width: 360px; margin: 0 auto;">
+                  <div class="hssf-flow hssf-flow--row hssf-flow--tight" style="justify-content: center;">
+                    <div class="hssf-flow__node hssf-flow__node--soft" style="text-align: center; padding: 0.75rem;">
+                      <strong>Job: Linter</strong>
+                      <div class="hssf-flow__node-sub">Kiểm tra cú pháp</div>
+                    </div>
+                    <div class="hssf-flow__node hssf-flow__node--soft" style="text-align: center; padding: 0.75rem;">
+                      <strong>Job: Unit Test</strong>
+                      <div class="hssf-flow__node-sub">Chạy bộ kiểm thử</div>
+                    </div>
+                  </div>
+                  <span class="hssf-flow__edge hssf-flow__edge--labeled" aria-hidden="true">
+                    <span class="hssf-flow__edge-label">needs</span>
+                    <span class="hssf-flow__line"></span>
+                    <span class="hssf-arrow hssf-arrow--down"></span>
+                  </span>
+                  <div class="hssf-flow__node hssf-flow__node--primary" style="text-align: center; padding: 1rem;">
+                    <strong>Job: Build &amp; Packaging</strong>
+                    <div class="hssf-flow__node-sub">Chỉ chạy nếu Linter &amp; Test đạt</div>
+                  </div>
+                </div>
+              </div>
+              <div class="hssf-columns__col hssf-stack">
+                <div class="hssf-heading">
+                  <p class="hssf-heading__kicker">Từ khóa needs</p>
+                  <h2 class="hssf-heading__title">Thứ tự phụ thuộc giữa các Job</h2>
+                </div>
+                <ul class="hssf-list">
+                  <li><strong>Mặc định:</strong> Các jobs chạy song song độc lập.</li>
+                  <li data-hssf-fragment><strong>Từ khóa <code>needs</code>:</strong> Tạo thứ tự phụ thuộc — job sau chỉ
+                    chạy khi job trước thành công.</li>
+                </ul>
+                <aside class="hssf-callout hssf-callout--info" data-hssf-fragment>
+                  <p class="hssf-callout__label">Tối ưu</p>
+                  <p class="hssf-callout__body">Không chạy build nếu linter hoặc test bị lỗi để tiết kiệm tài nguyên hạ
+                    tầng.</p>
+                </aside>
+              </div>
+            </div>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 13: Matrix-Strategy                                     -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Matrix-Strategy"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Chiến lược Matrix</h2>
+              <p class="hssf-header__subtitle">Chạy thử nghiệm trên nhiều phiên bản môi trường đồng thời</p>
+            </header>
+            <div class="hssf-columns hssf-columns--1-1 hssf-columns--loose hssf-fill">
+              <div class="hssf-columns__col">
+                <div class="hssf-code">
+                  <div class="hssf-code__header">
+                    <span class="hssf-code__filename">matrix.yml</span>
+                    <span class="hssf-code__lang">yaml</span>
+                  </div>
+                  <pre class="hssf-code__pre"><code class="hssf-code__code language-yaml">jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java-version: [17, 21]
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java-version }}
+</code></pre>
+                </div>
+              </div>
+              <div class="hssf-columns__col hssf-stack">
+                <div class="hssf-heading">
+                  <p class="hssf-heading__kicker">Ứng dụng thực tế</p>
+                  <h2 class="hssf-heading__title">4 jobs kiểm thử đồng thời</h2>
+                </div>
+                <ul class="hssf-list">
+                  <li>Java 17 chạy trên Ubuntu</li>
+                  <li data-hssf-fragment>Java 17 chạy trên Windows</li>
+                  <li data-hssf-fragment>Java 21 chạy trên Ubuntu</li>
+                  <li data-hssf-fragment>Java 21 chạy trên Windows</li>
+                </ul>
+                <ul class="hssf-list" data-hssf-fragment>
+                  <li>Tiết kiệm công sức viết code cấu hình lặp lại.</li>
+                  <li>Phát hiện sớm lỗi không tương thích phiên bản.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 14: Sec-04                                              -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--section" data-hssf-slide data-hssf-label="Sec-04" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <div class="hssf-section-block">
+              <span class="hssf-section-block__num">04</span>
+              <h2 class="hssf-section-block__title">Biên dịch tự động Spring Boot với Gradle</h2>
+            </div>
+          </div>
+          <footer class="hssf-footer hssf-footer--light">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 15: Gradle-Build                                        -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Gradle-Build"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Cấu hình build Spring Boot với Gradle</h2>
+            </header>
+            <div class="hssf-code">
+              <div class="hssf-code__header">
+                <span class="hssf-code__filename">gradle_ci.yml</span>
+                <span class="hssf-code__lang">yaml</span>
+              </div>
+              <pre class="hssf-code__pre"><code class="hssf-code__code language-yaml">jobs:
+  build-spring-app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Compile and Build JAR
+        run: ./gradlew bootJar
+</code></pre>
+            </div>
+            <aside class="hssf-callout hssf-callout--warning" data-hssf-fragment>
+              <p class="hssf-callout__label">Cảnh báo</p>
+              <p class="hssf-callout__body">Cần cấp quyền thực thi <code>chmod +x gradlew</code> trước khi chạy lệnh
+                build, nếu không pipeline sẽ sập do lỗi Permission denied.</p>
+            </aside>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 16: Cache-Gradle                                        -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Cache-Gradle"
+          aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Tối ưu hóa thời gian build với Cache</h2>
+              <p class="hssf-header__subtitle">Tránh tải lại hàng trăm MB thư viện Gradle ở mỗi lần chạy</p>
+            </header>
+            <div class="hssf-compare">
+              <div class="hssf-compare__col hssf-compare__col--cons">
+                <h3 class="hssf-compare__title">Không sử dụng Cache</h3>
+                <ul class="hssf-list">
+                  <li>Mỗi lần build, runner phải tải mới toàn bộ Spring dependencies từ Internet.</li>
+                  <li data-hssf-fragment>Thời gian build kéo dài (3 – 5 phút).</li>
+                  <li data-hssf-fragment>Tiêu tốn băng thông mạng vô ích.</li>
+                </ul>
+              </div>
+              <div class="hssf-compare__col hssf-compare__col--pros">
+                <h3 class="hssf-compare__title">Có sử dụng Cache</h3>
+                <ul class="hssf-list">
+                  <li>Tái sử dụng các thư viện đã tải từ các lần build trước.</li>
+                  <li data-hssf-fragment>Chỉ tải thêm các thư viện mới phát sinh.</li>
+                  <li data-hssf-fragment>Thời gian build giảm sâu (dưới 1 phút).</li>
+                </ul>
+              </div>
+            </div>
+            <aside class="hssf-callout hssf-callout--tip" data-hssf-fragment>
+              <p class="hssf-callout__label">Mẹo</p>
+              <p class="hssf-callout__body">Sử dụng tính năng cache tích hợp sẵn của Action <code>setup-java</code> bằng
+                cách cấu hình: <code>cache: 'gradle'</code>.</p>
+            </aside>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 17: Sec-05                                              -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--section" data-hssf-slide data-hssf-label="Sec-05" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <div class="hssf-section-block">
+              <span class="hssf-section-block__num">05</span>
+              <h2 class="hssf-section-block__title">Chẩn đoán sự cố &amp; Quản trị Log hệ thống CI/CD</h2>
+            </div>
+          </div>
+          <footer class="hssf-footer hssf-footer--light">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 18: Debug-Log                                           -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Debug-Log" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Quy trình chẩn đoán lỗi trong CI/CD</h2>
+            </header>
+            <ol class="hssf-steps">
+              <li class="hssf-steps__item" data-hssf-fragment>
+                <span class="hssf-steps__num">01</span>
+                <div class="hssf-steps__content">
+                  <h3 class="hssf-steps__title">Xác định Job bị lỗi</h3>
+                  <p class="hssf-steps__desc">Tìm job có biểu tượng dấu X đỏ trên tab Actions.</p>
+                </div>
+              </li>
+              <li class="hssf-steps__item" data-hssf-fragment>
+                <span class="hssf-steps__num">02</span>
+                <div class="hssf-steps__content">
+                  <h3 class="hssf-steps__title">Đọc log Step bị sập</h3>
+                  <p class="hssf-steps__desc">Mở Console của step lỗi để xem thông báo chi tiết.</p>
+                </div>
+              </li>
+              <li class="hssf-steps__item" data-hssf-fragment>
+                <span class="hssf-steps__num">03</span>
+                <div class="hssf-steps__content">
+                  <h3 class="hssf-steps__title">Phân loại lỗi phổ biến</h3>
+                  <p class="hssf-steps__desc">Lỗi cú pháp YAML, sai JDK, thiếu file cấu hình DB…</p>
+                </div>
+              </li>
+              <li class="hssf-steps__item" data-hssf-fragment>
+                <span class="hssf-steps__num">04</span>
+                <div class="hssf-steps__content">
+                  <h3 class="hssf-steps__title">Bật Debug log khi cần</h3>
+                  <p class="hssf-steps__desc">Đặt <code>ACTIONS_RUNNER_DEBUG: true</code> để xem hành vi Runner.</p>
+                </div>
+              </li>
+            </ol>
+            <ul class="hssf-list" data-hssf-fragment>
+              <li><em>Permission denied:</em> Quên <code>chmod +x</code> cho file <code>gradlew</code>.</li>
+              <li><em>Out of memory:</em> Máy ảo Runner bị hết RAM vật lý khi build JVM.</li>
+            </ul>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 19: Summary                                             -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--content" data-hssf-slide data-hssf-label="Summary" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <header class="hssf-header">
+              <div class="hssf-header__accent" aria-hidden="true"></div>
+              <h2 class="hssf-header__title">Tổng kết Session 07</h2>
+              <p class="hssf-header__subtitle">Nền tảng tự động hóa CI/CD vững chắc</p>
+            </header>
+            <ul class="hssf-list">
+              <li>CI/CD giúp tích hợp và kiểm thử code tự động, loại bỏ rủi ro thủ công.</li>
+              <li data-hssf-fragment>Kiến trúc Runner phân tách: Server điều phối, Runner thực thi.</li>
+              <li data-hssf-fragment>File Workflow YAML lưu trong thư mục <code>.github/workflows/</code> của Repo.</li>
+              <li data-hssf-fragment>Tận dụng <code>needs</code> để thiết lập thứ tự và <code>matrix</code> để chạy đa
+                môi trường.</li>
+              <li data-hssf-fragment>Tối ưu hóa pipeline biên dịch Spring Boot bằng cách bật cơ chế cache của Gradle.
+              </li>
+            </ul>
+          </div>
+          <footer class="hssf-footer">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- SLIDE 20: End                                                 -->
+        <!-- ============================================================ -->
+        <section class="hssf-slide hssf-slide--section" data-hssf-slide data-hssf-label="End" aria-hidden="true">
+          <div class="hssf-slide__inner">
+            <div class="hssf-brand-end">
+              <p class="hssf-brand-end__kicker">DEVOPS IN ACTION</p>
+              <h2 class="hssf-brand-end__title">HỌC VIỆN ĐÀO TẠO LẬP TRÌNH CHẤT LƯỢNG NHẬT BẢN</h2>
+              <p class="hssf-brand-end__org">Rikkei Education</p>
+            </div>
+          </div>
+          <footer class="hssf-footer hssf-footer--light hssf-footer--nopage">
+            <span class="hssf-footer__copy">© 2026 By Rikkei Academy - Rikkei Education - All rights reserved.</span>
+            <span class="hssf-footer__page" data-hssf-page></span>
+          </footer>
+        </section>
+
+      </div>
+    </div>
+
+    <nav class="hssf-nav" data-hssf-nav aria-label="Slide navigation">
+      <button type="button" class="hssf-nav__btn" data-hssf-prev aria-label="Previous">
+        ‹
+      </button>
+      <span class="hssf-nav__counter" data-hssf-counter>1 / 20</span>
+      <button type="button" class="hssf-nav__btn" data-hssf-next aria-label="Next">
+        ›
+      </button>
+      <button type="button" class="hssf-nav__btn" data-hssf-fullscreen aria-label="Fullscreen">
+        ⛶
+      </button>
+    </nav>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hssf-slides@0.5.0/dist/hssf.min.js" defer></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      window.HSSF.init(document.querySelector("[data-hssf-canvas]"));
+    });
+  </script>
+</body>
+
+</html>

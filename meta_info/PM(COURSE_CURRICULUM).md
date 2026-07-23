@@ -35,19 +35,19 @@ Session 06    Hệ thống kiến thức Session 03,04
 
 Session 07    Tự động hóa biên dịch với GitLab CI    
 
-Lesson 01    Tổng quan GitLab CI/CD và Kiến trúc GitLab Runner
-Lesson 02    Cấu trúc và Cú pháp file .gitlab-ci.yml
-Lesson 03    Cơ chế hoạt động của Pipeline và Phân tách Stages
-Lesson 04    Build ứng dụng Spring Boot bằng Maven/Gradle trong CI
-Lesson 05    Phân tích log pipeline và xử lý lỗi build
+Lesson 01    Tổng quan CI/CD với GitHub Actions và Kiến trúc Runner
+Lesson 02    Xây dựng cấu trúc Workflow CI/CD cơ bản
+Lesson 03    Cơ chế điều phối và phân tách Jobs trong luồng CI/CD
+Lesson 04    Ứng dụng CI/CD: Biên dịch tự động Spring Boot với Gradle
+Lesson 05    Chẩn đoán sự cố và quản trị log hệ thống CI/CD
 
 Session 08    Đóng gói Docker Image & Đẩy lên Registry  
 
 Lesson 01    Quy trình Build Docker image trong pipeline CI/CD
 Lesson 02    Tối ưu hóa Dockerfile cho Production (Multi-stage build)
 Lesson 03    Phiên bản hóa và đẩy Docker image lên Registry từ Local
-Lesson 04    Sử dụng Docker image từ Registry trong Pipeline CI/CD
-Lesson 05    Kịch bản Thực hành tổng hợp với user-service
+Lesson 04    Sử dụng Docker Image từ Registry trong Luồng CI/CD
+Lesson 05    Kịch bản Thực hành Tổng hợp với user-service
 
 Session 09    Hệ thống kiến thức Session 07,08        
 
@@ -69,9 +69,9 @@ Session 12    Hệ thống kiến thức Session 10,11
 
 Session 13    Giám sát hệ thống với Prometheus    
 
-Lesson 01    Khái niệm giám sát hệ thống (metrics) và Kiến trúc và cơ chế hoạt động của Prometheus
-Lesson 02    Tích hợp Spring Boot Actuator và cấu hình xuất chỉ số (Metrics Exposure)
-Lesson 03    Triển khai Prometheus bằng Docker Compose thu thập chỉ số Backend
+Lesson 01    Khái niệm giám sát hệ thống và giới thiệu Prometheus
+Lesson 02    Tích hợp Spring Boot Actuator và cấu hình xuất chỉ số
+Lesson 03    Triển khai Prometheus bằng Docker Compose
 Lesson 04    Triển khai Node Exporter giám sát tài nguyên VPS
 
 Session 14    Tạo dashboard với Grafana
