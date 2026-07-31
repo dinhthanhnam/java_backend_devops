@@ -23,15 +23,15 @@
 
 ### LESSON 01: Quy trình Build Docker image trong luồng CI/CD
 
-#### Slide 1: Bối cảnh - Hạn chế của quy trình đóng gói thủ công ở local
-* **Quy trình thủ công cũ:**
-  1. Biên dịch JAR trên máy phát triển bằng lệnh `./gradlew bootJar`.
-  2. Đóng gói image tĩnh qua lệnh `docker build`.
-* **Những hạn chế trong vận hành thực tế:**
-  * *Không nhất quán môi trường:* Lệch phiên bản JDK giữa các máy lập trình viên (ví dụ máy chạy JDK 17, máy chạy JDK 21).
-  * *Rủi ro thao tác:* Lập trình viên có thể quên build JAR mới trước khi chạy build image, dẫn đến đóng gói code cũ.
-  * *Thiếu tự động hóa:* Không thể tích hợp vào luồng kiểm thử liên tục mỗi khi push code lên Git.
-* **Giải pháp:** Thiết lập luồng tự động hóa quy trình đóng gói qua 2 job tuần tự trong GitHub Actions.
+#### Slide 1: Chuyển dịch từ Build JAR sang tự động đóng gói Image trên CI
+* **Sự kế thừa từ bài học trước:**
+  * Ở Session 7, chúng ta đã cấu hình thành công quy trình tự động biên dịch ứng dụng Spring Boot ra file JAR trên hệ thống CI.
+* **Đặt vấn đề chuyển đổi:**
+  * Khi file JAR thành phẩm đã được tự động biên dịch sạch trên CI Server, việc tiếp tục đóng gói Docker Image ở local một cách thủ công sẽ gây ngắt quãng quy trình.
+  * Tận dụng hạ tầng CI để tự động hóa khâu đóng gói Docker Image từ chính file JAR vừa biên dịch.
+* **Lợi ích đạt được:**
+  * Triệt tiêu hoàn toàn thao tác gõ lệnh `docker build` thủ công của lập trình viên.
+  * Đảm bảo tính đồng nhất tuyệt đối của Docker Image dựa trên bản build sạch từ CI.
 
 #### Slide 2: Kiến trúc Workflow 2 Job cơ bản
 * Quy trình chuyển tiếp mã nguồn sang sản phẩm đóng gói:

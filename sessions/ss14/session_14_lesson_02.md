@@ -64,12 +64,17 @@ Học viên thực hiện kết nối Prometheus vào Grafana và chạy thử t
 #### 4.2 Thử nghiệm truy vấn PromQL trong tab Explore
 1. Nhấn vào biểu tượng la bàn **Explore** trên thanh công cụ bên trái.
 2. Đảm bảo nguồn dữ liệu được chọn ở góc trên bên trái là **Prometheus**.
-3. Nhập một câu lệnh PromQL đơn giản vào ô truy vấn, ví dụ xem dung lượng RAM còn trống của VPS:
-   ```promql
-   node_memory_MemFree_bytes
-   ```
-4. Nhấn nút **Run query** ở góc trên bên phải.
-5. *Kết quả mong đợi:* Biểu đồ chuỗi thời gian hiển thị biến động dung lượng RAM trống của VPS được vẽ thành công ngay phía dưới.
+3. **Chuyển sang chế độ gõ câu lệnh (Code Mode):**
+   * Mặc định Grafana (từ phiên bản 9+) sẽ ở chế độ **Builder** (chọn qua selectbox).
+   * Nhấn nút **Code** ở góc trên bên phải thanh công cụ truy vấn (nằm bên cạnh nút *Builder*) để chuyển sang chế độ tự do gõ PromQL.
+4. Nhập một câu lệnh PromQL của Backend Java (đã cấu hình quét từ Session 13):
+   * Để xem dung lượng RAM mà các ứng dụng Java Spring Boot đang sử dụng, gõ:
+     ```promql
+     jvm_memory_used_bytes
+     ```
+   * Hoặc chọn các metric khác có sẵn như: `up`, `process_cpu_usage`, `http_server_requests_seconds_count`.
+5. Nhấn nút **Run query** (hoặc tổ hợp phím `Shift + Enter`).
+6. *Kết quả mong đợi:* Biểu đồ chuỗi thời gian hiển thị biến động RAM của các ứng dụng Java (user-service, order-service,...) được vẽ thành công ngay phía dưới.
 
 ---
 
