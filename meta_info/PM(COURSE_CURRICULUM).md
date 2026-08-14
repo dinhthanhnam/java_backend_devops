@@ -93,9 +93,7 @@ Lesson 05    MDC và traceId trong luồng request phân tán
 
 Session 17    Logging tập trung với EFK Stack
 
-Lesson 01    Logging tập trung trong hệ thống microservices
-Lesson 02    Tổng quan Elasticsearch, Fluentd và Kibana
-Lesson 03    Triển khai EFK Stack bằng Docker Compose
-Lesson 04    Gửi log từ Spring Boot đến Fluentd
-Lesson 05    Phân tích log trong Kibana
-Lesson 06    Debug hệ thống phân tán bằng traceId
+Lesson 01    Logging tập trung trong hệ thống microservices và tổng quan EFK
+Lesson 02    Triển khai EFK Stack bằng Docker Compose
+Lesson 03    Gửi log từ Spring Boot đến Fluentd
+Lesson 04    Phân tích và debug log trong Kibana bằng traceId
