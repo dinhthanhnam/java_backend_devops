@@ -1,258 +1,103 @@
-# PROMPT CHO GAMMA: ĐÓNG GÓI DOCKER IMAGE & ĐẨY LÊN REGISTRY (SESSION 8)
+# PROMPT CHO GEMINI — GOOGLE SLIDES SESSION 08
 
-## 1. CONTEXT & ROLE
-* **Role:** DevOps Architect kiêm Giảng viên cao cấp. Giọng điệu chuyên nghiệp, trực diện, đi thẳng vào bản chất kỹ thuật và thực tiễn vận hành hệ thống.
-* **Target Audience:** Kỹ sư phần mềm, học viên đang phát triển dự án Spring Boot Microservices (hệ thống QuickBite).
-* **Objective:** Giải thích quy trình tự động hóa đóng gói Docker image trong luồng CI/CD, kỹ thuật tối ưu hóa Multi-stage build, quản lý phiên bản và vận hành GitHub Container Registry từ local đến môi trường tự động hóa CI/CD.
+## 1. Nhiệm vụ và nguồn nội dung
 
----
+Bạn là giảng viên DevOps và chuyên gia thiết kế slide đào tạo kỹ thuật. Hãy tạo một bộ **Google Slides 16:9** bằng tiếng Việt cho Session 08 của học phần Java Backend & DevOps. Số slide được quyết định bởi mật độ nội dung; không thêm hoặc gộp slide chỉ để khớp số lượng của file mẫu.
 
-## 2. PARTITION INSTRUCTIONS
-* **Số lượng slide khuyến nghị:** 15 - 20 slides.
-* **Nguyên tắc phân bổ nội dung:**
-  * **LESSON 01 (Mở đầu & Nền tảng):** Chuyển đổi từ đóng gói thủ công sang tự động hóa CI/CD. Phân tích mô hình DinD vs DooD.
-  * **LESSON 02 (Tối ưu hóa):** Phân tích kỹ thuật Multi-stage build, tối ưu hóa kích thước image và vấn đề cache dependencies của Gradle.
-  * **LESSON 03 (Đẩy Image từ Local):** Quy trình tương tác thủ công với GitHub Container Registry từ local terminal để hiểu bản chất xác thực và gắn tag.
-  * **LESSON 04 (Kéo & Chạy trong CI/CD):** Tự động hóa kéo image từ Registry về Runner sử dụng Predefined Variables và verify ứng dụng.
-  * **LESSON 05 (Thực hành tổng hợp):** Kịch bản thực hành từng bước cho dịch vụ `user-service`.
-  * **Tính chuyên nghiệp:** Loại bỏ hoàn toàn các từ ngữ suồng sã, giật gân. Tập trung giải thích thuật ngữ kỹ thuật chính xác.
+- Chủ đề: **Đóng gói Docker Image & Đẩy lên Registry**.
+- Hệ thống xuyên suốt: **QuickBite Food Delivery Microservices Platform**.
+- Đối tượng: học viên đã biết Docker Compose, Gradle Wrapper và GitHub Actions cơ bản.
+- Mục tiêu: học viên hiểu cách đóng gói Spring Boot thành Docker image, tối ưu Dockerfile, gắn phiên bản, push/pull image qua GitHub Container Registry và kiểm tra image đúng mức trong workflow.
 
----
+Sử dụng `session_08_slide_content.md` làm **nguồn nội dung duy nhất**. Không tự thêm chủ đề ngoài Docker, GitHub Actions, GitHub Container Registry và QuickBite. Giữ nguyên các tên lesson sau, đặc biệt trên divider:
 
-## 3. HIERARCHICAL OUTLINE (DÀN Ý CHI TIẾT)
+1. Quy trình Build Docker image trong pipeline CI/CD
+2. Tối ưu hóa Dockerfile cho Production (Multi-stage build)
+3. Phiên bản hóa và đẩy Docker image lên Registry từ Local
+4. Sử dụng Docker Image từ Registry trong Luồng CI/CD
+5. Kịch bản Thực hành Tổng hợp với user-service
 
-### LESSON 01: Quy trình Build Docker image trong luồng CI/CD
+## 2. Trình tự slide bắt buộc
 
-#### Slide 1: Chuyển dịch từ Build JAR sang tự động đóng gói Image trên CI
-* **Sự kế thừa từ bài học trước:**
-  * Ở Session 7, chúng ta đã cấu hình thành công quy trình tự động biên dịch ứng dụng Spring Boot ra file JAR trên hệ thống CI.
-* **Đặt vấn đề chuyển đổi:**
-  * Khi file JAR thành phẩm đã được tự động biên dịch sạch trên CI Server, việc tiếp tục đóng gói Docker Image ở local một cách thủ công sẽ gây ngắt quãng quy trình.
-  * Tận dụng hạ tầng CI để tự động hóa khâu đóng gói Docker Image từ chính file JAR vừa biên dịch.
-* **Lợi ích đạt được:**
-  * Triệt tiêu hoàn toàn thao tác gõ lệnh `docker build` thủ công của lập trình viên.
-  * Đảm bảo tính đồng nhất tuyệt đối của Docker Image dựa trên bản build sạch từ CI.
+| Slide | Vai trò |
+|---|---|
+| 01 | Tiêu đề chính |
+| 02 | Agenda |
+| 03 | Divider Lesson 01 |
+| 04–07 | Nội dung Lesson 01 |
+| 08 | Divider Lesson 02 |
+| 09–12 | Nội dung Lesson 02 |
+| 13 | Divider Lesson 03 |
+| 14–16 | Nội dung Lesson 03 |
+| 17 | Divider Lesson 04 |
+| 18–19 | Nội dung Lesson 04 |
+| 20 | Divider Lesson 05 |
+| 21–25 | Nội dung Lesson 05 |
+| 26 | Tổng kết Session 08 |
+| 27 | Slide kết thúc |
 
-#### Slide 2: Kiến trúc Workflow 2 Job cơ bản
-* Quy trình chuyển tiếp mã nguồn sang sản phẩm đóng gói:
-```text
-[ Git Push ] ──► [ Job: build_jar ] ──(Lưu JAR artifacts)──► [ Job: build_image ]
-                                                                       │ (docker build)
-                                                                       ▼
-                                                              [ Single-stage Image ]
-```
-* **Job 1: `build_jar`**
-  * Sử dụng JDK 17 cài đặt thông qua action.
-  * Thực thi biên dịch mã nguồn Java ra file JAR và lưu lại bằng `actions/upload-artifact`.
-* **Job 2: `build_image`**
-  * Chạy tuần tự sau Job 1 (thông qua `needs: [build_jar]`).
-  * Tải file JAR artifacts từ Job 1 về bằng `actions/download-artifact` và thực hiện lệnh `docker build`.
+Mỗi lesson là một cụm độc lập để quay video riêng. Không trộn nội dung giữa lesson; divider là điểm bắt đầu của video lesson tương ứng.
 
-#### Slide 3: Giải pháp chạy Docker trong CI/CD: DinD vs DooD (Docker Socket Sharing)
-* Để chạy được lệnh `docker build` bên trong Runner, có hai mô hình kiến trúc chính:
-* **Docker-in-Docker (DinD):**
-  * Khởi tạo container phụ Docker Daemon bên trong Runner.
-  * *Nhược điểm:* Tốn thời gian khởi tạo, yêu cầu quyền privileged, không tận dụng được cache image của máy host.
-* **Docker-outside-of-Docker (DooD) / Chia sẻ Docker Socket:**
-  * Chia sẻ trực tiếp Docker socket vật lý của máy host cho Runner.
-  * *Lợi ích:* Chuyển tiếp lệnh thực thi trực tiếp tới Docker daemon của máy host, tận dụng bộ nhớ cache layer có sẵn để tối ưu hóa tốc độ build, loại bỏ khởi tạo dịch vụ phụ.
+## 3. Tham chiếu thiết kế bắt buộc từ `(Slide) Session 7.pptx`
 
-#### Slide 4: Thực hành cấu hình Workflow 2 Job mẫu
-* Cấu hình tệp tin `.github/workflows/ci.yml` sử dụng Local Runner và DooD:
-```yaml
-name: Build Image 2 Job
-on: [push]
-jobs:
-  build_jar:
-    runs-on: [self-hosted, quickbite]
-    steps:
-      - uses: actions/checkout@v5
-      - run: chmod +x ./gradlew && ./gradlew bootJar
-      - uses: actions/upload-artifact@v4
-        with:
-          name: app-jar
-          path: build/libs/*.jar
-  build_image:
-    runs-on: [self-hosted, quickbite]
-    needs: [build_jar]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v4
-        with:
-          name: app-jar
-          path: build/libs/
-      - run: docker build -t user-service:latest .
-```
+Đây là **mẫu trực tiếp** cho thiết kế Session 08. Giữ đồng nhất font, cỡ chữ, khoảng cách, lề, footer, số trang và nhịp chuyển bố cục. Không sáng tạo một theme mới, không dùng layout kiểu dashboard hay card grid dày đặc.
 
----
+### Typography
 
-### LESSON 02: Tối ưu hóa Dockerfile cho Production (Multi-stage build)
+- Dùng **Montserrat** xuyên suốt. Tiêu đề dùng Montserrat ExtraBold; heading của divider dùng Montserrat; agenda và nội dung thông thường dùng Montserrat; slide tổng kết dùng Montserrat Black cho chữ `TỔNG KẾT`.
+- Không thay font bằng Inter, Be Vietnam Pro, Arial hoặc font khác.
+- Slide 01: `Session 08:` và title chính đều 30 pt, Montserrat ExtraBold.
+- Slide 02: chữ `NỘI DUNG` dọc bên trái 60 pt Montserrat Black; danh sách agenda 24 pt Montserrat.
+- Divider: số lesson trong vòng tròn 70 pt; tên lesson 40 pt. Dù title dài, giữ một cỡ chữ này; cho phép ngắt dòng có chủ ý, không thu nhỏ font.
+- Slide nội dung: title chính 26.5 pt Montserrat ExtraBold; subtitle 18 pt Montserrat ExtraBold; body tối thiểu 14 pt. Chỉ dùng body 20–24 pt cho layout ít chữ giống slide ví dụ, không dùng cỡ chữ khác tùy tiện.
+- Code block dùng Courier New nền tối; ưu tiên 8.5–10 pt như mẫu. Nếu code không vừa, rút ngắn code hoặc tách ý, không thu nhỏ tiếp.
+- Số slide góc phải dưới 12 pt Montserrat. Không để số slide trùng lặp.
 
-#### Slide 5: Điểm nghẽn của Workflow 2 Job truyền thống
-* Mặc dù giải quyết được vấn đề tự động hóa, quy trình 2 Job bộc lộ 3 nhược điểm lớn:
-  1. *Phụ thuộc băng thông:* Phải truyền tải file JAR nặng nề làm artifacts qua lại giữa lưu trữ của GitHub và Runner.
-  2. *Quy trình build không khép kín (Non-self-contained):* Dockerfile đơn tầng không tự biên dịch được. Lập trình viên không thể chạy lệnh `docker build` trực tiếp ở local nếu thiếu file JAR biên dịch sẵn.
-  3. *Xung đột phiên bản:* Rủi ro lệch phiên bản JRE/JDK giữa lúc compile trên host và lúc chạy trong container.
-* **Giải pháp:** Đưa toàn bộ bước biên dịch vào bên trong Dockerfile thông qua kỹ thuật **Multi-stage build**.
+### Spacing và bố cục
 
-#### Slide 6: Khái niệm và Sơ đồ luồng Multi-stage Build
-* Sử dụng nhiều chỉ thị `FROM` trong cùng một Dockerfile để chia quy trình thành các giai đoạn (stages) độc lập:
-```text
-[ Dockerfile Build ]
-     │
-     ├─► [ Stage 1: AS builder ] ──► (Tải Gradle, JDK, biên dịch JAR)
-     │                                         │
-     │                                 COPY --from=builder
-     │                                         ▼
-     └─► [ Stage 2: AS runner ]  ──► (Nhận JAR, dùng JRE Alpine) ──► [ Production Image ]
-```
-* **Stage 1 (Builder stage):** Sử dụng base image JDK đầy đủ để biên dịch mã nguồn.
-* **Stage 2 (Runtime stage):** Sử dụng base image JRE siêu gọn nhẹ, sao chép file JAR thương phẩm từ Stage 1 sang (`COPY --from=builder`).
-* *Kết quả:* Loại bỏ toàn bộ công cụ compile nặng nề và mã nguồn thô Java khỏi image cuối cùng, tối ưu dung lượng và bảo mật.
+- Dùng khung 16:9, cùng khoảng trắng và lề như mẫu. Trên các slide nội dung, title bắt đầu khoảng `x = 66`, `y = 37`; subtitle khoảng `y = 101`. Không đẩy title sát mép trên hoặc sát logo.
+- Với layout hai khối, hai panel bắt đầu gần `x = 66` và `x = 492`, rộng khoảng 402 mỗi panel, có khe giữa khoảng 24; phần đệm trong panel khoảng 18–21. Hai panel phải cùng mép trên, cùng chiều cao và cùng nhịp dòng.
+- Không tự thay đổi khoảng cách giữa title, subtitle, nội dung, footer và số trang theo từng slide. Nội dung dài phải được biên tập lại trước, không bóp nhỏ chữ hoặc làm panel cao thấp tùy tiện.
+- Mỗi slide nội dung chỉ có một thông điệp chính. Tối đa hai panel nội dung hoặc một vùng code kèm một vùng giải thích; tránh ba hoặc bốn cột nhỏ.
+- Giữ logo Rikkei Academy ở góc phải trên, footer bản quyền ở góc trái dưới và tam giác đỏ/số trang góc phải dưới như trong mẫu. Dùng đúng asset từ mẫu; không tạo lại logo bằng AI.
 
-#### Slide 7: Thực hành viết Dockerfile Multi-stage & Tinh gọn Workflow
-* Cấu hình tệp `Dockerfile` của dịch vụ `user-service`:
-```dockerfile
-FROM eclipse-temurin:17-jdk-alpine AS builder
-WORKDIR /app
-COPY . .
-RUN chmod +x ./gradlew && ./gradlew bootJar --no-daemon
+### Màu sắc và họa tiết
 
-FROM eclipse-temurin:17-jre-alpine
-WORKDIR /app
-COPY --from=builder /app/build/libs/*.jar app.jar
-EXPOSE 8081
-ENTRYPOINT ["java", "-jar", "app.jar"]
-```
-* Tệp `.github/workflows/ci.yml` được tinh gọn chỉ còn 1 Job:
-```yaml
-name: Multi-stage Build
-on: [push]
-jobs:
-  build_image:
-    runs-on: [self-hosted, quickbite]
-    steps:
-      - uses: actions/checkout@v5
-      - run: docker build -t user-service:latest .
-```
+- Slide nội dung: nền trắng hoặc trắng rất nhạt; title/subtitle đỏ đậm cùng tông mẫu. Dùng panel xanh tím rất nhạt và cam rất nhạt với viền mảnh như mẫu khi cần đối chiếu hai ý.
+- Divider và slide kết thúc: nền đỏ đậm phủ toàn slide, có texture hình học tinh tế; logo trắng ở góc trái trên; cụm chấm trắng ở cạnh phải. Title và số lesson màu trắng.
+- Slide 01, 02, 25 dùng đúng bố cục nền trắng, mũi tên đỏ và cụm chấm đỏ của mẫu. Không thay bằng ảnh stock, gradient, icon 3D hoặc hiệu ứng phát sáng.
+- Chỉ dùng icon line đơn giản khi thực sự cần: Docker socket, artifact hoặc cảnh báo. Không dùng nhiều icon trang trí.
 
-#### Slide 8: Pain Point mới - Vấn đề Cache Dependencies trong CI/CD
-* **Nguyên nhân:**
-  * Do tiến trình biên dịch diễn ra bên trong container builder tạm thời của lệnh `docker build`, Gradle không thể truy cập thư mục `.gradle` của máy host.
-  * Mỗi lần chạy workflow, Gradle bắt buộc phải tải lại toàn bộ thư viện dependencies từ Maven Central.
-* **Hệ quả:**
-  * Kéo dài thời gian chạy (runtime) của job lên tới **4-5 phút**.
-  * Tiêu tốn băng thông mạng và tài nguyên hệ thống đáng kể.
-* *Định hướng:* Có thể tối ưu hóa bước này bằng cách tận dụng cache layer của Docker (sẽ học ở các chuyên đề nâng cao về cache).
+## 4. Quy tắc áp dụng theo loại slide
 
----
+- **Slide 01:** chỉ `Session 08:` và title. Không phụ đề, quote, agenda hay sơ đồ.
+- **Slide 02:** chỉ agenda 5 lesson, đánh số như nội dung nguồn; giữ chữ `NỘI DUNG` dọc ở bên trái.
+- **Slide divider 03, 08, 13, 17, 20:** dùng đúng layout divider đỏ của Slide 3/8/13/17/20 trong mẫu. Chỉ thay số lesson và title lesson; title phải là title curriculum nguyên văn.
+- **Slide nội dung:** dùng các layout nền sáng của mẫu. Với slide so sánh, dùng hai panel cân xứng. Với quy trình, đặt flow đơn giản hoặc bốn bước ngang. Với code, đặt code block nền tối bên trái và phần giải thích nền sáng bên phải. Không nhét một đoạn văn dài vào slide.
+- **Slide 26:** dùng layout tổng kết của Slide 25 mẫu: chữ `TỔNG KẾT` lớn bên trái và danh sách 5 ý bên phải; không thêm CTA hoặc nội dung mới.
+- **Slide 27:** dùng layout kết thúc nền đỏ của Slide 26 mẫu, giữ nguyên câu nhận diện học viện trong nguồn nội dung.
 
-### LESSON 03: Phiên bản hóa và Đẩy Docker Image lên Registry từ Local
+## 5. Chuẩn ngôn ngữ
 
-#### Slide 9: Kiến trúc GitHub Container Registry
-* **Định nghĩa:** GitHub Container Registry (GHCR) là kho lưu trữ Docker image nằm trong GitHub Packages đi kèm dự án.
-* **Cấu trúc đường dẫn Registry:**
-  `ghcr.io/<repository_namespace>/<project_name>:<version_tag>`
-* **Quản trị trực quan:** Kiểm tra danh sách image đã đẩy lên thông qua tab **Packages** trên Profile GitHub.
+- Viết tiếng Việt đầy đủ, tự nhiên và chính xác. Không biến nội dung thành slogan, cụm từ rời rạc hoặc câu giật gân.
+- Giữ nhất quán các thuật ngữ: Docker image, layer, build context, registry, tag, digest, artifact, Runner, workflow, cache.
+- Tiêu đề nội dung có thể diễn đạt thông điệp kỹ thuật; title divider phải giữ nguyên title lesson trong curriculum.
+- Không đưa lời dẫn của người thuyết trình, thời lượng, ghi chú sản xuất slide hoặc hướng dẫn cho Gemini lên slide.
 
-#### Slide 10: Quy tắc đặt nhãn (Tagging) và Phiên bản hóa (Versioning)
-* **Tầm quan trọng của Version Tag:**
-  * Tránh sử dụng nhãn tĩnh `latest` cho môi trường Production vì dễ gây ghi đè ngoài ý muốn và không thể rollback khi lỗi.
-  * Áp dụng quy tắc đánh phiên bản Semantic Versioning (ví dụ: `1.0.0`, `1.1.0`).
-* **Lệnh gắn tag của Docker CLI:**
-  ```bash
-  docker tag <local_image> ghcr.io/<repository_namespace>/<project_name>:<version_tag>
-  ```
-  Lệnh này tạo ra một alias (bí danh) trỏ tới image nguồn, phục vụ cho việc định tuyến đẩy lên đúng kho chứa của dự án.
+## 6. Sự chính xác kỹ thuật bắt buộc
 
-#### Slide 11: Xác thực bảo mật bằng Personal Access Token (PAT)
-* Do kho lưu trữ Registry yêu cầu quyền truy cập, Docker CLI cần xác thực quyền trước khi ghi.
-* **Nguyên tắc bảo mật:**
-  * *Tuyệt đối không* sử dụng mật khẩu tài khoản chính của GitHub để đăng nhập.
-  * Sử dụng **Personal Access Token (PAT)** được cấp quyền giới hạn: tích chọn quyền `write:packages` và `read:packages`.
-* **Lệnh xác thực an toàn:**
-  ```bash
-  docker login ghcr.io -u <github_username_cua_ban>
-  ```
-  Nhập mã token PAT khi terminal yêu cầu cung cấp Password.
+- `user-service` dùng Java 17. `restaurant-service`, `order-service`, `notification-service` dùng Java 21.
+- QuickBite hiện có Dockerfile đơn tầng cho `user-service`, Dockerfile multi-stage cho `restaurant-service`, và `user-service/.github/workflows/ci.yml`. Ví dụ image pipeline phải là file `image.yml` song song `ci.yml`, không ghi đè workflow hiện có.
+- Self-hosted Runner truy cập Docker daemon qua `/var/run/docker.sock`. Nêu cả lợi ích cache lẫn rủi ro quyền cao trên host; chỉ chạy workflow tin cậy.
+- Workflow publish GHCR dùng `GITHUB_TOKEN` với quyền tối thiểu: `contents: read`, `packages: write`. Workflow chỉ pull private image dùng `packages: read`.
+- Khi thao tác local với PAT, phải dùng `--password-stdin`; không lộ token trong command, YAML, Dockerfile, ảnh hoặc log. Chỉ dùng placeholder `${CR_PAT}` hoặc `<token được lưu ngoài repository>`.
+- Không hứa hẹn thời gian build/pull hoặc dung lượng image cố định. Cache phụ thuộc builder, build context và thay đổi source.
+- `docker ps` không chứng minh Spring Boot đã sẵn sàng phục vụ. Smoke test `java -version` chỉ xác nhận runtime; kiểm tra ứng dụng cần PostgreSQL, `quickbite-net`, biến `DB_*` và health endpoint phù hợp.
 
-#### Slide 12: Quy trình Build & Push thủ công từ Local Terminal
-* Chuỗi lệnh thực thi tại terminal máy phát triển cá nhân:
-```bash
-# 1. Đăng nhập hệ thống
-docker login ghcr.io -u <username>
-# 2. Biên dịch nhanh (tận dụng cache local)
-./gradlew bootJar
-# 3. Build Docker image
-docker build -t user-service:1.0.0 .
-# 4. Gắn nhãn Registry tương thích
-docker tag user-service:1.0.0 ghcr.io/<username>/user-service:1.0.0
-# 5. Đẩy image lên cloud
-docker push ghcr.io/<username>/user-service:1.0.0
-```
-* **Lưu ý bảo mật:** Quy trình build và push từ máy local là một **anti-pattern** trong Production thực tế do dễ gây mất nhất quán mã nguồn. Đây chỉ là bài thực hành sư phạm để sinh viên nắm vững nguyên lý hoạt động.
+## 7. Kiểm tra trước khi xuất
 
----
-
-### LESSON 04: Sử dụng Docker Image từ Registry trong Luồng CI/CD
-
-#### Slide 13: Xác thực tự động trong CI/CD bằng Token hệ thống
-* Khi chạy job trên Runner, không được khai báo cứng token cá nhân vào tệp cấu hình YAML. GitHub Actions tự động cấp phát tài khoản tạm thời thông qua các biến ngữ cảnh định sẵn:
-  * `ghcr.io`: Địa chỉ máy chủ lưu trữ.
-  * `${{ github.actor }}`: Tên đăng nhập người đã khởi kích luồng.
-  * `${{ secrets.GITHUB_TOKEN }}`: Token xác thực tạm thời tự động sinh (tự hủy khi job kết thúc).
-  * `${{ github.repository }}`: Tên repo, ví dụ `username/user-service`.
-
-#### Slide 14: Thực hành cấu hình Workflow Kéo và Verify Image
-* Cập nhật file `.github/workflows/ci.yml` (Nhớ bổ sung quyền packages read):
-```yaml
-name: Test Image
-on: [push]
-jobs:
-  test_image:
-    runs-on: [self-hosted, quickbite]
-    permissions:
-      packages: read
-      contents: read
-    steps:
-      - run: |
-          docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-          IMAGE_TAG=$(echo "ghcr.io/${{ github.repository }}:1.0.0" | tr '[:upper:]' '[:lower:]')
-          docker pull $IMAGE_TAG
-          docker run -d --name verify_service -p 8081:8081 $IMAGE_TAG
-          sleep 5
-          docker ps
-          docker rm -f verify_service || true
-```
-
-#### Slide 15: Tối ưu hiệu năng và Bảo mật thông tin trong CI/CD
-* **Tối ưu hóa hiệu năng vượt trội:**
-  * Job verify chỉ thực hiện các tác vụ mạng `pull` và chạy thử container, không biên dịch hay build image.
-  * Thời gian thực thi cực kỳ ngắn (chỉ mất khoảng **10 - 15 giây**).
-* **Bảo mật thông tin đăng nhập:**
-  * Giá trị của biến `${{ secrets.GITHUB_TOKEN }}` được GitHub tự động kiểm duyệt và ẩn đi dưới dạng chuỗi `***` trên log console để tránh rò rỉ thông tin đăng nhập.
-
----
-
-### LESSON 05: Kịch bản Thực hành Tổng hợp với user-service
-
-#### Slide 16: Tóm tắt Kịch bản Thực hành Tổng hợp
-* Quy trình thực hành toàn diện gồm 4 bước chính:
-```mermaid
-graph TD
-    A[Bước 1: Viết Multi-stage Dockerfile] --> B[Bước 2: Login GHCR bằng Access Token (PAT)]
-    B --> C[Bước 3: Tag & Push Image 1.0.0 từ Local]
-    C --> D[Bước 4: Cấu hình ci.yml kéo & verify image]
-```
-* **Mục tiêu thực hành:** Sinh viên tự tay cấu hình, thực hiện đẩy thành công image từ máy cá nhân lên GHCR dự án, và cấu hình workflow GitHub Actions kiểm thử tự động kéo về chạy trên Local Runner.
-
-#### Slide 17: Các lỗi thường gặp và giải pháp xử lý nhanh
-* **Lỗi `denied: unauthenticated` hoặc `manifest not found`:**
-  * *Nguyên nhân:* Token không đủ quyền `packages: read` hoặc quên gắn đúng tag 1.0.0.
-  * *Khắc phục:* Kiểm tra bổ sung block `permissions` trong luồng, kiểm tra lại tab Packages trên GitHub.
-* **Quên chuyển tên repo về viết thường (`[:lower:]`):**
-  * *Nguyên nhân:* Tên tài khoản hoặc tên repo có ký tự hoa, Docker báo lỗi invalid reference.
-  * *Khắc phục:* Dùng bash `tr '[:upper:]' '[:lower:]'` để hạ xuống chữ thường.
-* **Lạm dụng chạy container không background (thiếu `-d`):**
-  * *Nguyên nhân:* Lệnh `docker run` chiếm luồng, gây treo Runner không hồi kết.
-  * *Khắc phục:* Luôn thêm cờ `-d` để container chạy ngầm, kèm theo lệnh `sleep 5` và `docker rm -f`.
+- Các slide đi đúng thứ tự của nội dung nguồn và đúng title lesson; số lượng cuối cùng phải phục vụ việc giải thích rõ ràng, không bị ép theo Session 07.
+- Font, font size, spacing, logo, footer và số trang nhất quán với `(Slide) Session 7.pptx` từ đầu đến cuối.
+- Không có chữ tràn, title tự xuống dòng ngoài chủ đích, số trang lặp hoặc panel lệch nhau.
+- Mọi đoạn YAML, Dockerfile và Bash giữ đúng thụt lề; không chứa token thật.
+- Không có nội dung ngoài phạm vi Session 08 như Kubernetes, Docker Swarm, Docker Hub hay công cụ CI khác.
