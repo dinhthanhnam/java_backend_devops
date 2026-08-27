@@ -287,64 +287,77 @@ docker push ghcr.io/<namespace>/user-service:1.0.0
 
 ---
 
-## Slide 18 — `GITHUB_TOKEN`: GitHub tự cấp cho từng Job
+## Slide 18 — Workflow đăng nhập GHCR và pull đúng image
 
-### Dùng token có sẵn; `permissions` chỉ giới hạn quyền của token
-
-**1. Token không do ta tự khai báo**
-
-- Khi một Job bắt đầu, GitHub tự tạo một `GITHUB_TOKEN` riêng cho Job đó.
-- Trong workflow, chỉ cần tham chiếu token qua `${{ secrets.GITHUB_TOKEN }}` hoặc `github.token`; không tạo PAT hay thêm token này vào Repository secrets.
-- Khi Job kết thúc, token đó hết hiệu lực.
-
-**2. Mỗi Job chỉ nhận quyền đúng với việc nó làm**
-
-| Job | Làm gì với GHCR? | Quyền cần cấp |
-|---|---|---|
-| `pull_image` | Download image để kiểm tra | `packages: read` |
-| `publish_image` | Push image mới lên Registry | `packages: write` |
+### Luồng thực hiện: cấp quyền → đăng nhập → pull → xác nhận
 
 ```yaml
 jobs:
   pull_image:
+    runs-on: [self-hosted, quickbite]
     permissions:
-      packages: read       # Giới hạn quyền của token GitHub tự cấp
+      packages: read
+    env:
+      IMAGE_REF: ghcr.io/<namespace>/user-service:1.0.0
     steps:
-      - uses: docker/login-action@v3
+      - name: Đăng nhập GHCR
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-  publish_image:
-    permissions:
-      contents: read       # Chỉ cần khi job checkout source
-      packages: write      # Cho phép push image
+      - name: Pull và kiểm tra image
+        run: |
+          docker pull "$IMAGE_REF"
+          docker image inspect "$IMAGE_REF"
 ```
 
-**Minh họa trên slide:** đặt hai luồng song song. Luồng trái: `GitHub cấp Token A` → `Job pull` → `packages: read` → `Job kết thúc, Token A hết hiệu lực`. Luồng phải: `GitHub cấp Token B` → `Job publish` → `packages: write` → `Job kết thúc, Token B hết hiệu lực`. Ghi chú dưới hai luồng: *Không dùng PAT cá nhân khi `GITHUB_TOKEN` đã có đủ quyền truy cập package.*
+- `packages: read` cho phép token của Job đọc package trên GHCR.
+- `docker/login-action` dùng `GITHUB_TOKEN` do GitHub tự cấp để Docker xác thực với `ghcr.io`; không cần tạo PAT cho workflow.
+- `IMAGE_REF` phải chứa đủ Registry, namespace, tên image và tag cần lấy.
+- `docker pull` tải manifest cùng các layer về Docker daemon của Runner; `docker image inspect` xác nhận image đã tồn tại tại đó.
+- Job khác cần pull image sẽ nhận token riêng và cũng phải được cấp quyền phù hợp.
+
+**Minh họa trên slide:** `Job bắt đầu` → `packages: read` → `Login ghcr.io` → `Pull IMAGE_REF` → `Image có trên Runner`.
 ---
 
-## Slide 19 — Pull thành công chưa có nghĩa ứng dụng đã sẵn sàng
+## Slide 19 — Chạy image vừa pull và kiểm tra ứng dụng trên Runner
 
-### Mỗi lệnh chỉ trả lời một câu hỏi
+### Pull xong phải chạy container và kiểm tra health endpoint
 
-```bash
-IMAGE_REF=ghcr.io/<namespace>/user-service:1.0.0
+**Điều kiện trước khi chạy:** PostgreSQL đã hoạt động trong network `quickbite-net`; file `.env` chứa đúng các biến `DB_*` của `user-service`.
 
-docker pull "$IMAGE_REF"
-docker run --rm --entrypoint java "$IMAGE_REF" -version
+```yaml
+- name: Chạy và kiểm tra user-service
+  run: |
+    docker run -d \
+      --name verify_user_service \
+      --network quickbite-net \
+      --env-file .env \
+      -p 8081:8081 \
+      "$IMAGE_REF"
+
+    for i in {1..12}; do
+      curl --fail http://localhost:8081/actuator/health && exit 0
+      sleep 5
+    done
+
+    docker logs verify_user_service
+    exit 1
+
+- name: Dọn container
+  if: always()
+  run: docker rm -f verify_user_service || true
 ```
 
-| Mức kiểm tra | Điều ta biết chắc | Điều chưa thể kết luận |
-|---|---|---|
-| `docker pull` thành công | Runner tải được image từ GHCR | Spring Boot đã khởi động |
-| `java -version` chạy được | Image có Java runtime hoạt động | Ứng dụng kết nối được database |
-| Gọi `/actuator/health` trả `UP` | Ứng dụng đã sẵn sàng phục vụ | — |
+- `docker run -d` tạo container từ image vừa pull và chạy ứng dụng ở chế độ nền.
+- `--network` và `--env-file` cung cấp kết nối cùng cấu hình database mà ứng dụng cần.
+- Vòng lặp chờ tối đa 60 giây vì Spring Boot cần thời gian khởi động; health trả thành công thì Job mới pass.
+- Nếu ứng dụng không sẵn sàng, `docker logs` cung cấp nguyên nhân trước khi Job fail.
+- `if: always()` bảo đảm container được dọn dù bước kiểm tra thành công hay thất bại.
 
-**Để kiểm tra mức cuối:** phải khởi động `user-service` cùng PostgreSQL, network `quickbite-net` và các biến `DB_*` phù hợp. `docker ps` chỉ cho biết process/container còn chạy, không phải health check.
-
-**Minh họa trên slide:** dùng một thang ba bậc từ trái sang phải: `Image tải về được` → `Java trong image chạy được` → `Ứng dụng trả health UP`. Hai bậc đầu gắn nhãn *chưa chứng minh ứng dụng sẵn sàng*; bậc cuối gắn điều kiện PostgreSQL + network + cấu hình.
+**Luồng trên Runner:** `Image đã pull` → `docker run` → `Health thành công` → `Dọn container`.
 
 ---
 
@@ -360,14 +373,14 @@ docker run --rm --entrypoint java "$IMAGE_REF" -version
 
 ### Bốn bước phải thực hiện theo đúng thứ tự
 
-1. Viết Dockerfile multi-stage và build `user-service:1.0.0` tại máy local.
-2. Dùng PAT để đăng nhập GHCR từ Docker CLI.
-3. Gắn tag Registry, push image và kiểm tra tag `1.0.0` trên GitHub Packages.
-4. Cập nhật `ci.yml` để Runner pull image, chạy container kiểm tra và dọn dẹp.
+1. Build image `user-service:1.0.0` tại máy local.
+2. Dùng PAT để đăng nhập, gắn tag Registry và push image lên GHCR.
+3. Chuẩn bị PostgreSQL, network `quickbite-net` và secret `USER_SERVICE_ENV` cho Runner.
+4. Cập nhật `ci.yml` để đăng nhập GHCR, pull image, chạy health check và dọn dẹp.
 
 **Lưu ý:** quy trình local build/push rồi CI pull/verify chỉ dùng để học từng thao tác. Trong môi trường thực tế, build, push và deploy nên chạy tự động trên CI/CD.
 
-*Minh họa:* một flow bốn bước: `Local build` → `PAT login` → `Push GHCR` → `Workflow pull & verify`.
+*Minh họa:* `Local build & push` → `GHCR` → `Runner pull` → `Run + health check` → `Cleanup`.
 
 ---
 
@@ -385,7 +398,7 @@ docker build -t user-service:1.0.0 .
 
 ---
 
-## Slide 23 — Bước 2 và 3: PAT login, tag và push image lên GHCR
+## Slide 23 — Bước 2: PAT login, tag và push image lên GHCR
 
 ### Local dùng PAT; workflow ở bước sau dùng `GITHUB_TOKEN`
 
@@ -402,9 +415,11 @@ docker push ghcr.io/<repository_namespace>/user-service:1.0.0
 
 ---
 
-## Slide 24 — Bước 4: `ci.yml` pull image và chạy verify trên Runner
+## Slide 24 — Bước 3 và 4: Chuẩn bị môi trường rồi pull và verify
 
-### Workflow dùng `GITHUB_TOKEN` có sẵn của GitHub Actions
+### PostgreSQL phải sẵn sàng; workflow dùng `GITHUB_TOKEN` để pull image
+
+Tạo Repository secret `USER_SERVICE_ENV` chứa các biến `DB_*`. Trên Runner, PostgreSQL phải chạy trong network `quickbite-net` trước khi Job bắt đầu.
 
 ```yaml
 jobs:
@@ -412,20 +427,44 @@ jobs:
     runs-on: [self-hosted, quickbite]
     permissions:
       packages: read
-      contents: read
+    env:
+      IMAGE_REF: ghcr.io/<namespace>/user-service:1.0.0
+      USER_SERVICE_ENV: ${{ secrets.USER_SERVICE_ENV }}
     steps:
-      - name: Kiểm tra Container
+      - name: Đăng nhập GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull và kiểm tra user-service
         run: |
-          docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-          IMAGE_TAG=$(echo "ghcr.io/${{ github.repository }}:1.0.0" | tr '[:upper:]' '[:lower:]')
-          docker pull $IMAGE_TAG
-          docker run -d --name verify_app -p 8081:8081 $IMAGE_TAG
-          sleep 5 && docker ps
-          docker rm -f verify_app || true
+          printf '%s' "$USER_SERVICE_ENV" > "$RUNNER_TEMP/user-service.env"
+          docker pull "$IMAGE_REF"
+          docker run -d --name verify_user_service \
+            --network quickbite-net \
+            --env-file "$RUNNER_TEMP/user-service.env" \
+            -p 8081:8081 "$IMAGE_REF"
+
+          for i in {1..12}; do
+            curl --silent --fail http://localhost:8081/actuator/health && exit 0
+            sleep 5
+          done
+
+          docker logs verify_user_service
+          exit 1
+
+      - name: Dọn tài nguyên kiểm tra
+        if: always()
+        run: |
+          docker rm -f verify_user_service || true
+          rm -f "$RUNNER_TEMP/user-service.env"
 ```
 
-- Push `ci.yml` lên nhánh `main`, sau đó theo dõi job `test_image` trên tab **Actions**.
-- `docker ps` chỉ kiểm tra container còn chạy; nếu container bị sập, debug tại local bằng `docker logs <container_name>`.
+- Job chỉ pass khi `/actuator/health` phản hồi thành công trong tối đa 60 giây.
+- Nếu ứng dụng không lên, workflow in `docker logs` trước khi báo lỗi.
+- Bước `if: always()` luôn xóa container và file môi trường tạm khỏi self-hosted Runner.
 
 ---
 
@@ -435,11 +474,11 @@ jobs:
 
 | Ba minh chứng cần nộp | Nếu gặp lỗi |
 |---|---|
-| Terminal local build và `docker push` thành công | `Image not found`: phải push image trước khi push `ci.yml` |
-| GitHub Packages có tag `1.0.0` | `denied: unauthenticated`: kiểm tra `packages: read` |
-| Log GitHub Actions của job `test_image` | Container sập im lặng: kiểm tra `docker logs` tại local |
+| Terminal local build và `docker push` thành công | `manifest unknown`: kiểm tra lại namespace, image name và tag trong `IMAGE_REF` |
+| GitHub Packages có `user-service:1.0.0` | `denied`: kiểm tra quyền package và `packages: read` |
+| Job `test_image` pull được image và health check pass | Health không lên: đọc `docker logs`, kiểm tra PostgreSQL, network và các biến `DB_*` |
 
-**Kết quả cần đạt:** image `user-service:1.0.0` đã được build tại local, có trên GHCR và được Runner pull để chạy verify.
+**Kết quả cần đạt:** image được build và push lên GHCR; Runner pull đúng reference, chạy `user-service`, nhận health thành công và dọn sạch tài nguyên kiểm tra.
 
 ---
 

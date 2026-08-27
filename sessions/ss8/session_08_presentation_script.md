@@ -54,15 +54,15 @@ Trong phần demo, chúng ta build một image bằng Dockerfile single-stage v�
 
 ## Slide 13 — Divider Lesson 03
 
-Image vừa build chỉ nằm trên Docker daemon hiện tại. Lesson này đưa image sang GitHub Container Registry để Runner hoặc máy khác có thể truy xuất lại bằng một reference rõ ràng.
+Ở lesson trước, chúng ta đã build được image, nhưng image đó mới chỉ tồn tại trên máy local. Nếu Runner hoặc một máy khác cần sử dụng, chúng ta phải đưa image lên Registry. Trong lesson này, chúng ta sẽ gắn cho image một tên và phiên bản rõ ràng, sau đó push lên GitHub Container Registry để các môi trường khác có thể pull về đúng phiên bản cần dùng.
 
 ## Slide 14 — Tên image, tag và digest phục vụ ba mục đích khác nhau
 
-Ba thành phần trên slide trả lời ba câu hỏi khác nhau. Image name `ghcr.io/<namespace>/user-service` cho biết package nằm ở đâu. Tag như `1.0.0` là nhãn phiên bản dễ đọc để chọn release, nhưng tag vẫn có thể bị push lại. Digest `sha256:...` gắn với một nội dung image cụ thể, nên phù hợp khi cần khóa đúng bản đã kiểm chứng. Vì vậy, tag thuận tiện cho việc quản lý phiên bản, còn digest giúp tái lập chính xác; riêng `latest` không đủ rõ ràng để làm căn cứ rollback production.
+Khi đưa image lên Registry, chúng ta cần phân biệt ba thành phần. Image name, ví dụ `ghcr.io/<namespace>/user-service`, là địa chỉ cho biết image được lưu ở đâu. Tag như `1.0.0` là nhãn phiên bản giúp con người dễ chọn image cần dùng. Tuy nhiên, cùng một tag vẫn có thể được push lại và trỏ sang một image mới. Digest `sha256:...` thì khác: nó được tạo từ nội dung image, nên khi nội dung thay đổi, digest cũng thay đổi. Vì vậy, chúng ta dùng tag để quản lý phiên bản cho thuận tiện, còn dùng digest khi cần xác định chính xác một image không bị thay đổi.
 
 ## Slide 15 — Push image từ local cần xác thực an toàn và tag có ý nghĩa
 
-Khi push từ local, Docker CLI đăng nhập GHCR bằng PAT có quyền package phù hợp. Token được truyền qua standard input để không xuất hiện trực tiếp trong câu lệnh, Dockerfile hoặc YAML. Sau khi login, `docker tag` tạo thêm reference `ghcr.io/<namespace>/user-service:1.0.0` cho image local; thao tác này không build lại image. Lệnh `docker push` tiếp tục tải các layer lên Registry và trả về thông tin digest. Để kiểm tra kết quả, cần xem log push thành công, xác nhận package trên GitHub và ghi lại image reference cùng digest thay vì chỉ dựa vào một ảnh chụp giao diện.
+Để đưa image từ máy local lên GHCR, trước tiên chúng ta đăng nhập Docker bằng PAT có quyền đọc và ghi package. Sau đó, dùng `docker tag` để gắn cho image local một địa chỉ đầy đủ, ví dụ `ghcr.io/<namespace>/user-service:1.0.0`. Lệnh này chỉ đặt thêm tên cho image hiện có, không build lại image. Cuối cùng, chạy `docker push` để tải image lên GHCR. Khi lệnh hoàn thành, hãy mở GitHub Packages và kiểm tra package `user-service` đã có tag `1.0.0`. Như vậy, ba bước cần nhớ là: đăng nhập, gắn tag và push.
 
 ## Slide 16 — Local push giúp hiểu CLI, còn CI mới là đích phát hành đáng tin cậy
 
@@ -70,39 +70,57 @@ Quy trình local vừa thực hiện có mục đích giúp chúng ta nhìn rõ 
 
 ## Slide 17 — Divider Lesson 04
 
-Lesson 04 chuyển sang cách workflow sử dụng image đã có trên Registry. Trọng tâm là hiểu `GITHUB_TOKEN` được GitHub cấp như thế nào, Job pull và Job publish cần quyền gì, rồi phân biệt giữa việc pull thành công, kiểm tra Java runtime và kiểm tra ứng dụng đã thực sự sẵn sàng.
+Lesson 04 chuyển sang chiều ngược lại: workflow sẽ lấy image đã có trên GHCR về Runner. Chúng ta sẽ đi qua đầy đủ các bước cấp quyền đọc package, đăng nhập Registry, xác định đúng image reference, chạy `docker pull`, rồi kiểm tra image ở nhiều mức khác nhau.
 
-## Slide 18 — `GITHUB_TOKEN`: GitHub tự cấp cho từng Job
+## Slide 18 — Workflow đăng nhập GHCR và pull đúng image
 
-`GITHUB_TOKEN` không phải token chúng ta tự tạo rồi lưu vào Repository secrets. Mỗi khi một Job bắt đầu, GitHub tự cấp cho Job đó một token riêng; workflow chỉ tham chiếu token qua `${{ secrets.GITHUB_TOKEN }}` hoặc `github.token`. Khi Job kết thúc, token của Job đó cũng hết hiệu lực. Block `permissions` không tạo token mà chỉ giới hạn token được phép làm gì: Job pull image cần `packages: read`, còn Job publish image cần `packages: write`. Hai Job nhận hai token riêng, không dùng chung một token cho toàn workflow. Nếu `GITHUB_TOKEN` đã đủ quyền truy cập package, không cần đưa PAT cá nhân vào workflow.
+Bây giờ chúng ta thực hiện đúng mục tiêu của lesson: để một Job trên Runner lấy image từ GHCR về sử dụng. Quy trình gồm bốn bước: cấp quyền đọc package, đăng nhập Registry, xác định đúng image cần lấy và chạy lệnh pull.
 
-## Slide 19 — Pull thành công chưa có nghĩa ứng dụng đã sẵn sàng
+Trước hết, Job khai báo `packages: read`. Quyền này cho phép `GITHUB_TOKEN` đọc package trên GHCR. Khác với thao tác ở máy local, chúng ta không cần tự tạo PAT rồi lưu vào secrets. Khi Job bắt đầu, GitHub tự cấp `GITHUB_TOKEN`; `docker/login-action` sử dụng token đó cùng `github.actor` để đăng nhập Docker vào `ghcr.io`.
 
-Ở slide này, chúng ta phân biệt ba mức kiểm tra. Khi `docker pull` thành công, Runner mới chỉ tải được image từ GHCR; điều đó chưa chứng minh Spring Boot đã chạy. Lệnh `docker run --entrypoint java ... -version` đi thêm một bước khi xác nhận Java runtime bên trong image hoạt động, nhưng vẫn chưa cho biết ứng dụng có kết nối được database hoặc mở HTTP endpoint hay không. Muốn kết luận `user-service` đã sẵn sàng phục vụ, cần chạy đủ PostgreSQL, network `quickbite-net` và các biến `DB_*`, rồi gọi `/actuator/health`; endpoint trả `UP` mới là health check thành công. `docker ps` chỉ cho biết container còn chạy, không thay thế được health check của ứng dụng.
+Sau khi đăng nhập, Job sử dụng biến `IMAGE_REF`. Giá trị này phải ghi đủ bốn thành phần: Registry `ghcr.io`, namespace sở hữu package, tên image `user-service` và tag `1.0.0`. Đây chính là địa chỉ để Docker biết phải tải image nào. Lệnh `docker pull "$IMAGE_REF"` yêu cầu GHCR trả về manifest của image, sau đó Docker tải những layer Runner chưa có và lưu image vào Docker daemon trên Runner. Cuối cùng, `docker image inspect "$IMAGE_REF"` xác nhận image với đúng reference đó đã có trên máy.
+
+Như vậy, `GITHUB_TOKEN` chỉ giải quyết bước xác thực; nó không tự pull image. Thao tác pull thực sự vẫn do Docker thực hiện dựa trên `IMAGE_REF`. Mạch cần nhớ là: Job có quyền đọc, Docker đăng nhập GHCR, Docker pull đúng reference, rồi image mới xuất hiện trên Runner để bước tiếp theo sử dụng.
+
+## Slide 19 — Chạy image vừa pull và kiểm tra ứng dụng trên Runner
+
+Ở Slide 18, image mới chỉ được tải về Docker daemon của Runner. Bước tiếp theo là tạo container từ image đó và kiểm tra `user-service` có thực sự khởi động được hay không.
+
+Trước khi chạy, Runner phải có môi trường mà ứng dụng cần. Trong ví dụ này, PostgreSQL đã hoạt động trong network `quickbite-net`, còn file `.env` chứa các biến `DB_*` phù hợp. Lệnh `docker run -d` tạo container `verify_user_service`, nối container vào network, truyền cấu hình database và ánh xạ cổng `8081`. Từ thời điểm này, container mới bắt đầu chạy file JAR bên trong image.
+
+Spring Boot không sẵn sàng ngay lập tức, nên workflow không gọi health endpoint đúng một lần rồi kết luận thất bại. Vòng lặp trên slide gọi `/actuator/health` mỗi năm giây, tối đa mười hai lần. Nếu endpoint phản hồi thành công, script kết thúc với mã `0` và bước kiểm tra được tính là pass. Nếu hết 60 giây mà ứng dụng vẫn chưa sẵn sàng, workflow in `docker logs` để chúng ta thấy nguyên nhân, chẳng hạn sai thông tin database hoặc ứng dụng không mở được cổng, rồi kết thúc với mã lỗi.
+
+Cuối cùng, bước dọn dẹp sử dụng `if: always()`. Điều đó có nghĩa là dù health check pass hay fail, container kiểm tra vẫn được xóa khỏi Runner. Toàn bộ quy trình của Lesson 4 lúc này đã hoàn chỉnh: đăng nhập GHCR, pull đúng image, chạy container từ image, kiểm tra ứng dụng và dọn tài nguyên sau khi hoàn thành.
 
 ## Slide 20 — Divider Lesson 05
 
-Lesson cuối là bài thực hành tổng hợp với `user-service`. Chúng ta sẽ build image ở local, dùng PAT để push image lên GHCR, rồi để workflow CI/CD pull image đó về và chạy kiểm tra. Cách tách local và CI này chỉ phục vụ mục tiêu học từng thao tác; trong quy trình thực tế, build, push và deploy nên được tự động hóa hoàn toàn trên CI/CD.
+Lesson cuối ghép các thao tác đã học thành một luồng hoàn chỉnh với `user-service`. Chúng ta sẽ build và push image từ local lên GHCR, sau đó để GitHub Actions đăng nhập Registry, pull đúng image về Runner, chạy ứng dụng cùng PostgreSQL, kiểm tra health endpoint và dọn tài nguyên. Việc tách local và CI ở bài này giúp chúng ta quan sát rõ từng bước; trong quy trình thực tế, phần build và publish cũng nên được tự động hóa trên CI/CD.
 
 ## Slide 21 — Kịch bản thực hành đi từ Local tới CI/CD
 
-Bài thực hành có bốn bước và phải làm theo thứ tự. Đầu tiên, ta viết Dockerfile multi-stage và build image `user-service:1.0.0` ở local. Tiếp theo, ta dùng PAT để Docker CLI đăng nhập GHCR. Sau đó, ta gắn tag Registry, push image và kiểm tra tag `1.0.0` trên GitHub Packages. Khi image đã có trên Registry, ta mới cập nhật `ci.yml` để Runner pull image, chạy container kiểm tra rồi dọn dẹp. Nếu đẩy workflow trước khi push image, bước pull sẽ không có image để tải.
+Bài thực hành có bốn bước và phải làm theo thứ tự. Đầu tiên, ta build image `user-service:1.0.0` tại local. Bước hai dùng PAT để đăng nhập GHCR, gắn Registry tag và push image. Bước ba chuẩn bị môi trường chạy trên Runner: PostgreSQL phải hoạt động trong network `quickbite-net`, còn cấu hình `DB_*` được lưu trong Repository secret `USER_SERVICE_ENV`. Cuối cùng, `ci.yml` đăng nhập GHCR bằng `GITHUB_TOKEN`, pull image, chạy container, chờ health check và luôn dọn tài nguyên. Như vậy, bài thực hành không dừng ở việc Runner tải được image mà phải chứng minh ứng dụng từ image đó thực sự khởi động thành công.
 
 ## Slide 22 — Bước 1: Build image multi-stage tại máy local
 
 Tại thư mục gốc của `user-service`, Dockerfile chuẩn bị Gradle Wrapper và file build trước, chạy bước tải dependency, sau đó mới copy thư mục `src` và chạy `bootJar`. Builder stage sử dụng JDK 17 để tạo JAR; runtime stage dùng JRE 17 và chỉ nhận file đó dưới tên `app.jar`. Sau khi kiểm tra Dockerfile, chạy `docker build -t user-service:1.0.0 .`. Khi lệnh hoàn thành, image phiên bản `1.0.0` đã tồn tại ở máy local và có thể chuyển sang bước đăng nhập Registry.
 
-## Slide 23 — Bước 2 và 3: PAT login, tag và push image lên GHCR
+## Slide 23 — Bước 2: PAT login, tag và push image lên GHCR
 
 Vì thao tác này diễn ra trên máy local, Docker CLI cần đăng nhập bằng Personal Access Token, không phải `GITHUB_TOKEN` của workflow. Ta tạo PAT classic có quyền `read:packages` và `write:packages`, rồi chạy `docker login ghcr.io -u <github_username_cua_ban>` và nhập PAT khi Docker hỏi mật khẩu. Sau khi login thành công, gắn image local vào đúng địa chỉ `ghcr.io/<repository_namespace>/user-service:1.0.0`, rồi chạy `docker push` với địa chỉ đó. Bước này chỉ hoàn tất khi mở GitHub Packages và thấy package `user-service` có tag `1.0.0`.
 
-## Slide 24 — Bước 4: `ci.yml` pull image và chạy verify trên Runner
+## Slide 24 — Bước 3 và 4: Chuẩn bị môi trường rồi pull và verify
 
-Sau khi image đã có trên GHCR, ta cập nhật `.github/workflows/ci.yml`. Job `test_image` chạy trên self-hosted Runner có nhãn `quickbite`, cấp `packages: read` và `contents: read`, rồi đăng nhập GHCR bằng `${{ secrets.GITHUB_TOKEN }}` do GitHub tự cấp cho Job. Job tạo `IMAGE_TAG` từ tên repository, pull tag `1.0.0`, chạy container `verify_app` ở chế độ nền với cổng `8081:8081`, chờ năm giây, kiểm tra bằng `docker ps` và xóa container bằng `docker rm -f verify_app || true`. Sau khi push `ci.yml` lên `main`, mở tab Actions để xem job `test_image`. Nếu container biến mất khỏi `docker ps`, hãy chạy lại tại local và dùng `docker logs <container_name>` để tìm lỗi cấu hình hoặc cổng.
+Trước khi chạy workflow, chúng ta phải chuẩn bị dependency của ứng dụng. PostgreSQL cần hoạt động trong network `quickbite-net`. Các biến `DB_*` không ghi trực tiếp vào YAML mà được lưu trong Repository secret `USER_SERVICE_ENV`; khi Job chạy, nội dung secret được ghi tạm vào thư mục `RUNNER_TEMP` để Docker sử dụng qua `--env-file`.
+
+Job `test_image` được cấp `packages: read` và đăng nhập GHCR bằng `GITHUB_TOKEN`. Biến `IMAGE_REF` ghi rõ namespace, tên `user-service` và tag `1.0.0`; nhờ đó, `docker pull` lấy đúng image đã push ở bước trước. Sau khi pull, Job chạy container `verify_user_service`, nối nó vào `quickbite-net`, truyền file môi trường và ánh xạ cổng `8081`.
+
+Workflow gọi `/actuator/health` mỗi năm giây trong tối đa một phút. Nếu ứng dụng sẵn sàng, Job pass. Nếu ứng dụng không lên, `docker logs` được in ngay trong log Actions trước khi Job fail để chúng ta biết lỗi nằm ở database, network hay cấu hình. Bước cuối dùng `if: always()` để xóa container và file môi trường tạm trong cả hai trường hợp thành công và thất bại. Đây chính là quy trình đã học ở Lesson 4 được áp dụng đầy đủ vào bài thực hành.
 
 ## Slide 25 — Hoàn tất báo cáo: ba minh chứng và ba lỗi cần tránh
 
-Báo cáo của bài thực hành cần có ba minh chứng: ảnh Terminal local cho thấy build và `docker push` thành công, ảnh GitHub Packages có tag `1.0.0`, và log GitHub Actions của job `test_image`. Nếu workflow báo không tìm thấy image, nguyên nhân thường là push `ci.yml` trước khi push image. Nếu báo `denied: unauthenticated`, kiểm tra lại `permissions: packages: read`. Nếu container tạo được nhưng sập ngay, `docker ps` sẽ không hiển thị nó; hãy debug ở local bằng `docker logs <container_name>` trước khi push lại image.
+Báo cáo cần chứng minh đủ cả ba chặng của luồng. Minh chứng thứ nhất là Terminal local cho thấy image được build và push thành công. Minh chứng thứ hai là GitHub Packages có `user-service` với tag `1.0.0`. Minh chứng cuối cùng là log của Job `test_image`, trong đó Runner pull đúng `IMAGE_REF` và health check thành công.
+
+Nếu gặp `manifest unknown`, hãy kiểm tra namespace, tên image và tag vì chỉ cần sai một thành phần là Docker sẽ tìm sang reference khác. Nếu gặp `denied`, kiểm tra quyền truy cập package và `packages: read`. Nếu pull thành công nhưng health không lên, image đã đến Runner nên lỗi nằm ở giai đoạn chạy ứng dụng; lúc đó đọc `docker logs`, rồi kiểm tra PostgreSQL, network `quickbite-net` và các biến `DB_*`. Chỉ khi health check pass và bước cleanup hoàn thành thì bài thực hành mới được coi là đạt yêu cầu.
 
 ## Slide 26 — Tổng kết Session 08
 
